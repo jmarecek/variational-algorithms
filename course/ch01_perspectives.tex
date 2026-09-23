@@ -91,18 +91,20 @@ hardness & $\mathbf{QMA}$-hard in general & $\mathbf{NP}$-hard; $\mathbf{APX}$-h
 
 \section{Perspective one: physical chemistry}
 
-\begin{frame}\ft{Why molecules?}
-\ona{Simulating molecules and materials is the application for which quantum computers were first proposed, and it remains the one with the clearest physical motivation: the objects are themselves quantum mechanical.}
+\begin{frame}\ft{Why molecules? The problem, in computer-science terms}
+\onp{\footnotesize}
+\ona{You need no chemistry for this course. What you need is the following computational problem.}
 \begin{itemize}\setlength\itemsep{0.3em}
-    \item \textbf{What is computed:} energies of molecules and materials, and from them reaction rates, binding affinities in drug design, catalytic pathways (nitrogen fixation by the FeMo cofactor of nitrogenase is the standard example), band structures, and spectra.
-    \item \textbf{Why it is hard:} the wave function of $N$ electrons in $M$ orbitals lives in a space of dimension $\binom{M}{N}$; exact treatment is exponential, and a large share of the world's supercomputing time goes into approximating it.
-    \item \textbf{Why quantum computers:} $M$ qubits hold the wave function natively; phase estimation was proposed for molecular energies in 2005, and the variational quantum eigensolver of \citet{peruzzo2014variational} was the first algorithm run on hardware for this purpose.
-    \item \textbf{What is at stake:} chemical accuracy, $1.6\times10^{-3}$ Hartree ($1$ kcal/mol), the precision at which reaction rates at room temperature are predicted to within an order of magnitude.
+    \item \textbf{Input:} a molecule, i.e., a list of atoms with their positions in space (and a desired accuracy).
+    \item \textbf{Output:} its lowest possible energy $E_0$, a single real number, and ideally the state that achieves it.
+    \item \textbf{Why anyone cares:} differences of such energies decide whether a reaction happens, how strongly a drug binds to its target, whether a material conducts, what colour it has. The standard target, ``chemical accuracy'', is $1.6\times10^{-3}$ in the natural unit (Hartree), or $1$ kcal/mol; it is what predicts a reaction rate to within a factor of ten.
+    \item \textbf{Why it is hard:} $E_0$ is the smallest eigenvalue of a Hermitian matrix whose dimension is exponential in the number of electrons; a large share of the world's supercomputing time goes into approximating it.
+    \item \textbf{Why quantum computers:} $n$ qubits store a vector of $2^n$ amplitudes natively. Simulating molecules was the first proposed application of quantum computers (Feynman 1982; a concrete algorithm in 2005), and the variational quantum eigensolver of \citet{peruzzo2014variational} was the first algorithm run on hardware for it.
 \end{itemize}
 \end{frame}
 
 \begin{frame}\ft{The smallest molecule}
-\ona{Molecular hydrogen, H$_2$: two protons at distance $R$ ($R_{\rm eq} \approx 0.74$~\angstrom{} $= 1.40$ Bohr) and two electrons. Figure~\ref{fig:ch01:h2mol} shows the nuclei and the electron density of the bonding state, concentrated between the nuclei.}
+\ona{We use the smallest example throughout: molecular hydrogen, H$_2$. It consists of two protons (positively charged, heavy) at a distance $R$ apart, and two electrons (negatively charged, light) that are attracted to both protons and repelled by each other. The only free parameter is $R$; the equilibrium distance is $R_{\rm eq} \approx 0.74$~\angstrom{} ($10^{-10}$ metres). Figure~\ref{fig:ch01:h2mol} shows the two protons and where the electrons are likely to be found: between them, which is what holds the molecule together.}
 \begin{center}
 \begin{tikzpicture}[scale=1.1]
   % electron cloud: overlapping shaded blobs
@@ -116,32 +118,40 @@ hardness & $\mathbf{QMA}$-hard in general & $\mathbf{NP}$-hard; $\mathbf{APX}$-h
   \node[blue!60!black] at (0,-1.35) {\footnotesize electron density $|\psi(\boldsymbol r)|^2$ of two electrons};
 \end{tikzpicture}
 \end{center}
-\ona{\begin{figure}[htb]\caption{Schematic of H$_2$: two protons at distance $R$ and the electron density of the bonding ground state.}\label{fig:ch01:h2mol}\end{figure}}
-\ona{Everything that follows in this course, including the QAOA circuits of hundreds of qubits, descends from the question of how to compute the energy of this system as a function of $R$.}
+\ona{\begin{figure}[htb]\caption{Schematic of H$_2$: two protons at distance $R$ and the region where the two electrons are most likely to be found in the lowest-energy state.}\label{fig:ch01:h2mol}\end{figure}}
+\ona{Our task: compute the lowest energy of this system as a function of $R$. Everything that follows in this course, including the QAOA circuits on hundreds of qubits, descends from this question.}
+\onp{Two protons at distance $R$, two electrons. Task: the lowest energy as a function of $R$.}
 \end{frame}
 
-\begin{frame}\ft{The Hamiltonian, specialised to H$_2$}
-\ona{With the nuclei fixed (Born--Oppenheimer), the electronic Hamiltonian in atomic units is}
-\begin{equation}\label{eq:ch01:h2first}
-    H = -\tfrac12\nabla_1^2 - \tfrac12\nabla_2^2 - \sum_{i=1}^2\Big(\frac{1}{|\boldsymbol r_i - \boldsymbol R_A|} + \frac{1}{|\boldsymbol r_i - \boldsymbol R_B|}\Big) + \frac{1}{|\boldsymbol r_1 - \boldsymbol r_2|} + \frac1R,
-\end{equation}
-\ona{kinetic energy, attraction to the two nuclei, electron repulsion, nuclear repulsion. In the minimal basis (one $1s$ orbital per atom, STO-3G) there are two spatial orbitals, the bonding $\sigma_g$ and antibonding $\sigma_u$ combinations, hence four spin-orbitals and four qubits; using spin and parity symmetries, the two-electron problem reduces to two qubits and the Hamiltonian to six Pauli terms \cite{omalley2016scalable},}
+\begin{frame}\ft{From a molecule to a Hermitian matrix, in four steps}
+\onp{\scriptsize}
+\ona{Physics supplies an energy operator (the \emph{Hamiltonian}) that accounts for the electrons' kinetic energy, their attraction to the protons and their mutual repulsion. Turning it into a matrix a computer can handle takes four standard steps:}
+\begin{enumerate}\setlength\itemsep{0.25em}
+    \item \textbf{Freeze the nuclei.} Protons are 2000 times heavier than electrons, so their positions are treated as fixed parameters (here, $R$). Only the electrons are quantum.
+    \item \textbf{Discretise space.} Choose $M$ basis functions of position, called \emph{orbitals}, in which an electron can sit, much as a finite-element method chooses a mesh. Chemists have good, small bases: for H$_2$ the minimal basis has one function per atom.
+    \item \textbf{Encode configurations as bit strings.} Each electron also has a spin (up or down), so there are $2M$ ``slots''. A configuration of $N$ electrons is a bit string of length $2M$ with $N$ ones: slot occupied or not. These strings form the basis of the state space, and a bit string is a computational basis state of $2M$ qubits.
+    \item \textbf{Compute the matrix.} In this basis the Hamiltonian is a Hermitian $2^{2M}\times2^{2M}$ matrix $H$ whose entries are integrals over the orbitals, computed classically in polynomial time. It is highly structured: a sum of $\mathcal O(M^4)$ Pauli strings (\Chap~\chref{C.VQE}).
+\end{enumerate}
+\ona{For H$_2$ in the minimal basis, $M = 2$ and $N = 2$, so four qubits; using two symmetries (spin and mirror symmetry of the molecule), this reduces to two qubits and a $4\times4$ matrix \cite{omalley2016scalable}:}
 \begin{equation}\label{eq:ch01:h2qubit}
-    H = g_0\,\one + g_1 Z_0 + g_2 Z_1 + g_3 Z_0Z_1 + g_4 X_0X_1 + g_5 Y_0Y_1,
+    H(R) = g_0\,\one + g_1 Z_0 + g_2 Z_1 + g_3 Z_0Z_1 + g_4 X_0X_1 + g_5 Y_0Y_1,
 \end{equation}
-\ona{with coefficients $g_k(R)$ computed classically from the one- and two-electron integrals for each bond length $R$, and tabulated, e.g., in \citet{omalley2016scalable}. All numbers below are exact diagonalisations in the minimal (STO-3G) basis, computed with PySCF by \texttt{code/ch01\_h2.py}; the nuclear repulsion $1/R$ is included.}
-\onp{Minimal basis: two orbitals $\sigma_g,\sigma_u$ $\to$ four spin-orbitals $\to$ four qubits $\to$ two qubits by symmetry, six Pauli terms \cite{omalley2016scalable}; $g_k(R)$ from classical integrals.}
+\ona{six real numbers $g_k(R)$ for every bond length $R$. All numbers below come from exact diagonalisation in this basis, computed with PySCF by \texttt{code/ch01\_h2.py}.}
+\onp{H$_2$, minimal basis: $M = 2$ orbitals, $N = 2$ electrons, four qubits, two after symmetries: a $4\times4$ matrix with six coefficients $g_k(R)$ \cite{omalley2016scalable}.}
 \end{frame}
 
-\begin{frame}\ft{The wave function of H$_2$}
-\ona{In the minimal basis the molecular orbitals are the symmetric and antisymmetric combinations of the atomic $1s$ orbitals $\phi_{A,B}(\boldsymbol r) \propto e^{-|\boldsymbol r - \boldsymbol R_{A,B}|}$, shown along the bond axis in Fig.~\ref{fig:ch01:h2wf}. Hartree--Fock puts both electrons (spin up and down) into $\sigma_g$: in the two-qubit encoding of \eqref{eq:ch01:h2qubit} this is the basis state $\ket{10}$, of energy $-1.116$ Hartree at $R = 0.75$~\angstrom. The exact ground state, of energy $-1.137$ Hartree, mixes in the doubly excited configuration $\ket{01}$,}
+\begin{frame}\ft{The lowest eigenvector: the wave function}
+\onp{\footnotesize}
+\ona{An orbital is just a function of position. In the minimal basis of H$_2$ the two orbitals are the sum and the difference of the two atomic ones, shown along the line joining the protons in Fig.~\ref{fig:ch01:h2wf}: the sum piles amplitude between the protons (\emph{bonding}, lower energy), the difference has a node there (\emph{antibonding}, higher energy).}
+\ona{The cheapest guess for the lowest eigenvector is a single basis state: both electrons, one of each spin, in the bonding orbital. Chemists call it the \emph{Hartree--Fock} state; in the two-qubit encoding \eqref{eq:ch01:h2qubit} it is $\ket{10}$, and its energy at $R = 0.75$~\angstrom{} is $-1.116$ Hartree. The true lowest eigenvector, of energy $-1.137$, is a superposition with the state in which both electrons sit in the antibonding orbital:}
 \begin{equation}\label{eq:ch01:h2gs}
-    \ket{\psi_0} = \cos\tfrac\theta2\,\ket{10} - \sin\tfrac\theta2\,\ket{01},\qquad \theta = 0.23,\ 0.73,\ 1.50 \text{ at } R = 0.75,\ 1.5,\ 3.0\,\angstrom,
+    \ket{\psi_0} = \cos\tfrac\theta2\,\ket{10} - \sin\tfrac\theta2\,\ket{01},\qquad \theta = 0.23,\ 0.73,\ 1.50 \text{ at } R = 0.75,\ 1.5,\ 3.0\,\angstrom.
 \end{equation}
-\ona{which is exactly the one-parameter unitary coupled-cluster ansatz $e^{-i\theta/2\,(X_0Y_1 - Y_0X_1)/2}\ket{10}$: a variational circuit with a single angle, and the first VQE ever run on hardware \cite{omalley2016scalable}. The mixing grows with $R$ and tends to $\theta \to \pi/2$ at dissociation, where Hartree--Fock fails by $0.28$ Hartree.}
+\ona{A single rotation angle $\theta$ describes it exactly: this one-parameter circuit was the first variational quantum eigensolver run on hardware \cite{omalley2016scalable}. As the protons are pulled apart, $\theta \to \pi/2$ and the single-basis-state guess becomes badly wrong.}
+\onp{Cheapest guess: one basis state $\ket{10}$ (Hartree--Fock), energy $-1.116$. Truth: $\cos\tfrac\theta2\ket{10} - \sin\tfrac\theta2\ket{01}$, energy $-1.137$; $\theta$ grows from $0.23$ to $1.50$ as the atoms separate.}
 \begin{center}
 \begin{tikzpicture}
-\begin{axis}[width=0.8\linewidth,height=0.42\linewidth,xlabel={position along the bond axis (Bohr)},ylabel={amplitude},xmin=-4,xmax=4,ymin=-1.1,ymax=1.3,axis lines=left,legend style={font=\scriptsize,draw=none,at={(0.02,0.98)},anchor=north west},legend columns=2,samples=200,domain=-4:4,no markers,every axis plot/.append style={thick}]
+\begin{axis}[width=0.72\linewidth,height=0.3\linewidth,xlabel={position along the bond axis (Bohr)},ylabel={amplitude},xmin=-4,xmax=4,ymin=-1.1,ymax=1.3,axis lines=left,legend style={font=\scriptsize,draw=none,at={(0.02,0.98)},anchor=north west},legend columns=2,samples=200,domain=-4:4,no markers,every axis plot/.append style={thick}]
 \addplot[gray,dashed] {exp(-abs(x+0.7))};
 \addplot[gray,dotted] {exp(-abs(x-0.7))};
 \addplot[blue!70!black] {(exp(-abs(x+0.7))+exp(-abs(x-0.7)))/1.5};
@@ -151,11 +161,11 @@ hardness & $\mathbf{QMA}$-hard in general & $\mathbf{NP}$-hard; $\mathbf{APX}$-h
 \end{axis}
 \end{tikzpicture}
 \end{center}
-\ona{\begin{figure}[htb]\caption{Atomic $1s$ orbitals on the two protons (dots) and their bonding and antibonding combinations along the bond axis of H$_2$, minimal basis, schematic amplitudes.}\label{fig:ch01:h2wf}\end{figure}}
+\ona{\begin{figure}[htb]\caption{The two atomic basis functions on the two protons (dots) and their sum (bonding) and difference (antibonding) along the line joining the protons; schematic amplitudes.}\label{fig:ch01:h2wf}\end{figure}}
 \end{frame}
 
-\begin{frame}\ft{The energy levels of H$_2$}
-\ona{Diagonalising \eqref{eq:ch01:h2qubit} at $R = 0.75$~\angstrom{}, equivalently full configuration interaction in the minimal basis, gives four energy levels, Fig.~\ref{fig:ch01:h2levels}. The ground state is the correlated singlet \eqref{eq:ch01:h2gs}; Hartree--Fock lies $0.021$ Hartree above it, thirteen times chemical accuracy: this correlation energy is what a variational circuit must recover. The other levels are excited configurations.}
+\begin{frame}\ft{The eigenvalues: energy levels}
+\ona{Diagonalising the $4\times4$ matrix \eqref{eq:ch01:h2qubit} at $R = 0.75$~\angstrom{} gives four eigenvalues, the \emph{energy levels} of Fig.~\ref{fig:ch01:h2levels}. The lowest is what we want. The single-basis-state guess lies $0.021$ Hartree above it, thirteen times chemical accuracy: this \emph{correlation energy}, the effect of the superposition, is what any method, classical or quantum, must recover.}
 \begin{center}
 \begin{tikzpicture}[x=1cm,y=2.4cm,every node/.style={font=\scriptsize}]
 \draw[->] (0,-1.3) -- (0,0.65) node[above] {$E$ (Hartree)};
@@ -168,13 +178,14 @@ hardness & $\mathbf{QMA}$-hard in general & $\mathbf{NP}$-hard; $\mathbf{APX}$-h
 \draw[<->,thick] (0.6,-1.1371) -- (0.6,-0.5428) node[midway,left] {$\gamma = 0.59$};
 \end{tikzpicture}
 \end{center}
-\ona{\begin{figure}[htb]\caption{Energy levels of H$_2$ in the minimal basis at $R = 0.75$~\angstrom{} (full configuration interaction, STO-3G, nuclear repulsion included). The dashed line is the Hartree--Fock energy; the difference to $E_0$ is the correlation energy.}\label{fig:ch01:h2levels}\end{figure}}
-\ona{Three things to retain: the ground state is what we want; a cheap trial state (Hartree--Fock) is close to it in energy and has large overlap with it, $|\braket{10|\psi_0}|^2 = \cos^2(\theta/2) = 0.987$; and there is a spectral gap $\gamma$ to the next level. Overlap and gap are the two quantities on which the guarantees of the following slides, and of \Chap~\chref{C.EQA}, depend.}
-\onp{Overlap of Hartree--Fock with the ground state $0.987$; gap $\gamma = 0.59$ Hartree: the two quantities the guarantees below depend on.}
+\ona{\begin{figure}[htb]\caption{Energy levels of H$_2$ in the minimal basis at $R = 0.75$~\angstrom{}, exact diagonalisation. The dashed line is the energy of the best single basis state (Hartree--Fock); its distance to $E_0$ is the correlation energy.}\label{fig:ch01:h2levels}\end{figure}}
+\ona{Three things to retain, because the whole course turns on them: (i) we want the lowest eigenvalue and its eigenvector; (ii) a cheap guess is close in energy and has large \emph{overlap} with the truth, $|\braket{10|\psi_0}|^2 = \cos^2(\theta/2) = 0.987$; (iii) there is a \emph{gap} $\gamma$ between the lowest eigenvalue and the next. Overlap and gap are the two quantities on which the guarantees of the following slides, and of \Chap~\chref{C.EQA}, depend.}
+\onp{Retain: lowest eigenvalue wanted; cheap guess has overlap $0.987$ with the truth; gap $\gamma = 0.59$ to the next level. Guarantees below depend on overlap and gap.}
 \end{frame}
 
-\begin{frame}\ft{Energy levels as a function of bond length}
-\ona{Repeating the diagonalisation for every $R$ gives the potential-energy curves of Fig.~\ref{fig:ch01:h2curves}: the minimum of the ground-state curve is the bond length ($0.71$~\angstrom{} in this basis, $0.74$ experimentally), its curvature the vibrational frequency, and its depth the dissociation energy. Hartree--Fock is accurate near equilibrium and wrong by $0.28$ Hartree at dissociation, where the two electrons must localise on different atoms, a strongly correlated state; the overlap of the trial state with the truth drops from $0.99$ to $0.54$, and this is the regime in which quantum algorithms are hoped to help.}
+\begin{frame}\ft{Repeat for every $R$: the potential-energy curve}
+\ona{Doing the same for every distance $R$ gives the curves of Fig.~\ref{fig:ch01:h2curves}. The minimum of the lowest curve is the bond length ($0.71$~\angstrom{} in this small basis, $0.74$ experimentally); its curvature gives the frequency at which the molecule vibrates; its depth, the energy needed to break the bond. The single-basis-state guess is fine near the minimum and wrong by $0.28$ Hartree when the atoms are far apart: there, one electron must sit on each atom, which no single basis state of this kind describes, and only the superposition does. Chemists call such states \emph{strongly correlated}; the overlap of the cheap guess with the truth falls from $0.99$ to $0.54$, and this is the regime in which quantum algorithms are hoped to help.}
+\onp{Minimum $=$ bond length; curvature $=$ vibration frequency; depth $=$ bond energy. The cheap guess fails at large $R$ (overlap $0.99 \to 0.54$): ``strongly correlated'', where quantum help is hoped for.}
 \begin{center}
 \begin{tikzpicture}
 \begin{axis}[width=0.72\linewidth,height=0.42\linewidth,xlabel={bond length $R$ (\angstrom)},ylabel={energy (Hartree)},xmin=0.4,xmax=3,ymin=-1.2,ymax=0.7,legend style={font=\scriptsize,draw=none,at={(0.98,0.45)},anchor=east},thick,no markers]
@@ -186,54 +197,52 @@ hardness & $\mathbf{QMA}$-hard in general & $\mathbf{NP}$-hard; $\mathbf{APX}$-h
 \end{axis}
 \end{tikzpicture}
 \end{center}
-\ona{\begin{figure}[htb]\caption{Potential-energy curves of H$_2$ in the STO-3G basis: exact ground and excited states and the Hartree--Fock energy, computed with PySCF by \texttt{code/ch01\_h2.py}.}\label{fig:ch01:h2curves}\end{figure}}
+\ona{\begin{figure}[htb]\caption{Energy levels of H$_2$ in the minimal basis as a function of the distance $R$ between the protons: exact lowest and excited eigenvalues, and the energy of the best single basis state (Hartree--Fock). Computed with PySCF by \texttt{code/ch01\_h2.py}.}\label{fig:ch01:h2curves}\end{figure}}
 \end{frame}
 
 \begin{frame}\ft{Is there an exponential quantum advantage here?}
-\ona{H$_2$ in a minimal basis is trivial for any method. The question that matters is asymptotic: for a family of ever larger molecules, with basis size $L$ growing with the number of atoms, does a quantum computer compute the ground-state energy exponentially faster than the best classical method? This is the \emph{exponential quantum advantage} (EQA) hypothesis, examined critically by \citet{lee2023evaluating}, whom we follow here and in \Chap~\chref{C.EQA}. Their accounting of the cost of quantum phase estimation to precision $\epsilon$ is}
+\ona{H$_2$ is easy for any method. The question that matters is about \emph{scaling}: as molecules get bigger, and the matrix size $L$ grows with the number of atoms, does a quantum computer find the lowest eigenvalue exponentially faster than the best classical program? This is the \emph{exponential quantum advantage} (EQA) hypothesis, examined critically by \citet{lee2023evaluating}, whom we follow here and in \Chap~\chref{C.EQA}. Their accounting of the running time of the standard quantum algorithm (phase estimation) to precision $\epsilon$ is}
 \begin{equation}\label{eq:ch01:qpecost}
     \mathrm{poly}(1/S)\,\big[\mathrm{poly}(L)\,\mathrm{poly}(1/\epsilon) + C\big], \qquad S = |\braket{\Phi|\Psi_0}|,
 \end{equation}
-\ona{where $C$ is the cost of preparing the trial state $\Phi$, the bracket is the phase-estimation circuit, and the prefactor, $1/S^2$ for plain phase estimation, is the number of repetitions needed to land on the ground state rather than another eigenstate. The $\mathrm{poly}(L)$ in the middle is what is usually quoted. EQA requires, in addition, that $S$ does not decay exponentially with $L$, \emph{and} that every classical heuristic costs $\exp(L)$ on the same molecules.}
+\ona{where $C$ is the cost of preparing a starting guess $\Phi$, the bracket is the quantum circuit, and the prefactor, $1/S^2$ for plain phase estimation, is the number of repetitions needed: the algorithm returns the lowest eigenvalue only with probability $S^2$, the overlap of the guess with the true eigenvector, so one repeats until it does. The $\mathrm{poly}(L)$ in the middle is what is usually quoted. EQA requires, in addition, that the overlap $S$ does not shrink exponentially with $L$, \emph{and} that every classical program costs $\exp(L)$ on the same molecules.}
 \onp{\scriptsize EQA hypothesis \cite{lee2023evaluating}: for generic chemistry, quantum polynomial \emph{and} classical exponential in $L$. In the QPE cost, the overlap $S$ of the trial state is the crux.}
-\figslide[height=0.36\textheight]{figures/eqa/fig1.pdf}{Ansatz state preparation for iron--sulphur clusters, from \citet{lee2023evaluating}. (A) [2Fe-2S], [4Fe-4S], the P-cluster and the FeMo cofactor of nitrogenase, up to 154 qubits. (B) Weight $S^2$ of the best single determinant (purple) and of the best configuration state function (orange) in the exact ground state, against the number of metal centres: an exponential decrease, down to $10^{-7}$ for FeMo-co.}{fig:ch01:eqa1}
+\figslide[height=0.36\textheight]{figures/eqa/fig1.pdf}{Ansatz state preparation for iron--sulphur clusters, from \citet{lee2023evaluating}. (A) [2Fe-2S], [4Fe-4S], the P-cluster and the FeMo cofactor of nitrogenase, up to 154 qubits. (B) Overlap $S^2$ of the best cheap starting guess (a single basis state, purple; a symmetry-adapted combination, orange) with the exact lowest eigenvector, against the number of metal atoms: an exponential decrease, down to $10^{-7}$ for FeMo-co.}{fig:ch01:eqa1}
 \end{frame}
 
 \begin{frame}\ft{And the classical competition does not scale exponentially}
-\ona{The second requirement of EQA fails empirically too: for the molecules usually cited as motivation, classical heuristics reach chemical accuracy at polynomial cost. Coupled-cluster methods have an empirical precision cost $\mathrm{poly}(1/\epsilon)$ and, exploiting locality, a cost linear in $L$ on gapped systems such as alkanes, with constant error per subunit; they run routinely on thousands of electrons. For strongly correlated models, tensor networks show near-linear cost in $L$ and $\bar\epsilon \sim 1/\mathrm{poly}(D)$ in the bond dimension, even at the hard $1/8$-doped Hubbard point. The conclusion of \citet{lee2023evaluating} is that evidence for a \emph{generic} exponential advantage in ground-state chemistry has yet to be found, while polynomial speedups remain possible and would still be valuable.}
-\figslide[height=0.45\textheight]{figures/eqa/fig3.pdf}{Computational complexity of classical heuristics for molecules, from \citet{lee2023evaluating}. (A) Energy error of N$_2$ against a time metric across coupled-cluster levels: $\mathrm{poly}(1/\epsilon)$. (B) Cost of reduced-scaling CCSD(T) on $n$-alkanes C$_m$H$_{2m+2}$, $m \le 120$: nearly linear in size, with constant error per carbon in the enthalpy of formation. (C) A fragment of photosystem II with thousands of electrons, treated on a few cores.}{fig:ch01:eqa3}
+\ona{The second requirement of EQA fails empirically too: for the molecules usually cited as motivation, classical heuristics reach chemical accuracy in polynomial time. The workhorse method of quantum chemistry (\emph{coupled cluster}, a clever low-parameter approximation of the eigenvector) has an empirical cost polynomial in $1/\epsilon$ and, because interactions are local, linear in the molecule size for ordinary molecules such as alkane chains, with constant error per atom; it runs routinely on thousands of electrons. For the hardest, strongly correlated model systems, tensor-network methods (the same matrix product states we meet in \Chap~\chref{C.PerIteration}) show near-linear cost in size and error decreasing polynomially in their expressiveness parameter $D$. \citet{lee2023evaluating} conclude that evidence for a \emph{generic} exponential advantage has yet to be found, while polynomial speedups remain possible and would still be valuable.}
+\figslide[height=0.45\textheight]{figures/eqa/fig3.pdf}{Computational complexity of classical heuristics for molecules, from \citet{lee2023evaluating}. (A) Error of the coupled-cluster hierarchy on the nitrogen molecule against running time: polynomial in $1/\epsilon$. (B) Running time of a locality-exploiting coupled-cluster code on alkane chains C$_m$H$_{2m+2}$ with up to $m = 120$ carbons: nearly linear in size, with constant error per carbon. (C) A protein fragment with thousands of electrons, treated on a few processor cores.}{fig:ch01:eqa3}
 \onp{\scriptsize Classical heuristics: $\mathrm{poly}(1/\epsilon)$ and near-linear in $L$ where they apply. Verdict \cite{lee2023evaluating}: no evidence yet of generic EQA; polynomial speedups still possible. Details in \Chap~\chref{C.EQA}.}
 \end{frame}
 
-\begin{frame}\ft{Molecular energy levels}
-\ona{Quantum computing for chemistry begins with a molecule: nuclei at fixed positions (Born--Oppenheimer) and $N$ electrons in a basis of $M$ spin-orbitals. In second quantisation the electronic Hamiltonian is}
-\begin{equation}\label{eq:ch01:molH}
-    H = \sum_{p,q} h_{pq}\,a_p^\dagger a_q + \frac12\sum_{p,q,r,s} h_{pqrs}\,a_p^\dagger a_q^\dagger a_r a_s,
-\end{equation}
-\ona{with one- and two-electron integrals $h_{pq}, h_{pqrs}$ computed classically, and after a Jordan--Wigner or Bravyi--Kitaev encoding it becomes a sum of $\mathcal O(M^4)$ Pauli strings on $M$ qubits. Its eigenvalues are the \emph{energy levels}; the lowest, $E_0$, is the ground-state energy, and differences of energy levels are what spectroscopy measures and what reaction rates depend on. Chemical accuracy is $1.6\times10^{-3}$ Hartree.}
-\begin{itemize}\setlength\itemsep{0.2em}
-    \item Exact diagonalisation (full configuration interaction) is exponential in $M$; classical heuristics (coupled cluster, DMRG, quantum Monte Carlo) are excellent for many molecules and fail for some strongly correlated ones.
-    \item Quantum phase estimation returns $E_0$ to precision $\epsilon$ given a trial state with overlap $\eta = |\braket{\phi_0|\psi_0}|^2$ with the ground state, at cost $\widetilde{\mathcal O}(1/(\eta\epsilon))$ in evolution time, but needs deep, fault-tolerant circuits.
-    \item The \emph{variational principle} is the classical chemist's tool for upper bounds on $E_0$; the variational quantum eigensolver (\Chap~\chref{C.VQE}) is its quantum-circuit version, and the origin of the word ``variational'' in this course.
+\begin{frame}\ft{The general recipe, and where quantum algorithms enter}
+\ona{For a general molecule the four steps give an $M$-orbital, $2M$-qubit problem with a Hamiltonian of $\mathcal O(M^4)$ terms; the molecules people care about need $50$ to $150$ qubits (the FeMo cofactor of nitrogenase, which fixes nitrogen from the air, is $154$ qubits in a reduced model). Three ways to get at the lowest eigenvalue:}
+\begin{itemize}\setlength\itemsep{0.25em}
+    \item \textbf{Exact classical diagonalisation:} exponential in $M$; feasible to about $20$ orbitals.
+    \item \textbf{Classical heuristics} (coupled cluster, tensor networks, quantum Monte Carlo): polynomial, excellent for most molecules, failing for some strongly correlated ones.
+    \item \textbf{Quantum phase estimation:} given a starting guess with overlap $\eta$ with the true eigenvector, returns $E_0$ to precision $\epsilon$ using $\widetilde{\mathcal O}(1/(\eta\,\epsilon))$ steps of a quantum simulation of $H$, but needs deep, error-corrected circuits.
+    \item \textbf{The variational route}, this course's subject: guess a family of circuits, minimise the energy over its parameters, using the variational principle of the next section. Cheap circuits, no guarantee.
 \end{itemize}
+\onp{$2M$ qubits, $\mathcal O(M^4)$ terms, $50$--$150$ qubits for interesting molecules. Exact: exponential. Heuristics: polynomial, usually fine. Phase estimation: $\widetilde{\mathcal O}(1/(\eta\epsilon))$, needs error correction. Variational: cheap, no guarantee.}
 \end{frame}
 
-\begin{frame}\ft{Beyond the energy: ground-state properties}
-\ona{For applications one needs more than $E_0$: dipole moments, charge densities, Green's functions, forces, i.e., expectations $\braket{\psi_0|O|\psi_0}$ of observables in the ground state. \citet{zhang2022computing} formalise this as the \emph{ground-state property estimation} problem: given $H$ with spectral gap $\gamma$, an observable $O$, a circuit preparing $\ket{\phi_0}$ with $|\braket{\phi_0|\psi_0}|^2 \ge \eta$, and $\epsilon$, estimate $\braket{\psi_0|O|\psi_0}$ to error $\epsilon$. Without the overlap and gap assumptions the decision version is $\mathsf{P^{QMA[\log]}}$-complete, harder than estimating the energy.}
-\begin{itemize}\setlength\itemsep{0.2em}
-    \item \textbf{Variational route:} run VQE to prepare an approximate ground state, then measure $O$. Cheap circuits, but no guarantee on the quality of the state, so no guarantee on the property.
-    \item \textbf{Early fault-tolerant route} \cite{zhang2022computing}: use $\ket{\phi_0}$ only as a starting point with overlap $\eta$, and extract $\braket{\psi_0|O|\psi_0}$ from Hadamard tests of $e^{-ijH}$ and $O$ with classical Fourier post-processing. Maximal evolution time $\widetilde{\mathcal O}(\gamma^{-1})$, independent of $\epsilon$; total evolution time $\widetilde{\mathcal O}(\gamma^{-1}\epsilon^{-2}\eta^{-2})$; one ancilla qubit. Guaranteed accuracy \emph{regardless} of the quality of the variational state, at the price of runtime.
+\begin{frame}\ft{Beyond the energy: properties of the lowest eigenvector}
+\ona{Applications often need more than $E_0$: where the electric charge sits (dipole moments), how electrons move through a material, the forces on the nuclei. Each is an expectation value $\braket{\psi_0|O|\psi_0}$ of some Hermitian matrix $O$ in the lowest eigenvector. \citet{zhang2022computing} formalise this as \emph{ground-state property estimation}: given $H$ with gap $\gamma$, an observable $O$, a circuit preparing a guess $\ket{\phi_0}$ with overlap $|\braket{\phi_0|\psi_0}|^2 \ge \eta$, and a precision $\epsilon$, estimate $\braket{\psi_0|O|\psi_0}$ to within $\epsilon$. Without the overlap and gap assumptions this is provably harder than estimating the energy.}
+\begin{itemize}\setlength\itemsep{0.25em}
+    \item \textbf{Variational route:} optimise a circuit to approximate $\ket{\psi_0}$, then measure $O$. Cheap circuits; but no guarantee on how close the optimised state is, hence none on the property.
+    \item \textbf{Early fault-tolerant route} \cite{zhang2022computing}: use the guess only as a starting point with overlap $\eta$, and extract $\braket{\psi_0|O|\psi_0}$ from many short circuits plus classical Fourier post-processing. Longest circuit $\widetilde{\mathcal O}(\gamma^{-1})$, independent of $\epsilon$; total work $\widetilde{\mathcal O}(\gamma^{-1}\epsilon^{-2}\eta^{-2})$; one extra qubit. \emph{Guaranteed} accuracy, whatever the quality of the guess, paid for in running time.
 \end{itemize}
-\ona{The two routes are complementary, and the variational one supplies the initial state for the other: this is the role we will assign to variational methods in chemistry in \Chaps~\chref{C.EQA} and~\chref{C.VQE}.}
+\ona{The two routes are complementary: the variational one supplies the starting guess, the other supplies the guarantee. This is the role we assign to variational methods in chemistry in \Chaps~\chref{C.EQA} and~\chref{C.VQE}.}
 \end{frame}
 
-\begin{frame}\ft{How the guarantee works, in one slide}
-\ona{Expand $\ket{\phi_0} = \sum_k\alpha_k\ket{\psi_k}$ in the eigenbasis of $H$, $p_k = |\alpha_k|^2$. The spectral measure $p(x) = \sum_kp_k\delta(x - \lambda_k)$ has cumulative distribution $C(x) = \sum_{\lambda_k\le x}p_k$, a step function whose first jump is at $\lambda_0 = E_0$ and has height $p_0 \ge \eta$. Lin and Tong \cite{lt21} observe that}
+\begin{frame}\ft{How the guarantee works, in one slide (optional)}
+\ona{Here is the idea, for the curious; nothing later depends on it. Write the starting guess in the eigenbasis of $H$, $\ket{\phi_0} = \sum_k\alpha_k\ket{\psi_k}$, and think of $p_k = |\alpha_k|^2$ as a probability distribution over the energy levels $\lambda_k$. Its cumulative distribution function $C(x) = \sum_{\lambda_k\le x}p_k$ is a staircase whose first step is at the lowest eigenvalue $E_0$ and has height $p_0 \ge \eta$. Lin and Tong \cite{lt21} observe that the quantum computer can measure the \emph{Fourier transform} of this distribution:}
 \begin{equation}\label{eq:ch01:acdf}
     \braket{\phi_0|e^{-ijH}|\phi_0} = \sum_kp_ke^{-ij\lambda_k}
 \end{equation}
-\ona{are the Fourier coefficients of $p$, each estimable by a Hadamard test with one ancilla controlling $e^{-ijH}$; a degree-$d$ Fourier approximation $F$ of the Heaviside function gives an approximate CDF $\tilde C = F\star p$ within $\eta/8$ of $C(x\pm\delta)$ using only $|j| \le d = \widetilde{\mathcal O}(\delta^{-1})$; a robust binary search for the first point where $\tilde C \ge \eta/2$ locates $E_0$ to precision $\delta$. Weighting the same construction by $O$, i.e., estimating $\braket{\phi_0|e^{-ijH}O|\phi_0}$, gives $p_0\braket{\psi_0|O|\psi_0}$, and dividing by $p_0$ gives the property \cite{zhang2022computing}. The maximal evolution time is the Fourier degree, so it depends on the gap through $\delta \sim \gamma$, not on $\epsilon$.}
-\onp{Hadamard tests give the Fourier coefficients $\sum_kp_ke^{-ij\lambda_k}$ of the spectral measure of $\ket{\phi_0}$; a low-degree Fourier approximation of the Heaviside function gives an approximate CDF; binary search finds $E_0$ (Lin--Tong); weighting by $O$ gives the property (Zhang--Wang--Johnson). Depth $\widetilde{\mathcal O}(\gamma^{-1})$, guaranteed accuracy given overlap $\eta$.}
+\ona{one number for each integer time $j$, each estimated by a small circuit (a Hadamard test: one extra qubit controlling the evolution $e^{-ijH}$). From finitely many Fourier coefficients, $|j| \le d$, one reconstructs a smoothed staircase $\tilde C$ accurate to within $\eta/8$ everywhere except within $\delta \sim 1/d$ of a step. A binary search for the first point where $\tilde C \ge \eta/2$ then finds $E_0$ to precision $\delta$. Weighting the same construction by an observable $O$ gives $p_0\braket{\psi_0|O|\psi_0}$, and dividing by $p_0$ gives the property \cite{zhang2022computing}. The longest circuit has length $d \sim 1/\gamma$, set by the gap, not by the final precision; the price of precision is paid in repetitions, $\widetilde{\mathcal O}(\epsilon^{-2}\eta^{-2})$ of them.}
+\onp{View the starting guess as a distribution over energy levels; small circuits measure its Fourier coefficients; reconstruct the CDF; its first step is $E_0$ (Lin--Tong); weight by $O$ for properties (Zhang--Wang--Johnson). Circuit length $\sim 1/\gamma$; precision paid in repetitions.}
 \end{frame}
 
 \section{Perspective two: theoretical computer science}
@@ -492,13 +501,20 @@ For unit vectors $v_i, v_j$ at angle $\theta_{ij} = \arccos(v_i^\top v_j) \in [0
 \section{Hands-on: MaxCut three ways}\label{sec:ch01:code}
 
 \begin{frame}\ft{One instance, three solvers}
-\ona{Before the plots from the literature, let us solve one small instance ourselves, with the tools you will use in the assignments. The instance is a random 4-regular graph on 12 vertices with integer weights in $\{1,\dots,9\}$; it is generated, solved, and plotted by \texttt{code/ch01\_maxcut\_examples.py} in the course repository, which produces every number and figure in this section. Three solvers:}
+\onp{\begin{columns}[T]\begin{column}{0.68\textwidth}}
+\ona{Before the plots from the literature, let us solve one small instance ourselves, with the tools you will use in the assignments. The instance is a random 4-regular graph on 12 vertices with integer weights in $\{1,\dots,9\}$; it is generated, solved, and plotted by \texttt{code/ch01\_maxcut\_examples.py} in the course repository, \url{https://github.com/jmarecek/variational-algorithms/tree/main/course/code}, which produces every number and figure in this section. Three solvers:}
 \begin{enumerate}\setlength\itemsep{0.3em}
     \item \textbf{Exact}, with Gurobi via \texttt{gurobipy}: the integer quadratic program \eqref{eq:ch01:mcqp}. Branch and bound with cutting planes; exponential in the worst case, instantaneous here.
     \item \textbf{Relaxation and rounding}, with \texttt{cvxpy} and the SDP solver SCS: the semidefinite program \eqref{eq:ch01:sdp}, then Goemans--Williamson hyperplanes \eqref{eq:ch01:rounding}.
     \item \textbf{Variational}, with Qiskit: QAOA \eqref{eq:ch01:qaoa} simulated exactly on the statevector, angles optimised by COBYLA; from a cold start and from a warm start.
 \end{enumerate}
 \ona{Twelve qubits are simulable exactly, so we see the algorithms' behaviour without hardware noise.}
+\onp{\end{column}\begin{column}{0.3\textwidth}\centering
+\qrcode[height=2.6cm]{https://github.com/jmarecek/variational-algorithms/tree/main/course/code}\\[2pt]
+{\tiny\texttt{github.com/jmarecek/}\\\texttt{variational-algorithms}\\\texttt{course/code}}
+\end{column}\end{columns}}
+\ona{\begin{center}\qrcode[height=2.2cm]{https://github.com/jmarecek/variational-algorithms/tree/main/course/code}\end{center}}
+\ona{\begin{center}\footnotesize The code of this course: \url{https://github.com/jmarecek/variational-algorithms/tree/main/course/code}\end{center}}
 \end{frame}
 
 \begin{frame}[fragile]\ft{Exact: Gurobi}
