@@ -1,0 +1,61 @@
+%   Macros
+%   For input to overheads files allowing for narrower relative width etc.
+%
+%   Sean McGarraghy
+%
+%   Change Control:
+%   Date      Ver  Reason
+%   --------  ---  --------------------------------------------------------------
+%   03/09/00  0.1  Begun
+%
+
+% Comment next 6 lines if using beamer
+% \renewcommand{\baselinestretch}{1.1}
+% \setlength{ \topmargin      }{ -3.1cm }
+% \setlength{ \textwidth      }{ 19.0cm }
+% \setlength{ \textheight     }{ 29.2cm }
+% \setlength{ \oddsidemargin  }{ -1.5cm }
+% \setlength{ \evensidemargin }{ -1.5cm }
+
+% from Java notes
+% \setlength{ \topmargin      }{ -1.1cm }
+% \setlength{ \textwidth      }{ 19cm }
+% \setlength{ \textheight     }{ 27cm }
+% \setlength{ \oddsidemargin  }{ -1.5cm }
+% \setlength{ \evensidemargin }{ -1.5cm }
+
+\setlength{\parskip}{1ex} % since para seems not to have space in beamer
+
+\def\domypagebreak{\cpb}
+\def\mycbl{\cbl}
+\def\mycbs{\cbs}
+
+\def\mycleanlinebreak{\cbl}
+\def\myeqnlinebreak{\\&&}
+\def\myeqnlinebreakeq{\\&=&}
+\def\myalignbreak{\\&}
+\newcommand*{\eqnbk}[1][{}]{\\&{#1}&}
+
+\def\mylargesize{\huge}
+\def\mynormalsize{\Large}
+\def\mysmallsize{\large}
+\def\myfootsize{\normalsize}
+\def\mytinysize{\footnotesize}
+\def\myboxedcodesize{\large}
+\def\mysmallerboxedcodesize{\normalsize}
+\def\myshrunksize{\footnotesize}
+
+\def\narrowalgboxwidth{12.3cm}
+\def\algboxwidth{15.2cm}
+\def\widealgboxwidth{18.5cm}
+
+\def\myvspacefivecm{5cm}
+\def\myvspacesixcm{6cm}
+\def\myfill{\fill}
+
+\def\mynodeunit{1.5pt}
+\def\mytrianglesidelength{12mm}
+\def\mypiorbitsidelength{40mm}
+
+%\input{shortamsmacros}
+\input{amsmacros} % for full length names

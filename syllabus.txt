@@ -1,0 +1,25 @@
+1. Perspective from physical chemistry (molecular energy levels) vs. perspective from theoretical computer science (MAXCUT)
+
+2. EQA hypothesis
+
+3. Inapproximability and the Unique Games Conjecture
+
+4. Adiabatic theorem and quantum speedup via quantum annealing (QA)
+
+5. Variational Quantum Eigensolver (VQE)
+
+6. Quantum Approximate Optimization Algorithm (QAOA)
+
+7. Parameter Shift Rule (PSR)
+
+8. Iteration complexity of QAOA with PSR
+
+9. Per-iteration complexity of QAOA
+
+10. Warm-started quantum optimization: rounded
+
+11. Warm-started quantum optimization: continuous
+
+12. Applications: variational solvers for systems of linear equations
+
+13. Applications: variational solvers for Markowitz portfolio management

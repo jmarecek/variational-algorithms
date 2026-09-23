@@ -1,0 +1,20 @@
+% macros that only apply to beamer docs, possibly article or presentation
+
+\newcommand*{\ft}[1]{\frametitle<presentation>{#1}}
+\newcommand*{\mop}[1]{\mode<presentation>{#1}}
+\newcommand*{\moa}[1]{\mode<article>{#1}}
+\newcommand*{\ona}[1]{\only<article>{#1}}
+\newcommand*{\onp}[1]{\only<presentation>{#1}}
+%\mop{\renewcommand*{\df}[1]{\alert{#1}}}
+\renewcommand*{\df}[1]{\alert{#1}}
+
+\newcommand*{\opv}[1]{\onp{\vspace{#1}}}       % modify vertical spacing in presentation mode only in beamer
+\newcommand*{\oph}[1]{\onp{\hspace{#1}}}       % modify horizontal spacing in presentation mode only in beamer
+\newcommand*{\ppb}{\onp{\pause\\}}             % make new para break with no vertical spacing in presentation mode only in beamer
+\newcommand*{\ppv}[1][1ex]{\onp{\pause\\\vspace{#1}}} % make new para with default vertical spacing 1ex in presentation mode only in beamer
+
+\newcommand*{\ppi}{\onp{\item }}
+\newcommand*{\ppis}{\onp{\begin{itemize}}}
+\newcommand*{\ppisend}{\onp{\end{itemize}}}
+
+\input{macros}

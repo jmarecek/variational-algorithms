@@ -1,0 +1,1557 @@
+%   General LaTeX Declarations (try -adobe-courier-medium-r-normal--18-180-75-75-m-110-iso8859-2)
+%
+%   Sean McGarraghy
+%
+%   Change Control:
+%   Date      Ver  Reason
+%   --------  ---  --------------------------------------------------------------
+%   12/02/98  0.1  Begun
+%
+
+% FOR EXTRA LEVELS IN Table of Contents
+% \setcounter{secnumdepth}{5}        % depth of numbering of sectioning commands
+% \setcounter{tocdepth}{3}           % depth of table of contents
+% \setlength{\stcindent}{24pt}       % indentation of secttocs, default
+% \renewcommand{\stcfont}{\small\rm} % font for secttocs, default
+%
+
+\providecommand*{\mycmt}[1]{}  % for text I don't want in the output file
+\providecommand*{\nl}{XXX}  % to get around awkwardness of [not] defining in algorithm2e package
+\providecommand*{\il}{XXX}  % to get around awkwardness of [not] defining in algorithm2e package
+
+% Default to numbering by section --- see various $TEXMACROHOME/*ams*macros.tex files
+\providecommand*{\numberbychaporsect}{section}
+
+\newcommand{\rputt}[4]{\dotnode(#1,#3){#4}\rput(#2,#3){$#4$}}
+\newcommand{\lputt}[4]{\dotnode(#1,#3){#4}\rput(#1,#2){$#4$}}
+
+% Where to hyphenate words LaTeX doesn't know
+
+\hyphenation{Ham-il-ton-ian}
+\hyphenation{neigh-bour-hood neigh-bour-hoods}
+\hyphenation{Groth-en-dieck}
+%\hyphenation{Schr{\"{o}}-din-ger} Why won't this hypenate?!!!
+\hyphenation{Schro-din-ger}
+\hyphenation{Witt-Groth-en-dieck}
+\hyphenation{Bel-field}
+\hyphenation{symm-et-ri-schen}
+
+% Short commands for italic, bold etc fonts
+\newcommand*{\tr}[1]{\textrm{#1}}
+\newcommand*{\ti}[1]{\textit{#1}}
+\newcommand*{\tb}[1]{\textbf{#1}}
+%\newcommand*{\ts}[1]{\textsl{#1}}
+\newcommand*{\tc}[1]{\textsc{#1}}
+\newcommand*{\mr}[1]{\mathrm{#1}}
+\newcommand*{\mb}[1]{\mathbf{#1}}
+\newcommand*{\tth}[1]{{\slshape #1}}
+\newcommand*{\df}[1]{\textbf{#1}}      % put the thing being defined in bold
+\newcommand*{\cd}[1]{\texttt{#1}}      % tt for code listing
+%\newcommand*{\url}[1]{\texttt{#1}}     % tt for url listing
+
+%\newcommand*{\ph}{{\tiny.}}           % kludge to fix ttcode environment not justifying text
+%\newcommand*{\ph}{\phantom{.}}        % another kludge to fix ttcode environment not justifying text
+\newcommand*{\phs}{\hspace{5.6ex}}     % another kludge to fix ttcode environment not justifying text
+
+\newcommand*{\bs}{$\backslash$}
+\newcommand*{\ol}[1]{\overline{#1}}
+\newcommand*{\cnj}[1]{\overline{#1}}
+\newcommand*{\nth}[1]{\ensuremath{{#1}^{\text{th}}}} % superscripted `th' for counting
+\newcommand*{\nst}[1]{\ensuremath{{#1}^{\text{st}}}} % superscripted `st' for counting
+\newcommand*{\nnd}[1]{\ensuremath{{#1}^{\text{nd}}}} % superscripted `nd' for counting
+\newcommand*{\nrd}[1]{\ensuremath{{#1}^{\text{rd}}}} % superscripted `rd' for counting
+\newcommand*{\old}{\text{old}}                 % `old' occurs often enough in algs to be worth this
+\newcommand*{\new}{\text{new}}                 % `old' occurs often enough in algs to be worth this
+% \newcommand*{\nth}[1]{\ensuremath{{#1}^{\textrm{th}}}} % superscripted `th' for counting
+% \newcommand*{\nst}[1]{\ensuremath{{#1}^{\textrm{st}}}} % superscripted `st' for counting
+% \newcommand*{\nnd}[1]{\ensuremath{{#1}^{\textrm{nd}}}} % superscripted `nd' for counting
+% \newcommand*{\nrd}[1]{\ensuremath{{#1}^{\textrm{rd}}}} % superscripted `rd' for counting
+%\newcommand*{\nth}[1]{\ensuremath{{#1}^{\hspace{0.7pt}\underline{\hspace{-0.3pt}\textrm{th}\hspace{-0.4pt}}}}}% superscripted `th' for counting
+%\newcommand*{\nst}[1]{\ensuremath{{#1}^{\hspace{0.7pt}\underline{\hspace{-0.3pt}\textrm{st}\hspace{-0.4pt}}}}}% superscripted `st' for counting
+%\newcommand*{\nnd}[1]{\ensuremath{{#1}^{\hspace{0.7pt}\underline{\hspace{-0.3pt}\textrm{nd}\hspace{-0.4pt}}}}}% superscripted `nd' for counting
+%\newcommand*{\nrd}[1]{\ensuremath{{#1}^{\hspace{0.7pt}\underline{\hspace{-0.3pt}\textrm{rd}\hspace{-0.4pt}}}}}% superscripted `rd' for counting
+
+% commonly occurring text in Maths documents
+
+\newcommand*{\eg}  {\emph{e.g.},\ }          %{e.\,g.~}
+\newcommand*{\ie}  {\emph{i.e.},\ }          %{i.\,e.~}
+% \newcommand*{\ff}  {\textrm{if and only if }}
+% \newcommand*{\A}   {\textrm{ for all }}
+% \newcommand*{\all} {\textrm{ for all }}
+\newcommand*{\ff}  {\text{if and only if}}
+\newcommand*{\A}   {\text{ for all }}
+\newcommand*{\all} {\text{ for all }}
+\renewcommand*{\AA}{\ensuremath{\forall\;}}
+% \newcommand*{\E}   {\textrm{ there exists }}
+%\newcommand*{\E}   {\text{ there exists }}
+\newcommand*{\EE}  {\ensuremath{\exists\;}}
+% \newcommand*{\st}  {\textrm{ such that }}
+% \newcommand*{\sta} {\textrm{ such that, for all }}
+\newcommand*{\st}  {\text{ such that }}
+\newcommand*{\sta} {\text{ such that, for all }}
+\newcommand*{\Ip}  {In particular}
+\newcommand*{\nasc}{necessary and sufficient condition}
+\newcommand*{\tfae}{the following are equivalent}
+\newcommand*{\Tfae}{The following are equivalent}
+\newcommand*{\wrt} {with respect to }
+\newcommand*{\wolog}{without loss of generality}
+\newcommand*{\Wolog}{Without loss of generality}
+\newcommand*{\ihy} {induction hypothesis}
+\newcommand*{\ptc} {in particular}
+\newcommand*{\resp}{respectively}
+\newcommand*{\RHS} {right hand side}
+\newcommand*{\LHS} {left hand side}
+\newcommand*{\wl}  {well-defined}
+\newcommand*{\ctn} {contradiction}
+\newcommand*{\pfc} {and the proof is complete. }
+\newcommand*{\wpf} {which completes the proof. }
+\newcommand*{\Tpf} {This completes the proof. }
+\newcommand*{\cpf} {completing the proof. }
+\newcommand*{\Otoh}{On the other hand, }
+
+% Sets and functions
+\newcommand*{\pint}{positive integer}
+\newcommand*{\nnint}{non-negative integer}
+\newcommand*{\nn}  {non-negative}
+\newcommand*{\por} {partially ordered}
+\newcommand*{\wor} {well ordered}
+\newcommand*{\car} {cardinality}
+\newcommand*{\cmp} {composition}
+\newcommand*{\fn}  {function}
+\newcommand*{\fu}  {\ensuremath{{\text{f}}\,^{\text{\underline{n}}}}}
+\newcommand*{\cf}  {characteristic function}
+\newcommand*{\ooc} {one-one correspondence}
+
+% Topology
+\newcommand*{\tsp} {topological space}
+\newcommand*{\nbd} {neighbourhood}
+\newcommand*{\msp} {metric space}
+\newcommand*{\nsp} {normed space}
+\newcommand*{\nlsp}{normed linear space}
+\newcommand*{\Bsp} {Banach space}
+\newcommand*{\Hsp} {Hilbert space}
+\newcommand*{\cts} {continuous}
+
+% Differentiation
+%\newcommand*{\iq}  {inequality}
+\newcommand*{\obv} {of bounded variation}
+\newcommand*{\drv} {derivative}
+\newcommand*{\pdrv}{partial derivative}
+\newcommand*{\ddrv}{directional derivative}
+\newcommand*{\dfbl}{differentiable}
+\newcommand*{\fbl} {\ensuremath{{\text{iff}}\,^{\text{\underline{ble}}}}}
+\newcommand*{\difn}{differentiation}
+\newcommand*{\Difn}{Differentiation}
+\newcommand*{\dfi} {definite integral}
+
+%Differential Equations
+\newcommand*{\DE}  {differential equation}
+\newcommand*{\ODE} {ordinary differential equation}
+\newcommand*{\PDE} {partial differential equation}
+\newcommand*{\sde}[1][] {system of \ensuremath{#1}differential equations}
+\newcommand*{\slde}[1][]{system of \ensuremath{#1}linear differential equations}
+\newcommand*{\icnd}{initial condition}
+\newcommand*{\bcnd}{boundary condition}
+
+% Measure and Probability
+\newcommand*{\Ri}  {Riemann integral}
+\newcommand*{\Ribl}{Riemann integrable}
+\newcommand*{\Rin} {Riemann integration}
+\newcommand*{\RSi} {Riemann-Stieltjes integral}
+\newcommand*{\Li}  {Lebesgue integral}
+\newcommand*{\Libl}{Lebesgue integrable}
+\newcommand*{\Lb}  {Lebesgue measure}
+\newcommand*{\Lbm} {Lebesgue measurable}
+
+\newcommand*{\rv}  {random variable}
+%\newcommand*{\prob}{probability}
+\newcommand*{\cprob}{conditional probability}
+\newcommand*{\cex} {conditional expectation}
+\newcommand*{\psp} {probability space}
+\newcommand*{\sal} {\s-algebra}
+\newcommand*{\ms}  {measurable}
+\newcommand*{\mset}{measurable set}
+\newcommand*{\cms} {collection of measurable sets}
+\newcommand*{\mssp}{measurable space}
+\newcommand*{\mf}  {measurable function}
+\newcommand*{\acs} {absolutely continuous}
+\newcommand*{\disf}{distribution function}
+\newcommand*{\disl}{distribution law}
+
+% Binary Operations
+\newcommand*{\bo}  {binary operation}
+\newcommand*{\comm}{commutative}
+\newcommand*{\mulv}{multiplicative}
+\newcommand*{\mult}{multiplication}
+\newcommand*{\muln}{multiplication}
+\newcommand*{\mlty}{multiplicity}
+
+% General Algebra
+\newcommand*{\Homm}{Homomorphism}
+\newcommand*{\homm}{homomorphism}
+\newcommand*{\enmm}{endomorphism}
+\newcommand*{\monm}{monomorphism}
+\newcommand*{\epim}{epimorphism}
+\newcommand*{\isom}{isomorphism}
+\newcommand*{\autm}{automorphism}
+\newcommand*{\ghom}{group homomorphism}
+\newcommand*{\genm}{group endomorphism}
+\newcommand*{\gmon}{group monomorphism}
+\newcommand*{\gepi}{group epimorphism}
+\newcommand*{\giso}{group isomorphism}
+\newcommand*{\rhom}{ring homomorphism}
+\newcommand*{\renm}{ring endomorphism}
+\newcommand*{\rmon}{ring monomorphism}
+\newcommand*{\repi}{ring epimorphism}
+\newcommand*{\riso}{ring isomorphism}
+
+% Groups
+\newcommand*{\bcf} {binomial coefficient}
+\newcommand*{\perm}{permutation}
+\newcommand*{\sg}  {symmetric group}
+\newcommand*{\tra} {transposition}
+\newcommand*{\dc}  {disjoint cycle}
+\newcommand*{\dcn} {disjoint cycle notation}
+\newcommand*{\er}  {equivalence relation}
+\newcommand*{\ec}  {equivalence class}
+\newcommand*{\cc}  {conjugacy class}
+\newcommand*{\Spg}[1][p]{Sylow ${#1}$-subgroup}
+\newcommand*{\SFT} {Sylow's First theorem}
+\newcommand*{\SST} {Sylow's Second theorem}
+
+% Rings incl Polynomials, Modules
+\newcommand*{\hmg} {homogeneous}
+\newcommand*{\po}  {polynomial}
+\newcommand*{\rf}  {rational function}
+\newcommand*{\coef}{coefficient}
+\newcommand*{\inv} {invariant}
+\newcommand*{\ap}  {annihilating polynomial}
+\newcommand*{\mip} {minimal polynomial}
+\newcommand*{\fg}  {finitely generated}
+\newcommand*{\fgp} {finitely generated projective}
+
+% Fields
+\newcommand*{\ch}  {characteristic}
+\newcommand*{\nf}  {number field}
+\newcommand*{\anf} {algebraic number field}
+
+% QFs and SBFs
+\newcommand*{\icl} {isometry class}
+\newcommand*{\isc} {isometric}
+\newcommand*{\sy}  {symmetric}
+\newcommand*{\rs}  {real symmetric}
+\newcommand*{\rsm}[1][]{real symmetric \ensuremath{#1}matrix}
+\newcommand*{\rsms}[1][]{real symmetric \ensuremath{#1}matrices}
+\newcommand*{\dgn} {degenerate}
+\newcommand*{\ndg} {non-degenerate}
+%\newcommand*{\qc}  {quadratic}
+\newcommand*{\hc}  {hyperbolic}
+\newcommand*{\itc} {isotropic}
+\newcommand*{\ac}  {anisotropic}
+\newcommand*{\bfm} {bilinear form}
+\newcommand*{\sbf} {symmetric bilinear form}
+\newcommand*{\Sbf} {Symmetric bilinear form}
+\newcommand*{\Pf}  {Pfister form}
+\newcommand*{\inp} {inner product}
+\newcommand*{\ips} {inner product space}
+\newcommand*{\posd}{positive definite}
+\newcommand*{\possd}{positive semidefinite}
+\newcommand*{\negd}{negative definite}
+\newcommand*{\pdsbf}{positive definite symmetric bilinear form}
+\newcommand*{\qf}  {quadratic form}
+\newcommand*{\hr}  {hermitian form}
+\newcommand*{\tf}  {trace form}
+\newcommand*{\hf}  {hyperbolic form}
+\newcommand*{\hp}  {hyperbolic plane}
+\newcommand*{\ifm} {isotropic form}
+\newcommand*{\af}  {anisotropic form}
+\newcommand*{\qsp} {quadratic space}
+\newcommand*{\sbs} {symmetric bilinear space}
+\newcommand*{\hs}  {hyperbolic space}
+\newcommand*{\diagn}{diagonalisation}
+\newcommand*{\Hinv}{Hasse invariant}
+\newcommand*{\ob}  {orthogonal basis}
+\newcommand*{\obs} {orthogonal bases}
+\newcommand*{\onb} {orthonormal basis}
+\newcommand*{\ons} {orthonormal set}
+\newcommand*{\Wr}  {Witt ring}
+\newcommand*{\WGr} {Witt-Grothendieck ring}
+
+% CSAs, etc
+\newcommand*{\Ca}  {Clifford algebra}
+\newcommand*{\qa}  {quaternion algebra}
+\newcommand*{\csa} {central simple algebra}
+\newcommand*{\csai} {central simple algebra with involution}
+\newcommand*{\csasi}{central simple algebras with involution}
+\newcommand*{\csK}[1][K]{central simple \ensuremath{#1}-algebra}
+\newcommand*{\csKa}[1][K]{central simple \ensuremath{#1}-algebra}
+\newcommand*{\csKai}[1][K]{central simple \ensuremath{#1}-algebra with involution}
+\newcommand*{\csKasi}[1][K]{central simple \ensuremath{#1}-algebras with involution}
+
+\newcommand*{\Brg} {Brauer group}
+
+% Representation theory
+\newcommand*{\repn}{representation}
+\newcommand*{\irrep}{irreducible representation}
+\newcommand*{\irrch}{irreducible character}
+\newcommand*{\irrpo}{irreducible polynomial}
+\newcommand*{\Gs}  {$G$-set}
+
+% Lambda rings
+\newcommand*{\Ao}  {Adams operation}
+\newcommand*{\lo}  {\l-operation}                     % lambda-operation
+\newcommand*{\gop} {\g-operation}                     % gamma-operation
+\newcommand*{\lr}  {\l-ring}                          % lambda-ring
+\newcommand*{\ea}  {exterior algebra}
+\newcommand*{\sa}  {symmetric algebra}
+\newcommand*{\ep}  {exterior power}
+\newcommand*{\syp} {symmetric power}
+\renewcommand*{\sf}{symmetric function}
+\newcommand*{\esf} {elementary symmetric function}
+\newcommand*{\esp} {elementary symmetric polynomial}
+\newcommand*{\chp} {complete homogeneous polynomial}
+\newcommand*{\aug} {augmentation}
+\newcommand*{\ai}  {augmentation ideal}
+\newcommand*{\fid} {fundamental ideal}
+
+% Abstract nonsense
+\newcommand*{\ses} {short exact sequence}
+\newcommand*{\tfdc}{the following diagram commutes}
+
+% Linear algebra
+\newcommand*{\vsp} {vector space}
+\newcommand*{\smu} {scalar multiplication}
+\newcommand*{\ind} {independent}
+\newcommand*{\dep} {dependent}
+\newcommand*{\lcmb}{linear combination}
+\newcommand*{\lind}{linearly independent}
+\newcommand*{\ldep}{linearly dependent}
+\newcommand*{\be}  {basis element}
+\newcommand*{\bv}  {basis vector}
+\newcommand*{\di}  {dimension}
+\newcommand*{\fd}  {finite-dimension}
+\newcommand*{\dsd} {direct sum decomposition}
+\newcommand*{\os}  {orthogonal sum}
+\newcommand*{\oc}  {orthogonal complement}
+\newcommand*{\tp}  {tensor product}
+\newcommand*{\cp}  {characteristic polynomial}
+\newcommand*{\ce}  {characteristic equation}
+\newcommand*{\de}  {determinant}
+\newcommand*{\evl} {eigenvalue}
+\newcommand*{\evc} {eigenvector}
+\newcommand*{\evs} {eigenspace}
+\newcommand*{\amlt}{algebraic multiplicity}
+\newcommand*{\gmlt}{geometric multiplicity}
+\newcommand*{\dgbl}{diagonalisable}
+\newcommand*{\dgby}{diagonalisability}
+\newcommand*{\sle} {system of linear equations}
+\newcommand*{\ssle}{system of simultaneous linear equations}
+\newcommand*{\sles}{systems of linear equations}
+\newcommand*{\ssles}{systems of simultaneous linear equations}
+\newcommand*{\ERO} {elementary row operation}
+\newcommand*{\ECO} {elementary column operation}
+\newcommand*{\Ero} {Elementary row operation}
+\newcommand*{\Eco} {Elementary column operation}
+
+% Linear Programming terms
+\newcommand*{\eva} {entering variable}
+\newcommand*{\lva} {leaving variable}
+\newcommand*{\bva} {basic variable}
+\newcommand*{\nbv} {non-basic variable}
+\newcommand*{\lp}  {linear programme}
+\newcommand*{\LP}  {Linear Programme}
+\newcommand*{\lpg} {linear programming}
+\newcommand*{\LPg} {Linear Programming}
+\newcommand*{\ipr} {integer programme}
+\newcommand*{\IP}  {Integer Programme}
+\newcommand*{\IPg} {Integer Programming}
+
+% Databases and ERDs
+\newcommand*{\rln} {relation}
+\newcommand*{\rlp} {relationship}
+\newcommand*{\oor} {one-one relationship}
+\newcommand*{\ent} {entity}
+\newcommand*{\ens} {entity set}
+\newcommand*{\eni} {entity instance}
+
+% Algorithms and ADTs
+\newcommand*{\Optn}{Optimisation}
+\newcommand*{\optn}{optimisation}
+\newcommand*{\alg} {algorithm}
+\newcommand*{\adt} {abstract data type}
+\newcommand*{\ADT} {Abstract Data Type}
+\newcommand*{\flop}{\ensuremath{\operatorname{\tt flop}}}
+\newcommand*{\opn} {\ensuremath{\operatorname{\tt op}}}
+\newcommand*{\ophat}{\ensuremath{\operatorname{\hat{\tt op}}}} % previously \oph but changed in compArith+Error.tex
+
+\newcommand*{\bP}  {\textbf{P}}
+\newcommand*{\bNP} {\textbf{NP}}
+
+\newcommand*{\ANN} {Artificial Neural Network}
+\newcommand*{\NN}  {Neural Network}
+\newcommand*{\MLP} {Multi-Layer Perceptron}
+\newcommand*{\RBFN}{Radial Basis Function Network}
+\newcommand*{\SVM} {Support Vector Machine}
+
+\newcommand*{\TSP} {Travelling Salesman Problem}
+\newcommand*{\CPP} {Chinese Postman Problem}
+
+% Supply Chain defs
+\newcommand{\CTVR}{Centre for Telecommunications Value-Chain Research}
+\newcommand{\Sn}{supply network}
+\newcommand{\SN}{Supply Network}
+\newcommand{\Sc}{supply chain}
+\newcommand{\SC}{Supply Chain}
+\newcommand{\SCM}{Supply Chain Management}
+\newcommand{\BWE}{Bullwhip Effect}
+\newcommand{\bwe}{bullwhip effect}
+\newcommand{\MBG}{MIT Beer Distribution Game}
+\newcommand{\bG}{Beer Game}
+\newcommand{\bg}{beer game}
+\newcommand{\BNF}{Backus-Naur Form}
+\newcommand{\MA}{Moving Average}
+\newcommand{\SES}{Single Exponential Smoothing}
+\newcommand{\ARRSES}{Adaptive Response Rate Single Exponential Smoothing }
+\newcommand{\ARRses}{Adaptive Response Rate SES}
+\newcommand{\SMA}{Single Moving Average}
+\newcommand{\EOQ}{Economic Order Quantity}
+\newcommand{\eoq}{economic order quantity}
+\newcommand{\CTVRfoot}{This research was made possible by Science Foundation Ireland (SFI) funding for the Centre for Telecommunications Value-Chain-Driven Research (CTVR) under Grant No.03/CE3/I405.}
+\newcommand{\PtOS}{Point of Sale}
+%
+%   SC Equation Definitions
+\newcommand{\BeerGameEqn}{\displaystyle\sum_{A=1}^4\sum_{T=1}^N(\Inv_{AT} \times \InvCost)+(\Bac_{AT} \times \BacCost)}
+\newcommand{\GERuleEqn}{\textbf{Rule = c mod r}}
+% Using full words makes equation \BeerGameEqn too wide, so comment these...
+%\newcommand{\Inv}{\textit{Inventory}}
+%\newcommand{\InvCost}{\textit{InventoryCost}}
+%\newcommand{\Bac}{\textit{Backorder}}
+%\newcommand{\BacCost}{\textit{BackorderCost}}
+%and use these
+\newcommand{\Inv}{\textit{Inv}}
+\newcommand{\InvCost}{\textit{HC}}  % Holding Cost
+\newcommand{\Bac}{\textit{Back}}
+\newcommand{\BacCost}{\textit{BC}}  % BackOrder Cost
+
+% General text
+\providecommand*{\SMcG}{Dr.~Se\'an McGarraghy}
+\providecommand*{\SMcGemail}{Sean.McGarraghy@ucd.ie}
+\newcommand*{\UCD} {University College Dublin} 
+\newcommand*{\SoB} {School of Business} 
+\newcommand*{\MIS} {Management Information Systems} 
+\providecommand*{\MScBA}{MSc in Business Analytics}
+\providecommand*{\NAS}{Numerical Analytics and Software}
+\newcommand*{\FT}  {Full-time}
+\newcommand*{\PT}  {Part-time}
+
+% for Presentation running orders, etc
+\newcommand*{\Sup}{\textsc{Supervisor:~}}
+\newcommand*{\Spo}{\textsc{Sponsor:~}}
+\newcommand*{\Cathal}{Professor Cathal Brugha}
+\providecommand*{\Peadar}{Dr.~Peter Keenan}
+\providecommand*{\CB}{Professor Cathal Brugha}
+\providecommand*{\PK}{Dr.~Peter Keenan}
+\providecommand*{\PC}{Dr.~Paula Carroll}
+\providecommand*{\JMcD}{Dr.~James McDermott}
+\providecommand*{\CMcD}{Dr.~Conor McDonald}
+\providecommand*{\PCun}{Professor Padraig Cunningham}
+\providecommand*{\NH}{Professor Nick Holden}
+\newcommand*{\TedCox}{Dr.~Ted Cox}
+\newcommand*{\presIntroEntry}[2]{\smallskip\begin{tabular}{l@{\quad}l}{#1}--{#2} & Introduction\end{tabular}}
+\newcommand*{\presBreakEntry}[3][Break]{\smallskip\begin{tabular}{l@{\quad}l}{#2}--{#3} & {#1}\end{tabular}}
+\newcommand*{\presSchedEntry}[5][\SMcG]{\smallskip\begin{tabular}{l@{\quad}p{13.5cm}}{#4}--{#5} & {#2} \\&\emph{#3}\\&\Sup{#1}\end{tabular}}
+\newcommand*{\presSchedEntrySpo}[6][\SMcG]{\smallskip\begin{tabular}{l@{\quad}p{13.5cm}}{#5}--{#6} & {#2} \\&\emph{#3}\\&\Sup{#1}.\quad\Spo{#4}\end{tabular}}
+%\newcommand*{\presSchedEntry}[5][\SMcG]{\bigskip{#4}--{#5} \qquad {#2} \\\emph{#3}\\\Sup{} {#1}}
+% [Supervisor]{Presenters}{Title}(Sponsor){StartTime}{EndTime}
+%\begin{tabular}{ll}
+% suitable for non-dissertation class presentations e.g. reading assignment
+\newcommand*{\presNoSupSchedEntry}[6]{\smallskip\begin{tabular}{l@{\quad}p{13.5cm}}{#5}--{#6} & 
+Group {#1}: {#2} \ifthenelse{\equal{#4}{}}{}{and {#4}} \\&\emph{#3}\end{tabular}}
+
+%\newcommand*{\itema}[1][a]{\item[(\emph{#1})]} 
+\newcommand*{\itema}[1][a]{\ito[(\emph{#1})]} 
+\newcommand*{\ita}[1][a]{(\emph{#1})} 
+\newcommand*{\ito}[1][$\circ$]{\item[#1]} 
+%\newcommand*{\mk}[1][5]{\hfill(\emph{#1~marks})}  % Now in ucdexam.cls
+
+
+% Math Roman abbreviations e.g. Gal(), Aut() etc.
+
+\newcommand*{\lcm}{\ensuremath{\operatorname{lcm}}}   % Least Common Multiple
+\newcommand*{\len}{\ensuremath{\operatorname{length}}}% 
+\newcommand*{\Irr}{\ensuremath{\operatorname{Irr}}}   % minimal polynomial eg Irr(K,a,x)
+\newcommand*{\rank}{\ensuremath{\operatorname{rank}}} % RANK of matrix/linear map
+\newcommand*{\rnk}{\ensuremath{\operatorname{rank}}}  % RaNK of matrix/linear map
+\newcommand*{\Span}{\ensuremath{\operatorname{Span}}} % Linear SPAN
+\newcommand*{\crnk}{\ensuremath{\operatorname{column~rank}}}  % Column RaNK of matrix/linear map
+\newcommand*{\rrnk}{\ensuremath{\operatorname{row~rank}}}  % Row RaNK of matrix/linear map
+\providecommand*{\nll}{\ensuremath{\operatorname{nullity}}} % NULLity of linear map
+\newcommand*{\adj}{\ensuremath{\operatorname{adj}}}   % ADJoint (of matrix)
+\newcommand*{\row}{\ensuremath{\operatorname{row}}}   % ROW (of matrix)
+\newcommand*{\col}{\ensuremath{\operatorname{col}}}   % COLumn (of matrix)
+\newcommand*{\diag}{\ensuremath{\operatorname{diag}}} % DIAGonal matrix
+\newcommand*{\per}{\ensuremath{\operatorname{per}}}   % PERmanent
+\newcommand*{\sign}{\ensuremath{\operatorname{sign}}} % SIGNature
+\newcommand*{\sgn} {\ensuremath{\operatorname{sgn}}}  % SiGN of permutation
+\newcommand*{\cha}{\ensuremath{\operatorname{char}}}  % CHAracteristic
+\newcommand*{\rad}{\ensuremath{\operatorname{rad}}}   % RADical
+\newcommand*{\Tr} {\ensuremath{\operatorname{Trace}}} % Trace
+\renewcommand*{\Im}{\ensuremath{\operatorname{Im}}}   % IMage (of a map)
+\newcommand*{\Cover}{\ensuremath{\operatorname{Cover}}} % Cover (as in measure theory) 
+\newcommand*{\Gal}{\ensuremath{\operatorname{Gal}}}   % Galois group 
+%\newcommand*{\I}  {\ensuremath{\operatorname{id}}}    % identity map 
+\newcommand*{\Ob} {\ensuremath{\operatorname{Ob}}}    % Objects of category
+\newcommand*{\Hom}{\ensuremath{\operatorname{Hom}}}   % morphisms of / Hom functor
+\newcommand*{\End}{\ensuremath{\operatorname{End}}}   % ENDomorphisms of
+\newcommand*{\Aut}{\ensuremath{\operatorname{Aut}}}   % Automorphism group
+\newcommand*{\Map}{\ensuremath{\operatorname{Map}}}   % Map (like Automorphisms)
+\newcommand*{\Fix}{\ensuremath{\operatorname{Fix}}}   % Fixed points/field of 
+\newcommand*{\Inn}{\ensuremath{\operatorname{Inn}}}   % Inner Aut group
+\newcommand*{\B}  {\ensuremath{\operatorname{Br}}}    % Brauer group 
+\newcommand*{\twoB}{\ensuremath{{}_2\!\B}}            % exponent TWO part of Brauer group 
+\newcommand*{\Alg}{\ensuremath{\mathbf{Alg}}}         % Category of (K)-algebras
+\newcommand*{\Et} {\ensuremath{\mathbf{\Acute{E}t}}}  % \'Etale algebra
+\newcommand*{\GL} {\ensuremath{\mathbf{GL}}}          % General Linear group
+\newcommand*{\SL} {\ensuremath{\mathbf{SL}}}          % Special Linear group
+
+\newcommand*{\Cond}{\ensuremath{\operatorname{Cond}}} % (Relative) Condition of a problem 
+\newcommand*{\cond}{\ensuremath{\operatorname{cond}}} % CONDition number
+\newcommand*{\condstar}{\ensuremath{\operatorname{cond_{\text{rel}}^*}}} % CONDition number
+\newcommand*{\condr}{\ensuremath{\operatorname{cond_{\text{rel}}}}} % RELative CONDition number
+\newcommand*{\fl}[1]{\ensuremath{\operatorname{round}(#1)}} % FLoating point representation of number
+\newcommand*{\prodlog}{\ensuremath{\operatorname{productlog}}} % productlog
+
+\newcommand*{\size}{\ensuremath{\operatorname{size}}} % size (e.g., of a graph) 
+\newcommand*{\Adj}{\ensuremath{\operatorname{Adj}}}   % Adjacency list of a vertex in a graph
+\newcommand*{\idg}[1]{\ensuremath{d^{\text{in}}({#1})}} % indegree
+\newcommand*{\odg}[1]{\ensuremath{d^{\text{out}}({#1})}} % outdegree
+\newcommand*{\Avg}[1]{\ensuremath{\operatorname{Avg}}} % outdegree
+\newcommand*{\pred}{\text{predicted}}                  % Originally terms in MLP Error function
+\newcommand*{\act}{\text{actual}}                      % Originally terms in MLP Error function
+\newcommand*{\BMU}{\text{BMU}}                        % Best Matching Unit in SOM etc
+
+\newcommand*{\imp}{\ensuremath{\mathbin{\;\Rightarrow\;}}}  % IMPlies sign
+\newcommand*{\pmi}{\ensuremath{\mathbin{\;\Leftarrow\;}}}  % IMPlies sign going from right to left
+\newcommand*{\fe}[2][\Q]{\ensuremath{{#2}\,/\,{#1}}}  % Field Extension 
+\newcommand*{\ix}[2][\Q]{\ensuremath{[{#2}:{#1}]}}    % IndeX of subgroup/degree of field extension 
+\newcommand*{\zv} {\ensuremath{\mathbf{0}}}           % Zero vector
+\newcommand*{\iQ} {\ensuremath{\sQ_\mr{i}}}           % Cat of 1-1 quadratic spaces
+\newcommand*{\bQ} {\ensuremath{\sQ_\mr{b}}}           % Cat of bijective quad spaces
+\newcommand*{\iB} {\ensuremath{\sB_\mr{i}}}           % Cat of 1-1 symm bilinear spaces
+\newcommand*{\nB} {\ensuremath{\sB_\mr{n}}}           % Cat of non-injective symm bil spaces
+\newcommand*{\DD}[3][t]{\ensuremath{D_{#2}^{#3}(#1)}} % polynomial D_n^k(t)
+\newcommand*{\CC}[3][t]{\ensuremath{C_{#2}^{#3}(#1)}} % polynomial C_n^k(t) (symm fns)
+\newcommand*{\zs}[1]{\ensuremath{{#1}^{-1}(0)}}       % Zero Set of function #1
+\renewcommand*{\i}[1]{\ensuremath{{#1}^{-1}}}         % Inverse of geezer #1
+\newcommand*{\cj}[2]{\ensuremath{{#1}^{-1}{#2}{#1}}}  % ConJugate of geezer #1 by #2
+
+% spacing/heading commands
+
+\newcommand*{\cpb}{\vspace{\fill}\pagebreak}          % Clean PageBreak inside paragraph
+\newcommand*{\cb}{\hspace*{\fill}\\*[\medskipamount]} % Clean Break inside paragraph
+\newcommand*{\cbb}{\hspace*{\fill}\\[\medskipamount]} % Clean Break, may have page Break
+\newcommand*{\cbs}{\hspace*{\fill}\\*[\smallskipamount]} % Small Clean Break inside paragraph
+\newcommand*{\cbbs}{\hspace*{\fill}\\[\smallskipamount]} % Small Clean Break, may have page break
+%\newcommand*{\cbl}[1][0pt]{\hspace*{\fill}\\*[{#1}]}    % No/settable gap Clean Break inside paragraph
+%\newcommand*{\cbbl}[1][0pt]{\hspace*{\fill}\\[{#1}]}    % No/settable gap Clean Break, may have page break
+\newcommand*{\cbl}{\hspace*{\fill}\\*[0pt]}    % No gap Clean Break inside paragraph
+\newcommand*{\cbbl}{\hspace*{\fill}\\[0pt]}    % No gap Clean Break, may have page break
+
+\newcommand*{\qt}[1]{\ensuremath{\quad\text{#1}\quad}}
+\newcommand*{\qqt}[1]{\ensuremath{\qquad\text{#1}\qquad}}
+
+\newcommand*{\subhead}[1]{  
+            \begin{center}
+            \tb{#1}
+            \end{center}\\*}
+
+
+% Various inclusion, ideal, equivalence, mapping symbols
+
+%\newcommand*{\squig}{\sim\!\sim\!\rightarrow}  % old definition
+\newcommand*{\squig}{\rightsquigarrow}
+\newcommand*{\sqg} {\squig}
+\newcommand*{\Hugesquigglyarrow}{\raisebox{-0.6ex}{\mbox{\Huge${\leadsto}$}}}
+\newcommand*{\eqv} {\ensuremath{\mathbin\Leftrightarrow}}  % EQuiValence sign
+\newcommand*{\app} {\ensuremath{\rightarrow}}          % APProaches/tends to (limit)
+\newcommand*{\map} {\ensuremath{\longrightarrow}}      % set MAPs to (long arrow)
+\newcommand*{\fp}[3]{\ensuremath{{#1}:{#2}\map{#3}}}  % Function/maP f:A--->B
+\newcommand*{\ma}[3]{\ensuremath{{#1}:\R^{#2}\map\R^{#3}}} % MAp f:R^n--->R^m
+\newcommand*{\lma}[4][]{linear map{#1} \ma{#2}{#3}{#4}} % linear map(s) f:R^n--->R^m
+\newcommand*{\imap}[1][]{\ensuremath{
+                   \stackrel{\ssk{#1}}{\hookrightarrow}}}     % Injective MAP
+\newcommand*{\smap}[1][]{\ensuremath{
+                   \stackrel{\ssk{#1}}{\twoheadrightarrow}}}  % Surjective MAP
+\newcommand*{\bmap}{\ensuremath{\longleftrightarrow}} % Both-way MAP (one-one correspondence)
+\newcommand*{\itmp}[1]{\ensuremath{
+                      \stackrel{\ssk{#1}}{\imap} }}   % scriptsize #1 atop c--> arrow
+\newcommand*{\stmp}[1]{\ensuremath{
+                      \stackrel{\ssk{#1}}{\smap} }}   % scriptsize #1 atop -->> arrow
+\newcommand*{\tmap}[1]{\ensuremath{
+                      \stackrel{\ssk{#1}}{\map} }}    % scriptsize #1 atop ---> arrow
+\newcommand*{\lmap}[1]{\ensuremath{{\scriptstyle #1}
+                                    \Big\downarrow}}  % scriptsize #1 to Left of down arrow
+\newcommand*{\rmap}[1]{\ensuremath{\Big\downarrow 
+                                   {\scriptstyle #1}}}% scriptsize #1 to Right of down arrow
+\newcommand*{\lmup}[1]{\ensuremath{{\scriptstyle #1}
+                                    \Big\uparrow}}    % scriptsize #1 to Left of UP arrow
+\newcommand*{\rmup}[1]{\ensuremath{\Big\uparrow 
+                                   {\scriptstyle #1}}}% scriptsize #1 to Right of UP arrow
+\newcommand*{\mpt}{\ensuremath{\longmapsto}}          % element maps to (long arrow with bar)
+\newcommand*{\tmpt}[1]{\ensuremath{
+                               \stackrel{#1}{\mpt}}}  % scriptsize #1 atop |--> arrow
+\newcommand*{\iso}{\ensuremath{\cong}}                % `ISOmorphic to' sign
+\newcommand*{\cng}{\ensuremath{\equiv}}               % CoNGruent to 
+\newcommand*{\rpi}[1][\pi]{\ensuremath{\stackrel{#1}{\sim}}} % single tilde RELation sign
+\newcommand*{\rel}{\ensuremath{\sim}}                 % single tilde RELation sign
+\newcommand*{\Weq}{\ensuremath{\sim}}                 % EQuivalent in Witt ring (single tilde)
+\newcommand*{\ism}{\ensuremath{\simeq}}               % ISoMetric (single tilde atop minus sign)
+\newcommand*{\nml}{\ensuremath{\lhd}}                 % ideal or NorMaL subgroup of
+\newcommand*{\nme}{\ensuremath{\unlhd}}               % ideal or NorMal subgroup of/Equal to
+\newcommand*{\nul}{\ensuremath{\varnothing}}          % NULl set: nicer than \emptyset 
+\newcommand*{\su} {\ensuremath{\subset}}              % SUbset of
+\newcommand*{\se} {\ensuremath{\subseteq}}            % Subset of/Equal to
+\newcommand*{\sne}{\ensuremath{\subsetneqq}}          % Subset of but Not Equal to
+\newcommand*{\sm} {\ensuremath{\smallsetminus}}       % set difference (Set Minus)
+\newcommand*{\ow} {\ensuremath{\owns}}                % superset of
+\providecommand*{\nin}{\ensuremath{\notin}}               % not an element of
+\newcommand*{\la} {\ensuremath{\langle}}              % Left Angle bracket
+\newcommand*{\ra} {\ensuremath{\rangle}}              % Right Angle bracket
+\newcommand*{\du} {\ensuremath{\;\dot{\cup}\;}}       % Disjoint Union (dot over cup sign)
+\newcommand*{\bigdu}{\ensuremath{\operatornamewithlimits{\dot{\bigcup}}}} % BIG Disjoint Union 
+\newcommand*{\ds} {\ensuremath{\oplus}}               % Direct Sum 
+\newcommand*{\tn} {\ensuremath{\otimes}}              % TeNsor product
+\newcommand*{\by} {\ensuremath{\times}}               % direct product (cross product)
+\newcommand*{\cupp}{\ensuremath{\mbox{{\tiny$\smile$}}}}% cohomology CUP Product
+\newcommand*{\bds}{\ensuremath{\bigoplus}}            % Big Direct Sum (for use with indices)
+\newcommand*{\btn}{\ensuremath{\bigotimes}}           % Big TeNsor product (for use with indices)
+\newcommand*{\dv} {\ensuremath{\mathbin{\text{div}}}} % integer div operation
+
+
+% various maths commands
+\newcommand*{\wh}[1]{\widehat{#1}}                    % Wide Hat over #1
+\newcommand*{\rt}{\right}
+\newcommand*{\lt}{\left}
+\newcommand*{\oo}{\ensuremath{\infty}}                % oo = infinity
+\newcommand*{\cpd}[1][A]{\ensuremath{\det({#1}-\l I)}} % char poly eg det(A-lI)
+\newcommand*{\pff}[1]{\ensuremath{\la\!\la{#1}\ra\!\ra}} % PFister Form <<#1>>
+\newcommand*{\spff}[1]{\ensuremath{\{\!\!\{{#1}\}\!\!\}}} % Signed PFister Form <<#1>>
+
+% special uses of symbols (letters) in upright (mathrm) fonts
+% \newcommand*{\zd}{\mathrm{d}}   % d for use in derivatives/integrals
+% \newcommand*{\zi}{\mathrm{i}}   % square root of -1
+% \newcommand*{\ze}{\mathrm{e}}   % base of natural log
+\newcommand*{\zd}{\text{d}}   % d for use in derivatives/integrals
+\newcommand*{\zi}{\text{i}}   % square root of -1
+\newcommand*{\ze}{\text{e}}   % base of natural log
+
+% commands for stacking symbols/text atop each other
+\newcommand*{\und}[2]{\underbrace{#1}_{#2}}           % underbrace (#2 under #1)
+\newcommand*{\srl}[2]{\stackrel{#1}{#2}}              % scriptsize #1 atop normal size #2
+%  \rule[raise-height]{width}{height}
+% The \rule command generates a rectangular "blob of ink." It can be used to produce horizontal or vertical lines. The arguments are defined as follows.
+%     * raise-height specifies how high to raise the rule (optional)
+%     * width specifies the length of the rule (mandatory)
+%     * height specifies the height of the rule (mandatory) 
+% The default value for raise-height is zero; a negative value lowers the rule.
+% The reference point of the rule box is the lower left-hand corner.
+% A rule box of zero width may be used as a "strut" which is invisible but which causes LaTeX to adjust veritcal spacing to leave room. This can be particularly useful where the \vspace command cannot be used, for example, within mathematical formulas.
+% The \rule command is fragile. 
+%\newcommand*{\Tspace}{\rule{0pt}{1.6ex}}              % Top SPACE for table/substack text
+%\newcommand*{\Bspace}{\rule[-0.3ex]{0pt}{0pt}}        % Bottom SPACE for table/substack text
+\newcommand*{\Tspace}{\rule{0pt}{1.3ex}}              % Top SPACE for table/substack text
+\newcommand*{\Bspace}{\rule[-0.35ex]{0pt}{0pt}}        % Bottom SPACE for table/substack text
+%\newcommand*{\TB}{\vspace{0.4ex}}                     % Top and Bottom space for table/substack text
+\newcommand*{\TB}{\Tspace\Bspace}                     % Top and Bottom space for table/substack text
+\newcommand*{\ssk}[1]{\substack{#1}}                  % parts \\ of #1 scriptsize atop each other 
+\newcommand*{\sqsk}[1]{\ensuremath{\substack{[#1]}}}  % parts \\ of #1 scriptsize atop each other, in [ ] 
+\newcommand*{\usk}[2]{\underbrace{#1}_{\substack{#2}}}% parts \\ of #2 scriptsize under #1
+\newcommand*{\ttp}[1]{\TB\text{#1}}               % for use with \ssk/\substack scriptsize text: top line 
+\newcommand*{\tsk}[1]{\\\TB\text{#1}}                 % for use with \ssk/\substack scriptsize text: not top line 
+\newcommand*{\ttpe}[1]{\TB\textit{#1}}               % for use with \ssk/\substack scriptsize text: top line 
+\newcommand*{\tske}[1]{\\\TB\textit{#1}}                 % for use with \ssk/\substack scriptsize text: not top line 
+
+% Logic and proof
+\newcommand*{\LT} {\texttt{T}}
+\newcommand*{\LF} {\texttt{F}}
+\newcommand*{\NOT}{\mathop\mathrm{not}}
+\newcommand*{\AND}{\mathbin\mathrm{and}}
+\newcommand*{\OR} {\mathbin\mathrm{or}}
+%CHANGED  \newcommand*{\Pf}  {\noindent\tb{Proof: }}  % for backwards compatibility only
+%\newcommand*{\eop} {~~\vrule height 6 pt width 6 pt depth 0 pt\relax}
+\newcommand*{\eop} {{\Large\ensuremath{\square}}}
+\newcommand*{\QED} {\mbox{}\hfill\eop}
+\newcommand*{\exEnd}{\mbox{}\hfill$\diamondsuit$}
+
+% Binomial coefficient
+\newcommand*{\bin}[2]{\ensuremath{\binom{#1}{#2}}}
+
+% Binomial coefficient (textstyle i.e. Small font)
+\newcommand*{\sbin}[2]{\ensuremath{\tbinom{#1}{#2}}}
+
+% Binomial coefficient (displaystyle i.e. Big font)
+\newcommand*{\bbin}[2]{\ensuremath{\dbinom{#1}{#2}}}
+
+% ordered pairs and 2-cycles, 3-cycles, 4-cycles, 5-cycles, 6-cycles, 7-cycles 
+\newcommand*{\op}[2]{\ensuremath{({#1},{#2})}}
+\newcommand*{\cyc}[2]{\ensuremath{({#1}\,{#2})}}
+\newcommand*{\cycc}[3]{\ensuremath{({#1}\,{#2}\,{#3})}}
+\newcommand*{\cyccc}[4]{\ensuremath{({#1}\,{#2}\,{#3}\,{#4})}}
+\newcommand*{\cycccc}[5]{\ensuremath{({#1}\,{#2}\,{#3}\,{#4}\,{#5})}}
+\newcommand*{\cyccccc}[6]{\ensuremath{({#1}\,{#2}\,{#3}\,{#4}\,{#5}\,{#6})}}
+\newcommand*{\cycccccc}[7]{\ensuremath{({#1}\,{#2}\,{#3}\,{#4}\,{#5}\,{#6}\,{#7})}}
+
+% derivatives
+\newcommand*{\pd}{\ensuremath{\partial}}              % Partial Derivative curly d
+\newcommand*{\grad}{\ensuremath{\nabla}}              % gradient (nabla)
+%\newcommand*{\dd}[1]{\ensuremath{\displaystyle{\frac{\mathrm{d}}{\mathrm{d}{#1}}}}}
+\newcommand*{\dd}[1]{\ensuremath{\frac{\zd}{\zd{#1}}}}      % first ordinary derivative
+\newcommand*{\sdd}[1]{\ensuremath{\frac{\zd^2}{\zd{#1}^2}}} % second ordinary derivative
+\newcommand*{\ddd}[2]{\ensuremath{\frac{\zd{#1}}{\zd{#2}}}}      % first ordinary derivative
+\newcommand*{\sddd}[2]{\ensuremath{\frac{\zd^2{#1}}{\zd{#2}^2}}} % second ordinary derivative
+\newcommand*{\pdd}[1]{\ensuremath{\frac{\partial}{\partial{#1}}}} % first partial derivative
+\newcommand*{\psdd}[1]{\ensuremath{\frac{\partial^2}{\partial{#1}^2}}} % second partial derivative
+\newcommand*{\pddd}[2]{\ensuremath{\frac{\partial{#1}}{\partial{#2}}}} % first partial derivative
+\newcommand*{\psddd}[2]{\ensuremath{\frac{\partial^2{#1}}{\partial{#2}^2}}} % first partial derivative
+
+% integrals
+\newcommand*{\LI}[3]{\ensuremath{\int_{#1} {#2}\,\zd{#3}}}
+\newcommand*{\LIi}[2]{\ensuremath{\int {#1}\,\zd{#2}}}
+\newcommand*{\LIl}[4]{\ensuremath{\int_{#1}^{#2} {#3}\,\zd{#4}}}
+\newcommand*{\RIi}[2]{\ensuremath{\int {#1}({#2})\,\zd{#2}}}
+\newcommand*{\RI}[4]{\ensuremath{\int_{#1}^{#2} {#3}({#4})\,\zd{#4}}}
+\newcommand*{\RSii}[3]{\ensuremath{\int {#1}({#3})\,\zd{#2}({#3})}}
+\newcommand*{\RS}[5]{\ensuremath{\int_{#1}^{#2} {#3}({#5})\,\zd{#4}({#5})}}
+\newcommand*{\Rs}[4]{\ensuremath{\int_{#1}^{#2} {#3}\,\zd{#4}}}
+%\newcommand*{\Rsu}[4]{\ensuremath{\overline{\int}_{#1}^{\raisebox{-3pt}{{#2}}}\,{#3}\,d{#4}}}
+%\newcommand*{\Rsl}[4]{\ensuremath{\underline{\int}_{\raisebox{3pt}{{#1}}}^{#2}\,{#3}\,d{#4}}}
+\newcommand*{\Rsu}[4]{\ensuremath{\overline{\int}\!\!\ _{#1}^{#2}\,{#3}\,\zd{#4}}}
+\newcommand*{\Rsl}[4]{\ensuremath{\underline{\int}\!\!\ _{#1}^{#2}\,{#3}\,\zd{#4}}}
+
+\newcommand*{\polyn}[3][n]{\ensuremath{{#3}_0+{#3}_1{#2}+\cdots+{#3}_{#1}{#2}^{#1}}}
+
+% BASIC BUILDING BLOCK MACROS
+
+% DiaGonal matrix (with angle brackets)  e.g. < a >
+\newcommand*{\dg}[1]{\ensuremath{\la {#1} \ra}}         %puts argument in angle brackets
+\newcommand*{\brc}[1]{\ensuremath{\left\{{#1}\right\}}} %puts argument in braces
+\newcommand*{\sqb}[1]{\ensuremath{\left[{#1}\right]}}   %puts argument in square brackets
+\newcommand*{\av}[1]{\ensuremath{\left|#1\right|}}      %puts argument in absolute value bars
+
+% LIST TEMPLATE
+\newcommand*{\mylisttemplate}[5]
+            {\ensuremath{ #1 #3 #4 #5 #2 }}
+
+
+% NON-INDEXED TEMPLATE
+\newcommand*{\mynonindexedtemplate}[5][1]
+            {\ensuremath{ \mylisttemplate{#1}{#2}{#3}{#4}{#5} }}
+
+% Non-indexed objects List (without braces) e.g. m, ... , n 
+\newcommand*{\mynl}[2][1]          % originally \nl
+           {\ensuremath{ \mynonindexedtemplate[#1]{#2}{,}{\ldots}{,} }}
+\renewcommand*{\nl}[2][1]
+           {\ensuremath{ \mynonindexedtemplate[#1]{#2}{,}{\ldots}{,} }}
+
+% Non-indexed objects Set (with braces) e.g. { m, ... , n }
+\newcommand*{\ns}[2][1]
+            {\ensuremath{ \{ \nl[#1]{#2} \} }}
+
+% Non-indexed objects diaGonal matrix e.g. < m, ... , n >
+\renewcommand*{\ng}[2][1]
+            {\ensuremath{\dg{\nl[#1]{#2}}}}
+
+% Non-indexed objects suM e.g. m + ... + n 
+\newcommand*{\nm}[2][1]
+            {\ensuremath{ \mynonindexedtemplate[#1]{#2}{+}{\cdots}{+} }}
+
+% Non-indexed objects Direct sum e.g. m + ... + n 
+\newcommand*{\nd}[2][1]
+            {\ensuremath{ \mynonindexedtemplate[#1]{#2}{\oplus}{\cdots}{\oplus} }}
+
+% Non-indexed objects Orthogonal sum e.g. m _L ... _L n 
+\newcommand*{\no}[2][1]
+            {\ensuremath{ \mynonindexedtemplate[#1]{#2}{\perp}{\cdots}{\perp} }}
+
+% Non-indexed objects Product e.g. m ... n 
+\newcommand*{\np}[2][1]
+            {\ensuremath{ \mynonindexedtemplate[#1]{#2}{\,}{\cdots}{\,} }}
+
+% Non-indexed objects Asterisk product e.g. m * ... * n 
+\newcommand*{\na}[2][1]
+            {\ensuremath{ \mynonindexedtemplate[#1]{#2}{*}{\cdots}{*} }}
+
+% Non-indexed objects product By e.g. m x ... x n 
+\newcommand*{\nb}[2][1]
+            {\ensuremath{ \mynonindexedtemplate[#1]{#2}{\times}{\cdots}{\times} }}
+
+% Non-indexed objects Tensor product e.g. m @ ... @ n 
+\newcommand*{\nt}[2][1]
+            {\ensuremath{ \mynonindexedtemplate[#1]{#2}{\otimes}{\cdots}{\otimes} }}
+
+% Non-indexed objects Wedge product e.g. m ^ ... ^ n 
+\newcommand*{\nw}[2][1]
+            {\ensuremath{ \mynonindexedtemplate[#1]{#2}{\wedge}{\cdots}{\wedge} }}
+
+% Non-indexed objects Range e.g. m < ... < n 
+\newcommand*{\nr}[2][1]
+            {\ensuremath{ \mynonindexedtemplate[#1]{#2}{<}{\cdots}{<} }}
+
+% Non-indexed objects Cycle (in Symmetric group) e.g. ( a ... b ) 
+\newcommand*{\nc}[2][1]
+            {\ensuremath{ \mynonindexedtemplate[#1]{#2}{\,}{\ldots}{\,} }}
+
+
+% INDEX TEMPLATE FOR SUPERSCRIPTS (based on INDEX TEMPLATE below)
+\newcommand*{\mysuperscripttemplate}[6][1]
+            {\ensuremath{ \mylisttemplate{{#2}^{#1}}{{#2}^{#3}}{#4}{#5}{#6} }}
+
+% Superscripted objects List (without braces) e.g. a^m, ..., a^n 
+\newcommand*{\uil}[3][1]
+            {\ensuremath{ \mysuperscripttemplate[#1]{#2}{#3}{,}{\ldots}{,} }}
+
+% Superscripted objects Set (with braces) e.g. { a^m, ..., a^n }
+\newcommand*{\uis}[3][1]
+            {\ensuremath{\{\uil[#1]{#2}{#3}\}}}
+
+% Superscripted objects diaGonal (with angle brackets)  e.g. < a^m, ..., a^n >
+\newcommand*{\uig}[3][1]
+            {\ensuremath{\dg{\uil[#1]{#2}{#3}}}}
+
+% Superscripted objects suM e.g. a^m + ... + a^n  
+\newcommand*{\uim}[3][1]
+            {\ensuremath{ \mysuperscripttemplate[#1]{#2}{#3}{+}{\cdots}{+} }}
+
+% Superscripted objects Orthogonal sum e.g. a^m _L ... _L a^n  
+\newcommand*{\uio}[3][1]
+            {\ensuremath{ \mysuperscripttemplate[#1]{#2}{#3}{\perp}{\cdots}{\perp} }}
+
+% Superscripted objects Product e.g. a^m ... a^n  
+\newcommand*{\uip}[3][1]
+            {\ensuremath{ \mysuperscripttemplate[#1]{#2}{#3}{\,}{\cdots}{\,} }}
+
+% Superscripted objects product with PERMutation e.g. a^{\s(m)} ... a^{\s(n)}  
+\newcommand*{\uiperm}[4][1]
+            {\ensuremath{ \mysuperscripttemplate[#4(#1)]{#2}{#4(#3)}{\,}{\cdots}{\,} }}
+
+% Superscripted objects List with PERMutation e.g. a^{\s(m)}, ... , a^{\s(n)}  
+\newcommand*{\uilperm}[4][1]
+            {\ensuremath{ \mysuperscripttemplate[#4(#1)]{#2}{#4(#3)}{,}{\ldots}{,} }}
+
+% Superscripted objects product By e.g. a^m x ... x a^n  
+\newcommand*{\uib}[3][1]
+            {\ensuremath{ \mysuperscripttemplate[#1]{#2}{#3}{\times}{\cdots}{\times} }}
+
+% Superscripted objects product Asterisk e.g. a^m * ... * a^n  
+\newcommand*{\uia}[3][1]
+            {\ensuremath{ \mysuperscripttemplate[#1]{#2}{#3}{*}{\cdots}{*} }}
+
+% Superscripted objects Tensor product e.g. a^m @ ... @ a^n  
+\newcommand*{\uit}[3][1]  
+            {\ensuremath{ \mysuperscripttemplate[#1]{#2}{#3}{\otimes}{\cdots}{\otimes} }}
+
+
+% INDEX TEMPLATE
+\newcommand*{\myindextemplate}[6][1]
+            {\ensuremath{ \mylisttemplate{{#2}_{#1}}{{#2}_{#3}}{#4}{#5}{#6} }}
+
+% Indexed objects List (without braces) e.g. a_m, ..., a_n 
+\renewcommand*{\il}[3][1]
+            {\ensuremath{ \myindextemplate[#1]{#2}{#3}{,}{\ldots}{,} }}
+
+% Indexed Indexed objects List (without braces) e.g. a_i_m, ..., a_i_n  
+\newcommand*{\iil}[4][1]
+            {\ensuremath{\il[{{#3}_{#1}}]{#2}{{{#3}_{#4}}}}} 
+
+% Indexed objects Set (with braces) e.g. { a_m, ..., a_n }
+\newcommand*{\is}[3][1]
+            {\ensuremath{\{\il[#1]{#2}{#3}\}}}
+
+% Indexed Indexed objects Set (with braces) e.g. { a_i_m, ..., a_i_n } 
+\newcommand*{\iis}[4][1]
+            {\ensuremath{\is[{{#3}_{#1}}]{#2}{{{#3}_{#4}}}}} 
+
+% Indexed objects diaGonal (with angle brackets)  e.g. < a_m, ..., a_n >
+\newcommand*{\ig}[3][1]
+            {\ensuremath{\dg{\il[#1]{#2}{#3}}}}
+
+% Indexed Indexed objects diaGonal (angle brackets) e.g. < a_i_m, ..., a_i_n >  
+\newcommand*{\iig}[4][1]
+            {\ensuremath{\ig[{{#3}_{#1}}]{#2}{{{#3}_{#4}}}}} 
+
+% Indexed Indexed objects Product diaGonal e.g. < a_i_m ... a_i_n >  
+\newcommand*{\iipg}[4][1]{\ensuremath{\dg{\iip[#1]{#2}{#3}{#4}}}}
+
+% Indexed Indexed objects Product diagonal with Factorials 
+% e.g. < k_i_m!a_i_m^{k_i_m} ... k_i_n!a_i_n^{k_i_m} >  
+\newcommand*{\iipf}[5][1]{\ensuremath{\dg{\np[{#4}_{{#3}_{#1}}!\,{#2}_{{#3}_{#1}}^{{#4}_{{#3}_{#1}}}]
+                                             {{#4}_{{#3}_{#5}}!\,{#2}_{{#3}_{#5}}^{{#4}_{{#3}_{#5}}}} 
+                                          }}}
+
+%\orth_{\ssk{\irl{i}{k}{n}\\\im kn=k}} \np[e_1^{k_1}]{e_n^{k_n}}
+
+%\orth_{\ssk{\irl[#1]{#3}{#4}{#5}\\\im{#4}{#5}={#4}}}^{#6} \iipf[#1]{#2}{#3}{#4}  } }
+
+% Indexed objects suM e.g. a_m + ... + a_n  
+\newcommand*{\im}[3][1]
+            {\ensuremath{ \myindextemplate[#1]{#2}{#3}{+}{\cdots}{+} }}
+
+% Indexed Indexed objects suM e.g. a_i_m + ... + a_i_n  
+\newcommand*{\iim}[4][1]
+            {\ensuremath{\im[{{#3}_{#1}}]{#2}{{{#3}_{#4}}}}} 
+
+% Indexed objects Orthogonal sum e.g. a_m _L ... _L a_n  
+\newcommand*{\io}[3][1]
+            {\ensuremath{ \myindextemplate[#1]{#2}{#3}{\perp}{\cdots}{\perp} }}
+
+% Indexed Indexed objects Orthogonal sum e.g. a_i_m _L ... _L a_i_n  
+\newcommand*{\iio}[4][1]
+            {\ensuremath{\io[{{#3}_{#1}}]{#2}{{{#3}_{#4}}}}} 
+
+% Indexed objects Product e.g. a_m ... a_n  
+\newcommand*{\ip}[3][1]
+            {\ensuremath{ \myindextemplate[#1]{#2}{#3}{\,}{\cdots}{\,} }}
+
+% Indexed Indexed objects Product e.g. a_i_m ... a_i_n  
+\newcommand*{\iip}[4][1]
+            {\ensuremath{\ip[{{#3}_{#1}}]{#2}{{{#3}_{#4}}} }} 
+%            {\ensuremath{{#1}_{{#2}_1} {#1}_{{#2}_2} \cdots {#1}_{{#2}_{#3}} }}
+
+% Indexed objects product with PERMutation e.g. a_{\s(m)} ... a_{\s(n)}  
+\newcommand*{\iperm}[4][1]
+            {\ensuremath{ \myindextemplate[#4(#1)]{#2}{#4(#3)}{\,}{\cdots}{\,} }}
+
+% Indexed indexed objects product with PERMutation e.g. a_{\s(m)} ... a_{\s(n)}  
+\newcommand*{\iiperm}[5][1]
+            {\ensuremath{\iperm[{{#3}_{#1}}]{#2}{{{#3}_{#4}}}{#5}}} 
+
+% Indexed objects List with PERMutation e.g. a_{\s(m)}, ... , a_{\s(n)}  
+\newcommand*{\ilperm}[4][1]
+            {\ensuremath{ \myindextemplate[#4(#1)]{#2}{#4(#3)}{,}{\ldots}{,} }}
+
+% Indexed indexed objects List with PERMutation e.g. a_{\s(m)}, ... , a_{\s(n)}  
+\newcommand*{\iilperm}[5][1]
+            {\ensuremath{\ilperm[{{#3}_{#1}}]{#2}{{{#3}_{#4}}}{#5}}} 
+
+            % list PRoduct of Indexed objects where index varies e.g. u_1 ... u_n
+%            \newcommand*{\pri}[2]{\ensuremath{ {#1}_{1} \cdots {#1}_{#2} }}
+
+%            \newcommand*{\dww}[3]{\ensuremath{    % subscripts not nec. starting from 1
+%                                 {#1}_{#2}\cdot{#1}_{#2+1}\cdots\wedge {#1}_{#3} } }
+%            \newcommand*{\dw}[2]{\ensuremath{    % subscripts starting from 1
+%                                 {#1}_1\cdot {#1}_2 \cdots {#1}_{#2} } }
+%            \newcommand*{\dx}[3]{\ensuremath{    % subscripts of subscripts
+%                                {#1}_{{#2}_1}\cdot{#1}_{{#2}_2}\cdots{#1}_{{#2}_{#3}} } }
+
+% Indexed objects product By e.g. a_m x ... x a_n  
+\newcommand*{\ib}[3][1]
+            {\ensuremath{ \myindextemplate[#1]{#2}{#3}{\times}{\cdots}{\times} }}
+
+% Indexed Indexed objects product By e.g. a_i_m x ... x a_i_n  
+\newcommand*{\iib}[4][1]
+            {\ensuremath{\ib[{{#3}_{#1}}]{#2}{{{#3}_{#4}}} }} 
+
+% Indexed objects product Asterisk e.g. a_m * ... * a_n  
+\newcommand*{\ia}[3][1]
+            {\ensuremath{ \myindextemplate[#1]{#2}{#3}{*}{\cdots}{*} }}
+
+% Indexed Indexed objects product Asterisk e.g. a_i_m * ... * a_i_n  
+\newcommand*{\iia}[4][1]
+            {\ensuremath{\ia[{{#3}_{#1}}]{#2}{{{#3}_{#4}}} }} 
+
+% Indexed objects Tensor product e.g. a_m @ ... @ a_n  
+\newcommand*{\myit}[3][1]  % originally \it but clashes with (La)TeX italics
+            {\ensuremath{ \myindextemplate[#1]{#2}{#3}{\otimes}{\cdots}{\otimes} }}
+
+% Indexed Indexed objects Tensor product e.g. a_i_m @ ... @ a_i_n  
+\newcommand*{\iit}[4][1]
+            {\ensuremath{\myit[{{#3}_{#1}}]{#2}{{{#3}_{#4}}} }} 
+
+% Indexed objects Tensor product of Two objects e.g. a_m @ a_n  
+\newcommand*{\itt}[3][1]
+            {\ensuremath{ \myindextemplate[#1]{#2}{#3}{}{\otimes}{} }}
+
+% Indexed Indexed objects Tensor product of Two objects e.g. a_i_m @ a_i_n  
+\newcommand*{\iitt}[4][1]
+            {\ensuremath{\itt[{{#3}_{#1}}]{#2}{{{#3}_{#4}}} }} 
+
+% Indexed Indexed objects Tensor product of Double objects e.g. a_i_m @ a_j_m  
+\newcommand*{\iitd}[4][1]
+            {\ensuremath{\itt[{{#3}_{#1}}]{#2}{{{#4}_{#1}}} }} 
+
+% `Indexed objects' Tensor product of Double objects e.g. a_n @ b_n  
+\newcommand*{\itd}[3][1]
+            {\ensuremath{ \mynonindexedtemplate[{#2}_{#1}]{{#3}_{#1}}{}{\otimes}{} }}
+
+% Indexed Indexed objects Double tensor product of Double objects e.g. a_i_m @ b_i_m  
+\newcommand*{\iidd}[4][1]
+            {\ensuremath{\itd[{{#4}_{#1}}]{#2}{#3} }} 
+
+% Indexed objects Product of Double tensor products e.g. (a_1@b_1) ... (a_n@b_n)  
+\newcommand*{\ipd}[4][1]
+            {\ensuremath{(\itd[#1]{#2}{#3})\cdots(\itd[#4]{#2}{#3})}}
+
+% Indexed objects eQual e.g. a_m = ... = a_n  
+\newcommand*{\iq}[3][1]
+            {\ensuremath{ \myindextemplate[#1]{#2}{#3}{=}{\cdots}{=} }}
+
+% Indexed Indexed objects eQual e.g. a_i_m = ... = a_i_n  
+\newcommand*{\iiq}[4][1]
+            {\ensuremath{\iq[{{#3}_{#1}}]{#2}{{{#3}_{#4}}} }} 
+
+% Indexed objects Wedge product e.g. a_m ^ ... ^ a_n  
+\newcommand*{\iw}[3][1]
+            {\ensuremath{ \myindextemplate[#1]{#2}{#3}{\wedge}{\cdots}{\wedge} }}
+
+% Indexed Indexed objects Wedge product e.g. a_i_m ^ ... ^ a_i_n  
+\newcommand*{\iiw}[4][1]
+            {\ensuremath{\iw[{{#3}_{#1}}]{#2}{{{#3}_{#4}}}}} 
+
+% Indexed objects Wedge of Double tensor products e.g. (a_1@b_1) ^ ... ^ (a_n@b_n)  
+\newcommand*{\iwd}[4][1]
+            {\ensuremath{ \nw{(\itd[#1]{#2}{#3})}{(\itd[#4]{#2}{#3})} } }
+
+% Indexed Indexed Wedge of tensor product of Two objects e.g. 
+% (a_i_m@a_i_n) ^ ... ^ (a_j_m@a_j_n)  
+\newcommand*{\iiwt}[5][1]
+            {\ensuremath{ \nw{(\iitt[#1]{#2}{#3}{#5})}{(\iitt[#1]{#2}{#4}{#5})} } }
+
+% Indexed Indexed Wedge of Double tensor product e.g. (a_i_m@a_j_m) ^ ... ^ (a_i_n@a_j_n)  
+\newcommand*{\iiwd}[5][1]
+            {\ensuremath{ \nw{(\iitd[#1]{#2}{#3}{#4})}{(\iitd[#5]{#2}{#3}{#4})} } }
+
+% Indexed Indexed Wedge of Double tensor product of Double e.g. 
+% (a_i_m@b_i_m) ^ ... ^ (a_i_n@b_i_n)  
+\newcommand*{\iiwdd}[5][1]
+            {\ensuremath{ \nw[(\iidd{#2}{#3}{#4})]{(\iidd[#5]{#2}{#3}{#4})} } }
+
+% Indexed objects Range e.g. a_m < ... < a_n (strict inequality)
+\newcommand*{\ir}[3][1]
+            {\ensuremath{ \myindextemplate[#1]{#2}{#3}{<}{\cdots}{<} }}
+
+% Indexed objects RRange e.g. a_m <= ... <= a_n (non-strict inequality)
+\newcommand*{\iR}[3][1]
+            {\ensuremath{ \myindextemplate[#1]{#2}{#3}{\le}{\cdots}{\le} }}
+
+% Indexed objects Range with strict inequality Limits e.g. 1 \le i_1 < ... < i_k \le n
+\newcommand*{\irl}[4][1]{\ensuremath{ 1 \le \ir[#1]{#2}{#3} \le {#4}}}
+
+% Indexed objects RRange with non-strict inequality Limits e.g. 1 \le i_1 <= ... <= i_k \le n
+\newcommand*{\iRl}[4][1]{\ensuremath{ 1 \le \iR[#1]{#2}{#3} \le {#4}}}
+
+% Indexed Indexed objects Range strict inequality e.g. a_i_m < ... < a_i_n  
+\newcommand*{\iir}[4][1]
+            {\ensuremath{\ir[{{#3}_{#1}}]{#2}{{{#3}_{#4}}}}} 
+
+% Indexed Indexed objects Range strict internal inequality with Limits e.g. 1\le a_i_j < ... < a_i_k \le n 
+\newcommand*{\iirl}[4][1]
+            {\ensuremath{1\le \iir[#1]{#2}{#3} \le {#4}}} 
+
+% Indexed Indexed objects RRange non-strict inequality e.g. a_i_m <= ... <= a_i_n  
+\newcommand*{\iiR}[4][1]
+            {\ensuremath{\ir[{{#3}_{#1}}]{#2}{{{#3}_{#4}}}}} 
+
+% Indexed Indexed objects RRange non-strict internal inequality with Limits e.g. 1\le a_i_j <= ... <= a_i_k \le n 
+\newcommand*{\iiRl}[4][1]
+            {\ensuremath{1\le \iiR[#1]{#2}{#3} \le {#4}}} 
+
+% Indexed objects Union e.g. a_m U ... U a_n  
+\newcommand*{\iu}[3][1]
+            {\ensuremath{ \myindextemplate[#1]{#2}{#3}{\cup}{\cdots}{\cup} }}
+
+% Indexed Indexed objects Union e.g. a_i_m U ... U a_i_n  
+\newcommand*{\iiu}[4][1]
+            {\ensuremath{\iu[{{#3}_{#1}}]{#2}{{{#3}_{#4}}}}} 
+
+% Indexed objects Intersection e.g. a_m ^ ... ^ a_n  
+\newcommand*{\ii}[3][1]
+            {\ensuremath{ \myindextemplate[#1]{#2}{#3}{\cap}{\cdots}{\cap} }}
+
+% Indexed Indexed objects Intersection e.g. a_i_m ^ ... ^ a_i_n  
+\newcommand*{\iii}[4][1]
+            {\ensuremath{\ii[{{#3}_{#1}}]{#2}{{{#3}_{#4}}}}} 
+
+% Indexed objects Direct sum e.g. a_m @ ... @ a_n  
+\newcommand*{\id}[3][1]
+            {\ensuremath{ \myindextemplate[#1]{#2}{#3}{\oplus}{\cdots}{\oplus} }}
+
+% Indexed Indexed objects Direct sum (`H') e.g. a_i_m @ ... @ a_i_n  
+\newcommand*{\iid}[4][1]
+            {\ensuremath{\id[{{#3}_{#1}}]{#2}{{{#3}_{#4}}}}} 
+
+% Indexed objects Vertical List e.g. a_m ... a_n
+\newcommand*{\ivl}[3][1]
+            {\ensuremath{\myindextemplate[#1]{#2}{#3}{\\}{\vdots}{\\}}}
+
+% Indexed objects column Vector e.g. (a_m ... a_n) 
+\newcommand*{\iv}[3][1]
+            {\ensuremath{\begin{pmatrix}\ivl[#1]{#2}{#3}\end{pmatrix}}}
+
+% Indexed Indexed objects Vertical List e.g. a_i_m ... a_i_n 
+\newcommand*{\iivl}[4][1]
+            {\ensuremath{\ivl[{{#3}_{#1}}]{#2}{{{#3}_{#4}}}}} 
+
+% Indexed indexed objects column Vector e.g. (a_i_m ... a_i_n) 
+\newcommand*{\iiv}[4][1]
+            {\ensuremath{\begin{pmatrix}\iivl[#1]{#2}{#3}{#4}\end{pmatrix}}}
+
+% Indexed objects Cycle (in Symmetric group) e.g. ( a_m ... a_n ) 
+\newcommand*{\ic}[3][1]
+            {\ensuremath{ \myindextemplate[#1]{#2}{#3}{\,}{\ldots}{\,} }}
+
+% Indexed Indexed objects Cycle (in Symmetric group) e.g. ( a_i_m @ ... @ a_i_n ) 
+\newcommand*{\iic}[4][1]
+            {\ensuremath{\ic[{{#3}_{#1}}]{#2}{{{#3}_{#4}}}}} 
+
+
+% Quadratic forms / exterior powers common symbols
+
+% Define bigger \perp symbol (called \displaystyleperp) for Orthogonal sum of forms
+%\usepackage{exscale,amsmath}
+%\DeclareFontFamily{U}{cmsy}{}
+%\DeclareFontShape{U}{cmsy}{m}{n}{<24.88> cmsy10}{}
+%\DeclareSymbolFont{AMSb}{U}{cmsy}{m}{n}
+%\DeclareMathSymbol{\displaystyleperp}{\mathop}{AMSb}{"3F}
+
+% Better method of defining \displaystyleperp 
+\newcommand*{\displaystyleperp}{\raisebox{-5pt}{\mbox{\huge${\perp}$}}}
+% Define Maths operator \orth from \displaystyleperp
+\newcommand*{\orth}{\operatornamewithlimits{\displaystyleperp}}
+
+\newcommand*{\textstyleperp}{\raisebox{-3pt}{\mbox{\Large${\perp}$}}}
+% Define Maths operator \sorth (small orth) from \textstyleperp
+\newcommand*{\sorth}{\operatornamewithlimits{\textstyleperp}}
+
+\newcommand*{\dK}   {\ensuremath{\dot{K}}}             % square class group of K
+\newcommand*{\W}    {\ensuremath{\widehat{W}}}         % Witt-Grothendieck ring (hat)
+\newcommand*{\WG}[1][F]{\ensuremath{\widehat{W}(#1)}}  % Witt-Grothendieck ring of F
+\newcommand*{\GW}[1][F]{\ensuremath{\overline{W}(#1)}} % graded Witt ring (bar)
+\newcommand*{\Wid}  {\ensuremath{\langle 1 \rangle}}   % Witt ring identity element
+\newcommand*{\an}[1]{\ensuremath{{#1}_{\text{an}}}}  % anisotropic part of form
+\newcommand*{\hy}[1]{\ensuremath{{#1}_{\text{h}}}}   % hyperbolic part of form
+
+\newcommand*{\Cc}[1][a]{\ensuremath{\dg{#1}-\dg1}}
+\newcommand*{\CcI}[1][a]{\ensuremath{\dg{#1}-\dg1 +\wh{I}^2}}
+\newcommand*{\mI}[1][2]{\ensuremath{\mod\wh{I}^{#1}}}
+
+% Exterior powers \L^k(...) notation
+
+\newcommand*{\iL}[4]{\ensuremath{ % subscripts 
+            \L^{#1}{#2}(\iw{#3}{#1}, \iw{#4}{#1})  } }
+
+\newcommand*{\iLt}[6]{\ensuremath{ % tensor products with subscripts
+            \L^{#1}{#2}(\iwd{#3}{#5}{#1}, \iwd{#4}{#6}{#1})  } }
+
+\newcommand*{\iiL}[6]{\ensuremath{ % subscripts of subscripts
+            \L^{#1}{#2}(\iiw{#3}{#4}{#1}, \iiw{#5}{#6}{#1})  } }
+
+\newcommand*{\iiLt}[7][1]{\ensuremath{ % tensor products with subscripts of subscripts
+            \L^{#2}{#3}(\iiwdd[#1]{#4}{#5}{#6}{#2}, \iiwdd[#1]{#4}{#5}{#7}{#2})  } }
+
+% Symmetric powers S^k(...) notation
+
+\newcommand*{\iS}[4]{\ensuremath{  % subscripts 
+            \bS^{#1}{#2}(\ip{#3}{#1}, \ip{#4}{#1})  } }
+
+\newcommand*{\iSt}[6]{\ensuremath{  % tensor products with subscripts
+            \bS^{#1}{#2}(\ipd{#3}{#5}{#1}, \ipd{#4}{#6}{#1})  } }
+
+\newcommand*{\iiS}[6]{\ensuremath{  % subscripts of subscripts
+            \bS^{#1}{#2}(\iip{#3}{#4}{#1}, \iip{#5}{#6}{#1})  } }
+
+% Matrices associated to Exterior and Symmetric powers
+
+\newcommand*{\imL}[8]{\ensuremath{  % subscripts 
+            \big({#2}({#3}_{#5},{#4}_{#6})\big)_{1\le {#7},{#8} \le {#1}} } }
+
+\newcommand*{\iimL}[8]{\ensuremath{  % subscripts of subscripts
+            \imL{#1}{#2}{#3}{#6}{{#4}_{#5}}{{#7}_{#8}}{#5}{#8} } }
+
+\newcommand*{\imLt}[8]{\ensuremath{  % tensor products with subscripts 
+            \big({#2}( \itd[#5]{#3}{#7}, 
+                   \itd[#6]{#4}{#8} )\big)_{1\le {#5},{#6} \le {#1}} } }
+
+\newcommand*{\iimLt}[8][k]{\ensuremath{  % tensor products with subscripts of subscripts
+            \big({#2}( \iidd[#6]{#3}{#4}{#5}, 
+                   \iidd[#8]{#3}{#4}{#7} )\big)_{1\le {#6},{#8} \le {#1}} } }
+
+% determinant/permanent versions of Exterior and Symmetric powers
+
+\newcommand*{\idL}[6]{\ensuremath{  % subscripts 
+            \det\imL{#1}{#2}{#3}{#4}{#5}{#6}{#5}{#6} } } 
+
+\newcommand*{\idLt}[8]{\ensuremath{  % tensor products with subscripts
+            \det\imLt{#1}{#2}{#3}{#4}{#5}{#6}{#7}{#8} } } 
+
+\newcommand*{\iidL}[8]{\ensuremath{  % subscripts of subscripts
+            \det\iimL{#1}{#2}{#3}{#4}{#5}{#6}{#7}{#8} } }
+
+\newcommand*{\iidLt}[8][k]{\ensuremath{  % tensor products with subscripts of subscripts
+            \det\iimLt[#1]{#2}{#3}{#4}{#5}{#6}{#7}{#8} } }
+
+\newcommand*{\ipS}[6]{\ensuremath{  % subscripts
+            \per\imL{#1}{#2}{#3}{#4}{#5}{#6}{#5}{#6} } }
+
+\newcommand*{\ipSt}[8]{\ensuremath{  % tensor products with subscripts 
+            \per\imLt{#1}{#2}{#3}{#4}{#5}{#6}{#7}{#8} } } 
+
+\newcommand*{\iipS}[8]{\ensuremath{  % subscripts of subscripts
+            \per\iimL{#1}{#2}{#3}{#4}{#5}{#6}{#7}{#8} } }
+
+\newcommand*{\iipgL}[6][1]{\ensuremath{  % diagonal L of products
+            \orth_{\irl[#1]{#3}{#4}{#5}}^{#6} \iipg[#1]{#2}{#3}{#4}  } }
+
+\newcommand*{\iipgS}[7][1]{\ensuremath{  % diagonal sS of products
+            \orth_{\sskr[#1]{#7}{#3}{#4}{#5}}^{#6}
+%            \orth_{\ssk{\irl[#1]{#3}{#7}{#5}\\\iim{#4}{#3}{#7}={#4}}}^{#6}
+                                                    \iipf[#1]{#2}{#3}{#4}{#7} } }
+
+\newcommand*{\sskr}[5][1]{\ensuremath{  % substack of range for symm powers
+            \ssk{\irl[#1]{#3}{#2}{#5}\\\iim{#4}{#3}{#2}={#4}} } }
+
+\newcommand*{\iipdL}[6][1]{\ensuremath{  % det of diagonal L of products
+            \prod_{\irl[#1]{#3}{#4}{#5}}^{#6} \iip[#1]{#2}{#3}{#4}  } }
+
+\newcommand*{\Has}[3][1]{\ensuremath{  % Hasse invariant of form
+            \prod_{{#1}\le i<j\le {#3}}({#2}_i,{#2}_j) } }
+
+\newcommand*{\Hasb}[1]{\ensuremath{  % Hasse invariant of ext power (bold<bold)
+            \prod_{\mb{i}<\mb{j}}({#1}_\mb{i},{#1}_\mb{j}) } }
+
+\newcommand*{\Hasl}[2]{\ensuremath{  % Hasse invariant of ext power (list<list)
+            \prod_{(\il{i}{#2})<(\il{j}{#2})}(\iip{#1}{i}{#2},\iip{#1}{j}{#2}) } }
+
+% kth elementary symmetric function
+\newcommand*{\elsym}[6][1]{\ensuremath{ 
+            \sum_{\irl[#1]{#3}{#4}{#5}}^{#6} \iip[#1]{#2}{#3}{#4}  } }
+
+% kth complete homogeneous polynomial
+\newcommand*{\cphom}[6][1]{\ensuremath{ 
+            \sum_{\iRl[#1]{#3}{#4}{#5}}^{#6} \iip[#1]{#2}{#3}{#4}  } }
+
+% kth complete homogeneous polynomial of 1-dim summands <a_i_j>
+\newcommand*{\cphomg}[6][1]{\ensuremath{ 
+            \orth_{\iRl[#1]{#3}{#4}{#5}}^{#6} \dg{\iip[#1]{#2}{#3}{#4}}  } }
+
+
+% MATRICES
+
+% two commonly used building blocks for matrices
+
+% identity matrix
+\newcommand*{\idmat}{\ensuremath{ 
+1      & 0      & \cdots & 0       \\
+0      & 1      & \cdots & 0       \\
+\vdots & \vdots & \ddots & \vdots  \\
+0      & 0      & \cdots & 1          } }
+
+% matrix consisting of zeros
+\newcommand*{\zeromat}{\ensuremath{ 
+0      & 0      & \cdots & 0       \\
+\vdots & \vdots & \ddots & \vdots  \\
+0      & 0      & \cdots & 0          } }
+
+% matrix consisting of asterisks
+\newcommand*{\astmat}{\ensuremath{ 
+*      & *      & \cdots & *       \\
+\vdots & \vdots & \ddots & \vdots  \\
+*      & *      & \cdots & *          } }
+
+% DiaGonal MATrix with {#1}_1,...,{#1}_n on main diagonal
+\newcommand*{\dgmat}[2][n]{\ensuremath{
+\left(
+\begin{array}{cccc}
+{#2}_1      & 0      & \cdots & 0       \\
+0      & {#2}_2      & \cdots & 0       \\
+\vdots & \vdots & \ddots & \vdots  \\
+0      & 0      & \cdots & {#2}_{#1}   
+\end{array}
+\right)
+} }
+
+% DiaGonal MATrix Nonindexed with {#1}, {#2},...,{#3} on main diagonal
+\newcommand*{\dgmatn}[3]{\ensuremath{
+\left(
+\begin{array}{cccc}
+{#1}      & 0      & \cdots & 0       \\
+0      & {#2}      & \cdots & 0       \\
+\vdots & \vdots & \ddots & \vdots  \\
+0      & 0      & \cdots & {#3}   
+\end{array}
+\right)
+} }
+
+\newcommand*{\Tn}[3]{\ensuremath{ 
+\begin{array}{ccccccc}
+{#2}   & 1      &        &        &        &          \\
+{#1}   & {#2}   & 2      &        &      0 &          \\
+{#2}   & {#1}   & {#2}   & \ddots &        &          \\
+\vdots & \vdots & \vdots & \ddots & {#3}   &          \\
+       &        &        & {#1}   & {#2}   & {#1}     \\
+       &  *     &        & {#2}   & {#1}   & {#2}        
+\end{array}
+} }
+
+\newcommand*{\Tnn}[3]{\ensuremath{ 
+\begin{array}{ccccccccc}
+{#2}   & 1      &        &        &        &        &        &        &          \\
+{#1}   & {#2}   & 2      &        &        &        &        &        &          \\
+{#2}   & {#1}   & {#2}   & 3      &        &        &        & 0      &          \\
+{#1}   & {#2}   & {#1}   & {#2}   & 4      &        &        &        &          \\
+{#2}   & {#1}   & {#2}   & {#1}   & {#2}   & \ddots &        &        &          \\
+\vdots & \vdots & \vdots & \vdots & \ddots & \ddots & \ddots &        &          \\
+       &        &        &        &        & \cdots & {#2}   & {#3}   &          \\
+       &        &        &        &        & \cdots & {#1}   & {#2}   & {#1}     \\
+       &        &        &        &        & \cdots & {#2}   & {#1}   & {#2}        
+\end{array}
+} }
+
+\newcommand*{\Mn}[3]{\ensuremath{\left(\Tn{#1}{#2}{#3}\right)}}
+
+\newcommand*{\Tnk}[4]{\ensuremath{ 
+\begin{array}{ccccccc}
+{#2}   & 1      &        &        &        &        &          \\
+{#1}   & {#2}   & 2      &        &        &  0     &          \\
+{#2}   & {#1}   & {#2}   & 3      &        &        &          \\
+\vdots & \vdots & \vdots & \vdots & \ddots &        &          \\
+       &        &        &        & {#2}   & {#4}   &          \\
+       & *      &        &        & {#1}   & {#2}   & {#3}     \\
+       &        &        &        & {#2}   & {#1}   & {#2}        
+\end{array}
+} }
+
+\newcommand*{\Mnk}[4]{\ensuremath{\left(\Tnk{#1}{#2}{#3}{#4}\right)}}
+
+\newcommand*{\shortTnk}[3]{\ensuremath{ 
+\begin{array}{ccccc}
+{#2}   & 1      &        &        &          \\
+{#1}   & {#2}   & 2      &        &  0       \\
+{#2}   & \ddots & \ddots & \ddots &          \\
+\vdots & \ddots & {#1}   & {#2}   & {#3}     \\
+       & \hdots & {#2}   & {#1}   & {#2}        
+\end{array}
+} }
+
+\newcommand*{\shortMnk}[3]{\ensuremath{\left(\shortTnk{#1}{#2}{#3}\right)}}
+
+\newcommand*{\Dn}[1]{\ensuremath{ 
+\begin{array}{cccccc}
+{#1}   & 1      &        &        &        &          \\
+n      & {#1}   & 2      &        &  0     &          \\
+       & n-1    & {#1}   & \ddots &        &          \\
+       &        & \ddots & \ddots & n-1    &          \\
+       &   0    &        & 2      & {#1}   & n        \\
+       &        &        &        & 1      & {#1}        
+\end{array}
+} }
+
+\newcommand*{\Nn}[1]{\ensuremath{\left(\Dn{#1}\right)}}
+
+\newcommand*{\Dnminustwo}[1]{\ensuremath{ 
+\begin{array}{cccccc}
+{#1}   & 1      &        &        &        &          \\
+n-2    & {#1}   & 2      &        & 0      &          \\
+       & n-3    & {#1}   & \ddots &        &          \\
+       &        & \ddots & \ddots & n-3    &          \\
+       & 0      &        & 2      & {#1}   & n-2      \\
+       &        &        &        & 1      & {#1}        
+\end{array}
+} }
+
+\newcommand*{\Nnminustwo}[1]{\ensuremath{\left(\Dnminustwo{#1}\right)}}
+
+\newcommand*{\Dnn}[1]{\ensuremath{ 
+\begin{array}{cccccccc}
+{#1}   & 1      &        &        &        &        &        &          \\
+n      & {#1}   & 2      &        &        &        &        &          \\
+       & n-1    & {#1}   & 3      &        &        & 0      &          \\
+       &        & n-2    & {#1}   & \ddots &        &        &          \\
+       &        &        & \ddots & \ddots & \ddots &        &          \\
+       &        &        &        & \ddots & {#1}   & n-1    &          \\
+       & 0      &        &        &        & 2      & {#1}   & n        \\
+       &        &        &        &        &        & 1      & {#1}        
+\end{array}
+} }
+
+\newcommand*{\Nnn}[1]{\ensuremath{\left(\Dnn{#1}\right)}}
+
+\newcommand*{\Dnk}[3][n]{\ensuremath{ 
+\begin{array}{cccccccc}
+{#3}   & 1      &        &        &        &        &        &          \\
+{#1}   & {#3}   & 2      &        &        &        &        &          \\
+       & {#1}-1 & {#3}   & 3      &        &        & 0      &          \\
+       &        & {#1}-2 & {#3}   & \ddots &        &        &          \\
+       &        &        & \ddots & \ddots & \ddots &        &          \\
+       &        &        &        & \ddots & {#3}   & {#2}-1 &          \\
+       & 0      &        &        &        & {#1}-{#2}+2 & {#3} & {#2}  \\
+       &        &        &        &        &        & {#1}-{#2}+1 & {#3}        
+\end{array}
+} }
+
+\newcommand*{\Nnk}[3][n]{\ensuremath{\left(\Dnk[#1]{#2}{#3}\right)}}
+
+
+
+% Greek letters
+
+\renewcommand*{\a}{\ensuremath{\alpha}}
+\renewcommand*{\b}{\ensuremath{\beta}}
+\newcommand*{\g}{\ensuremath{\gamma}}
+\renewcommand*{\d}{\ensuremath{\delta}}
+\newcommand*{\e}{\ensuremath{\varepsilon}}
+\newcommand*{\z}{\ensuremath{\zeta}}
+\newcommand*{\h}{\ensuremath{\eta}}
+\renewcommand*{\th}{\ensuremath{\vartheta}}
+%\newcommand*{\io}{\ensuremath{\iota}}
+\renewcommand*{\k}{\ensuremath{\kappa}}
+\renewcommand*{\l}{\ensuremath{\lambda}}
+\newcommand*{\m}{\ensuremath{\mu}}
+\newcommand*{\n}{\ensuremath{\nu}}
+\renewcommand*{\r}{\ensuremath{\rho}}
+\newcommand*{\s}{\ensuremath{\sigma}}
+\renewcommand*{\t}{\ensuremath{\tau}}
+\renewcommand*{\u}{\ensuremath{\upsilon}}
+\newcommand*{\f}{\ensuremath{\varphi}}
+%\renewcommand*{\c}{\ensuremath{\chi}}
+\newcommand*{\x}{\ensuremath{\xi}}
+\newcommand*{\p}{\ensuremath{\psi}}
+%\renewcommand*{\o}{\ensuremath{\omega}}
+\newcommand*{\w}{\ensuremath{\omega}}
+
+\newcommand*{\G}{\ensuremath{\Gamma}}
+%\newcommand*{\D}{\ensuremath{\Delta}}
+\newcommand*{\T}{\ensuremath{\Theta}}
+%\renewcommand*{\L}{\ensuremath{\Lambda}}
+\renewcommand*{\L}{\ensuremath{{\textstyle{\bigwedge}}}}
+%\newcommand*{\Si}{\ensuremath{\Sigma}}
+\newcommand*{\U}{\ensuremath{\Upsilon}}
+\newcommand*{\F}{\ensuremath{\Phi}}
+%\renewcommand*{\P}{\ensuremath{\Psi}}
+\renewcommand*{\O}{\ensuremath{\Omega}}
+
+
+% Math mode blackboard and calligraphic (script) letters
+
+\newcommand*{\N}{\ensuremath{\mathbb{N}}}
+\newcommand*{\Z}{\ensuremath{\mathbb{Z}}}
+\newcommand*{\Q}{\ensuremath{\mathbb{Q}}}
+%\newcommand*{\R}[1][]{\ensuremath{\mathbb{R}^{#1}{}}}
+\newcommand*{\R}{\ensuremath{\mathbb{R}}}
+\newcommand*{\C}{\ensuremath{\mathbb{C}}}
+%\renewcommand*{\H}{\ensuremath{\mathbb{H}}} % needed for Erdos diacritic
+\newcommand*{\FF}{\ensuremath{\mathbb{F}}}
+\newcommand*{\LL}{\ensuremath{\mathbb{L}}}
+\newcommand*{\PP}{\ensuremath{\mathbb{P}}}
+\renewcommand*{\SS}{\ensuremath{\mathbb{S}}}
+\newcommand*{\TT}{\ensuremath{\mathbb{T}}}
+
+\newcommand*{\sA}{\ensuremath{\mathcal{A}}}
+\newcommand*{\sB}{\ensuremath{\mathcal{B}}}
+\newcommand*{\sC}{\ensuremath{\mathcal{C}}}
+\newcommand*{\sD}{\ensuremath{\mathcal{D}}}
+\newcommand*{\sE}{\ensuremath{\mathcal{E}}}
+\newcommand*{\sF}{\ensuremath{\mathcal{F}}}
+\newcommand*{\sG}{\ensuremath{\mathcal{G}}}
+\newcommand*{\sH}{\ensuremath{\mathcal{H}}}
+\newcommand*{\sI}{\ensuremath{\mathcal{I}}}
+\newcommand*{\sJ}{\ensuremath{\mathcal{J}}}
+\newcommand*{\sK}{\ensuremath{\mathcal{K}}}
+\newcommand*{\sL}{\ensuremath{\mathcal{L}}}
+\newcommand*{\sM}{\ensuremath{\mathcal{M}}}
+\newcommand*{\sN}{\ensuremath{\mathcal{N}}}
+\newcommand*{\sO}{\ensuremath{\mathcal{O}}}
+\newcommand*{\sP}{\ensuremath{\mathcal{P}}}
+\newcommand*{\sQ}{\ensuremath{\mathcal{Q}}}
+\newcommand*{\sR}{\ensuremath{\mathcal{R}}}
+\newcommand*{\sS}{\ensuremath{\mathcal{S}}}
+\newcommand*{\sT}{\ensuremath{\mathcal{T}}}
+\newcommand*{\sU}{\ensuremath{\mathcal{U}}}
+\newcommand*{\sV}{\ensuremath{\mathcal{V}}}
+\newcommand*{\sW}{\ensuremath{\mathcal{W}}}
+\newcommand*{\sX}{\ensuremath{\mathcal{X}}}
+\newcommand*{\sY}{\ensuremath{\mathcal{Y}}}
+\newcommand*{\sZ}{\ensuremath{\mathcal{Z}}}
+
+% Maths mode Boldface letters
+
+\newcommand*{\Ba} {\ensuremath{\mathbf{a}}}
+\newcommand*{\Bb} {\ensuremath{\mathbf{b}}}
+\newcommand*{\Bc} {\ensuremath{\mathbf{c}}}
+\newcommand*{\Bd} {\ensuremath{\mathbf{d}}}
+\newcommand*{\Be} {\ensuremath{\mathbf{e}}}
+\newcommand*{\Bf} {\ensuremath{\mathbf{f}}}
+\newcommand*{\Bg} {\ensuremath{\mathbf{g}}}
+\newcommand*{\Bh} {\ensuremath{\mathbf{h}}}
+\newcommand*{\Bi} {\ensuremath{\mathbf{i}}}
+\newcommand*{\Bj} {\ensuremath{\mathbf{j}}}
+\newcommand*{\Bk} {\ensuremath{\mathbf{k}}}
+\newcommand*{\Bl} {\ensuremath{\mathbf{l}}}
+\newcommand*{\Bm} {\ensuremath{\mathbf{m}}}
+\newcommand*{\Bn} {\ensuremath{\mathbf{n}}}
+\newcommand*{\Bo} {\ensuremath{\mathbf{o}}}
+\newcommand*{\Bp} {\ensuremath{\mathbf{p}}}
+\newcommand*{\Bq} {\ensuremath{\mathbf{q}}}
+\newcommand*{\Br} {\ensuremath{\mathbf{r}}}
+\newcommand*{\Bs} {\ensuremath{\mathbf{s}}}
+\newcommand*{\Bt} {\ensuremath{\mathbf{t}}}
+\newcommand*{\Bu} {\ensuremath{\mathbf{u}}}
+\newcommand*{\Bv} {\ensuremath{\mathbf{v}}}
+\newcommand*{\Bw} {\ensuremath{\mathbf{w}}}
+\newcommand*{\Bx} {\ensuremath{\mathbf{x}}}
+\newcommand*{\By} {\ensuremath{\mathbf{y}}}
+\newcommand*{\Bz} {\ensuremath{\mathbf{z}}}
+
+\newcommand*{\BA} {\ensuremath{\mathbf{A}}}
+\newcommand*{\BB} {\ensuremath{\mathbf{B}}}
+\newcommand*{\BC} {\ensuremath{\mathbf{C}}}
+\newcommand*{\BD} {\ensuremath{\mathbf{D}}}
+\newcommand*{\BE} {\ensuremath{\mathbf{E}}}
+\newcommand*{\BF} {\ensuremath{\mathbf{F}}}
+\newcommand*{\BG} {\ensuremath{\mathbf{G}}}
+\newcommand*{\BH} {\ensuremath{\mathbf{H}}}
+\newcommand*{\BI} {\ensuremath{\mathbf{I}}}
+\newcommand*{\BJ} {\ensuremath{\mathbf{J}}}
+\newcommand*{\BK} {\ensuremath{\mathbf{K}}}
+\newcommand*{\BL} {\ensuremath{\mathbf{L}}}
+\newcommand*{\BM} {\ensuremath{\mathbf{M}}}
+\newcommand*{\BN} {\ensuremath{\mathbf{N}}}
+\newcommand*{\BO} {\ensuremath{\mathbf{O}}}
+\newcommand*{\BP} {\ensuremath{\mathbf{P}}}
+\newcommand*{\BQ} {\ensuremath{\mathbf{Q}}}
+\newcommand*{\BR} {\ensuremath{\mathbf{R}}}
+\newcommand*{\BS} {\ensuremath{\mathbf{S}}}
+\newcommand*{\BT} {\ensuremath{\mathbf{T}}}
+\newcommand*{\BU} {\ensuremath{\mathbf{U}}}
+\newcommand*{\BV} {\ensuremath{\mathbf{V}}}
+\newcommand*{\BW} {\ensuremath{\mathbf{W}}}
+\newcommand*{\BX} {\ensuremath{\mathbf{X}}}
+\newcommand*{\BY} {\ensuremath{\mathbf{Y}}}
+\newcommand*{\BZ} {\ensuremath{\mathbf{Z}}}
+
+% special bold S for factorial symmetric powers
+\newcommand*{\bS} {\ensuremath{\mbox{\boldmath $S$}}}
+
+
+
+\usepackage{graphicx}
+%\graphicspath{/Users/jm/Documents/book/figures/}
+%\lstset{language=Python}
+\graphicspath{{/Users/jm/Documents/book/figures/}{/Users/jm/Documents/book/figures-jakub/ch04/}{/Users/jm/Documents/book/figures-jakub/ch05/}{/Users/jm/Documents/book/figures-jakub/ch06/}{/Users/jm/Documents/book/figures-jakub/ch07/}{/Users/jm/Documents/book/figures-jakub/ch08/}{/Users/jm/Documents/book/figures-jakub/ch09/}{/Users/jm/Documents/book/figures-jakub/ch10/}}
+
+\newcommand{\AxEqb}{1}
+\newcommand{\AAeqB}{2}
+\newcommand{\mrow}[2]{#1_{{#2}{:}}}
+\newcommand{\mcol}[2]{#1_{{:}{#2}}}
+\newcommand{\mel}[3]{#1_{{#2},{#3}}}
+\newcommand{\vc}[2]{#1^{(#2)}}
+\newcommand{\mysgn}{\textrm{sgn}}
+\newcommand{\oh}{\textrm{h}}
+\newcommand{\lf}{\mathcal P}
+\newcommand{\K}[0]{{\it C}}
+\newcommand{\Kidx}[0]{{\it c}}
+\newcommand{\Zj}[2]{\vc{Z_{#2}}{#1}}
+
+\newcommand{\indic}{\Phi}
+\newcommand{\Lip}{L}
+\newcommand{\clip}{{\mbox{clip}}}
+

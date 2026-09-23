@@ -1,0 +1,87 @@
+%   amsmacros.tex
+%
+%   Macros (full length headings e.g. for papers/thesis or handout notes)
+%   Theorem styles for amsart/amsbook document classes
+%
+%   Sean McGarraghy
+%
+%   Change Control:
+%   Date      Ver  Reason
+%   --------  ---  --------------------------------------------------------------
+%   09/01/03  0.1  Begun
+%
+
+\input{headingnames}
+
+%\usepackage{amsthm}
+\theoremstyle{plain}
+
+\newtheorem{thm}{Theorem}[\numberbychaporsect]
+%\newtheorem{lemma}[thm]{Lemma} % commented because beamer has defined it
+\newtheorem{lem}[thm]{Lemma}
+\newtheorem{propn}[thm]{Proposition}
+\newtheorem{pr}[thm]{Proposition}
+\newtheorem{prp}[thm]{Propn.}
+\newtheorem{cor}[thm]{Corollary}
+% \newtheorem{fact}[thm]{Fact} % commented because beamer has defined it
+\newtheorem{fct}[thm]{Fact}
+\newtheorem{conj}[thm]{Conjecture}
+\newtheorem{qn}[thm]{Question}
+\newtheorem{probl}[thm]{Problem}
+%\newtheorem{claim}{Claim}[]
+\newtheorem{prn}[thm]{Principle}
+
+\theoremstyle{definition}
+
+\newtheorem{dmy}[thm]{}  % Dummy theorem name for numbering only
+\newtheorem{dm}{}        % Dummy theorem name for numbering only, independent of section
+\newtheorem{defn}[thm]{Definition}
+%\newtheorem{ex}[thm]{Example}
+\newtheorem{exm}[thm]{Example}
+\newtheorem{exe}[thm]{Exercise}
+
+\theoremstyle{remark}
+
+\newtheorem{rmk}[thm]{Remark}
+\newtheorem{notn}[thm]{Notation}
+%\newtheorem{note}[thm]{Note}  % comment if using beamer
+\newtheorem{nte}[thm]{Note}
+\newtheorem{cmt}[thm]{Comment}
+%\newtheorem{case}[thm]{Case}
+\newtheorem{intr}[thm]{Introduction}
+\newtheorem{intro}[thm]{Introduction}
+
+%\newenvironment{pf}{\vspace{-4pt}\noindent\begin{proof}}{\end{proof}\vspace{2pt}}
+%\newenvironment{pf}{\vspace{-4pt}\noindent\begin{proof}}{\end{proof}}
+\newenvironment{pf}{\vspace{-1.3em}\noindent\begin{proof}}{\end{proof}}
+\newenvironment{eq}{\begin{eqnarray*}}{\end{eqnarray*}}
+\newenvironment{ex}{\begin{exm}}{\exEnd\end{exm}}
+
+\usepackage{mathtools}
+%\DeclarePairedDelimiter\bra{\langle}{\rvert}
+%\DeclarePairedDelimiter\ket{\lvert}{\rangle}
+%\DeclarePairedDelimiterX\braket[2]{\langle}{\rangle}{#1 \delimsize\vert #2}
+
+\newcommand*{\hilb}{\mathcal{B}^{\otimes N}}
+
+\usepackage{braket}
+\usepackage{hyperref}
+
+\usepackage{graphicx,epsfig,tikz}
+\usepackage{hyperref}
+\usepackage{caption}
+\usepackage{wrapfig}
+%\lstset{language=Python}
+%\lstset{ 
+%  backgroundcolor=\color{white},
+%  basicstyle=\footnotesize
+%}
+
+
+
+%\usepackage{braket}
+%\usepackage{hyperref}
+\usepackage{bbm}
+
+%\usepackage{braket}
+%\usepackage{hyperref}

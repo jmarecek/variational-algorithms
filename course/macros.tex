@@ -1,0 +1,62 @@
+\ifx\coursemacrosfileloaded\undefined\gdef\coursemacrosfileloaded{1}\else\endinput\fi
+\usepackage{amsthm,amsfonts,amsmath,amssymb}
+
+\usepackage{xcolor}
+
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks,
+    linkcolor={red!50!black},
+    citecolor={blue!50!black},
+    urlcolor={blue!80!black}
+}
+
+\usepackage[most]{tcolorbox}
+\usepackage{listings}
+\lstdefinestyle{pseudocode}{
+  basicstyle=\ttfamily,
+  columns=fullflexible,
+  mathescape=true,
+  frame=single,
+  keepspaces=true,
+  numbers=none
+}
+
+
+\usepackage{float}
+
+\usepackage{braket}
+\usepackage{graphicx,epsfig}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\usepackage{tikz}
+\usepgflibrary{arrows}
+\usetikzlibrary{fit}
+\usetikzlibrary{decorations.pathreplacing}
+\usetikzlibrary{decorations.markings}
+%% PATTERN
+\usetikzlibrary{patterns}
+
+
+%\DeclareMathOperator{\i}{i}
+%\DeclareMathOperator{\id}{\boldsymbol{1}}
+
+
+
+
+%\newcommand{\Tr}{\text{Tr}}
+%\renewcommand\bra[1]{{\langle{#1}|}}
+%\renewcommand\ket[1]{{|{#1}\rangle}}
+%\newcommand*{\I}{\imath}%
+%\usepackage{graphicx,epsfig}
+%\graphicspath{c:/dropbox/teaching/courseNotes/figures/}
+%\lstset{language=Python}
+%\newtheorem{theorem}{Theorem}
+
+\newcommand{\myop}[1]{\operatorname{#1}}
+\newcommand{\inorm}[2]{\left\lVert{#1}\right\rVert_{#2}}
+\newcommand{\infnorm}[1]{\inorm{#1}{}}
+\newcommand\myOmega{\amalg}
+\newcommand{\glen}[1]{\myop{len}_{#1}}
+\newcommand{\Rp}{\R_{+}}

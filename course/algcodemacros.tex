@@ -1,0 +1,394 @@
+%   LaTeX Declarations for algorithms, pseudocode and code listings
+%
+%   Sean McGarraghy
+%
+%   Change Control:
+%   Date     Ver  Reason
+%   -------  ---  --------------------------------------------------------------
+%   12Feb98  0.1  Begun
+
+% define colours
+\input{myColours}
+
+% macros for pseudocode
+\font\sc=cmcsc10
+\font\srm=cmr8
+\font\ssf=cmss10
+\def\codefont{\tt}
+
+\def\true{{\bf true}}
+\def\false{{\bf false}}
+
+% \def\ALGORITHM #1{{{\bf algorithm}\ {\sl #1}} \vskip3pt\hrule\vskip3pt} % DO'C used 5pt, 10pt resp
+\def\ALGORITHM #1{{{\bf algorithm}\ \subr{#1}} \vskip3pt\hrule\vskip3pt} % DO'C used 5pt, 10pt resp
+\def\AND{{\bf and\/}}  % was {\sc ...}
+\def\ARRAY{{\bf array}}
+\def\BEGIN{{\bf begin}}
+\def\BOOLEAN{{\bf boolean}}
+\def\CASE{{\bf case}}
+\def\CHAR{{\bf char}}
+\def\CONST{{\bf const}}
+\def\DIV{\text{div}\/}
+\def\DO{{\bf do}}
+\def\DOWNTO{{\bf downto}}
+\def\ELSE{{\bf else}}
+%\def\else{{\sc $\{$else$\}$}}
+\def\ELSEIF{{\bf elseif}}
+\def\END{{\bf end}}
+%\def\ENDALG #1{{{\bf endalgorithm}\ \subr{#1}} \vskip2pt}
+\def\ENDALG #1{{{\bf endalgorithm}\ \subr{#1}} \vskip1pt}
+\def\ENDFOR{{\bf endfor}}
+\def\ENDFUNC{{\bf endfunc}}
+\def\ENDIF{{\bf endif}}
+\def\ENDPROC{{\bf endproc}}
+\def\ENDRECORD{{\bf endrecord}}
+\def\ENDWHILE{{\bf endwhile}}
+\def\ENDW{{\bf endw}}
+\def\FILE{{\bf file}}
+\def\FOR{{\bf for}}
+%\def\for{{\sc $\{$for$\}$}}
+\def\FUNCTIONdec{{\bf function}}
+\def\FUNCTION #1{{{\bf function}\ #1} \vskip3pt\hrule\vskip3pt} % DO'C used 5pt, 10pt resp
+%\newcommand*{\FUNCTION}[1] {{{\bf function}\ #1} \vskip5pt\hrule\vskip10pt}
+\def\IF{{\bf if}}
+%\def\if{{\sc $\{$if$\}$}}
+\def\IMPLEMENTATION{{\bf implementation}}
+\def\INTEGER{{\bf integer}}
+\def\INTERFACE{{\bf interface}}
+\def\MOD{\text{mod}\/}
+\def\NOT{{\bf not\/}} % was {\sc ...}
+\def\OF{{\bf of}}
+\def\OR{{\bf or\/}} % was {\sc ...}
+%\def\XOR{{\bf xor\/}} % was {\sc ...}
+%\def\PROCEDUREdec{{\bf procedure}}
+%\def\PROCEDURE #1{{{\bf procedure}\ #1} %\vskip3pt\hrule\vskip3pt} % DO'C used 5pt, 10pt resp
+%\def\proc#1{{\sc $\{$proc #1$\}$}}
+%\def\PROGRAM{{\bf program}}
+%\def\prog#1{{\sc $\{$prog #1$\}$}}
+%\def\REAL{{\bf real}}
+%\def\RECORD{{\bf record}}
+%\def\REPEAT{{\bf repeat}}
+%\def\RETURN{{\bf return}}
+%\def\SET{{\bf set}}
+%\def\STOP{{\bf stop}}
+%\def\STRING{{\bf string}}
+%\def\THEN{{\bf then}}
+%\def\TO{{\bf to}}
+%\def\TYPE{{\bf type}}
+%\def\UNIT{{\bf unit}}
+%\def\UNTIL{{\bf until}}
+%\def\USES{{\bf uses}}
+%\def\VAR{{\bf var}}
+\def\WHILE{{\bf while}}
+%\def\while{{\sc $\{$while$\}$}}
+\def\WITH{{\bf with}}
+
+
+% My code environment(s)
+
+%\newenvironment{pf}{\begin{pf1}\em}{\end{pf1}}
+%\newenvironment{pf}{\vspace{-4pt}\noindent\begin{pf1}\em}{\end{pf1}\vspace{2pt}}
+
+%\newenvironment{ttcode}{\tt\obeylines\obeyspaces\noindent\parskip=0pt}{\let^^M=\startline}
+\newenvironment{ttcode}{\begin{quote}\tt\parskip=0pt\obeylines\obeyspaces}{\end{quote}}
+\newenvironment{ttcodef}{\begin{quote}\tt\footnotesize\parskip=0pt\obeylines\obeyspaces}{\end{quote}}
+
+%\newcommand*{\ttc}[1]{\begin{ttcode}{\let^^M=\startline%
+%{#1}}\end{ttcode}}
+
+\newcommand*{\subr}[1]{\textsl{#1}}
+\newcommand*{\subC}[1]{\textrm{\textsl{#1}}} % SUBroutine in Code (\beginCode ... \endCode)
+%\newcommand*{\subr}[1]{{\rm{\sl #1}}}
+%\newcommand*{\com}[1]{\textsl{\myGray{//\ {#1}}}}
+\newcommand*{\gcm}[1]{\myOliveGreen{#1}}
+\newcommand*{\com}[1]{\textsl{\gcm{//~{#1}}}}
+\newcommand*{\cmm}[1]{\textsl{//~\gcm{{#1}}}}
+\newcommand*{\acm}[1]{\tcp*{\gcm{#1}}} % comment for use in algorithm2e envmt
+\newcommand*{\bcm}[1]{\hfill\cmm{#1}} % comment for use in algorithm2e block envmt e.g. \While, \If
+%\newcommand*{\bcm}[1]{\hfill\tcp{\gcm{#1}}} % comment for use in algorithm2e block envmt e.g. \While, \If
+\newcommand*{\kwd}[1]{\textbf{\texttt{#1}}}
+\newcommand*{\stg}[1]{\myBlue{#1}}
+%\newcommand*{\vbl}[1]{\{}
+%\newcommand*{\vbr}[1]{\}}
+
+% to label attributes with things like PK in an ERD
+\newcommand*{\attLab}[1]{\textcolor{red}{\raisebox{0.2ex}{\myfootsize{\texttt{#1}}}}}
+\providecommand*{\PK}{\attLab{PK}}
+\newcommand*{\FK}{\attLab{FK}}
+
+%\def\com #1{{\ssf $\{$#1$\}$}}
+
+% to get braces to display in the correct tt shape
+%\newcommand*{\lB}{\verb!{!}
+%\newcommand*{\rB}{\verb!}!}
+
+% For code listing using listings package
+\usepackage{listings}
+
+%\newtheorem{theorem}{Theorem}
+
+\lstloadlanguages{Java}
+% \definecolor{ltyellow}{rgb}{0.97,0.97,0.85}
+% \definecolor{lightgray}{rgb}{0.97,0.97,0.97}
+% \definecolor{darkgreen}{rgb}{0.0,0.60,0.0}
+\lstset{ %
+language=Java,                     % choose the language of the code
+basicstyle=\ttfamily,              % basicstyle=\footnotesize\small,  % the size of the fonts that are used for the code
+commentstyle=\color{xxOliveGreen}\emph,
+stringstyle=\color{xxBlue},
+numbers=left,                      % where to put the line-numbers
+numberstyle=\tiny,                 % the size of the fonts that are used for the line-numbers
+stepnumber=5,                      % the step between two line-numbers. If it's 1 each line will be numbered
+numbersep=8pt,                     % how far the line-numbers are from the code
+backgroundcolor=\color{lightyellow}, % choose the background color. You must add \usepackage{color}
+showspaces=false,                  % show spaces adding particular underscores
+showstringspaces=false,            % underline spaces within strings
+showtabs=false,                    % show tabs within strings adding particular underscores
+%frame=single,	                   % adds a frame around the code
+tabsize=4,                         % sets default tabsize to 2 spaces
+captionpos=b,                      % sets the caption-position to bottom
+breaklines=true,                   % sets automatic line breaking
+breakatwhitespace=true,            % sets if automatic breaks should only happen at whitespace
+title=\lstname,                    % show the filename of files included with \lstinputlisting;
+                                   % also try caption instead of title
+keywordstyle=\bfseries%\color{red}\emph
+%escapeinside={\%*}{*)},           % if you want to add a comment within your code
+%morekeywords={*,...}              % if you want to add more keywords to the set
+}
+
+% From http://stackoverflow.com/questions/741985/latex-source-code-listing-like-in-professional-books?rq=1
+%  \usepackage{listings}
+%   \usepackage{courier}
+%  \lstset{
+%          basicstyle=\footnotesize\ttfamily, % Standardschrift
+%          %numbers=left,               % Ort der Zeilennummern
+%          numberstyle=\tiny,          % Stil der Zeilennummern
+%          %stepnumber=2,               % Abstand zwischen den Zeilennummern
+%          numbersep=5pt,              % Abstand der Nummern zum Text
+%          tabsize=2,                  % Groesse von Tabs
+%          extendedchars=true,         %
+%          breaklines=true,            % Zeilen werden Umgebrochen
+%          keywordstyle=\color{red},
+%             frame=b,         
+%  %        keywordstyle=[1]\textbf,    % Stil der Keywords
+%  %        keywordstyle=[2]\textbf,    %
+%  %        keywordstyle=[3]\textbf,    %
+%  %        keywordstyle=[4]\textbf,   \sqrt{\sqrt{}} %
+%          stringstyle=\color{white}\ttfamily, % Farbe der String
+%          showspaces=false,           % Leerzeichen anzeigen ?
+%          showtabs=false,             % Tabs anzeigen ?
+%          xleftmargin=17pt,
+%          framexleftmargin=17pt,
+%          framexrightmargin=5pt,
+%          framexbottommargin=4pt,
+%          %backgroundcolor=\color{lightgray},
+%          showstringspaces=false      % Leerzeichen in Strings anzeigen ?        
+%  }
+%  \lstloadlanguages{% Check Dokumentation for further languages ...
+%          %[Visual]Basic
+%          %Pascal
+%          %C
+%          %C++
+%          %XML
+%          %HTML
+%          Java
+%  }
+%     %\DeclareCaptionFont{blue}{\color{blue}} 
+%   %\captionsetup[lstlisting]{singlelinecheck=false, labelfont={blue}, textfont={blue}}
+%   \usepackage{caption}
+% \DeclareCaptionFont{white}{\color{white}}
+% \DeclareCaptionFormat{listing}{\colorbox[cmyk]{0.43, 0.35, 0.35,0.01}{\parbox{\textwidth}{\hspace{15pt}#1#2#3}}}
+% \captionsetup[lstlisting]{format=listing,labelfont=white,textfont=white, singlelinecheck=false, margin=0pt, font={bf,footnotesize}
+
+% then inside doc use it as
+% \lstinputlisting[label=samplecode,caption=A sample]{sourceCode/HelloWorld.java}
+% comment: may also need to use \usepackage{caption} and \usepackage{graphics}
+
+% Answer on same url:
+% \documentclass{report}
+% \usepackage{color}
+% \usepackage{xcolor}
+% \usepackage{listings}
+% \usepackage{caption}
+% \DeclareCaptionFont{white}{\color{white}}
+% \DeclareCaptionFormat{listing}{\colorbox{gray}{\parbox{\textwidth}{#1#2#3}}}
+% \captionsetup[lstlisting]{format=listing,labelfont=white,textfont=white}
+% % This concludes the preamble
+% \begin{document}
+% \begin{lstlisting}[label=some-code,caption=Some Code]
+% public void here() {
+%     goes().the().code()
+% }
+% \end{lstlisting}
+% \end{document}
+
+%\newcommand{\bin}[0]{\{0,1\}}
+
+% Java reserved words (and some from C++)
+
+\newcommand*{\jabstract}{\cd{\tb{abstract}}}
+\newcommand*{\jassert}{\cd{\tb{assert}}}
+\newcommand*{\jboolean}{\cd{\tb{boolean}}}
+\newcommand*{\jbool}{\cd{\tb{bool}}}
+\newcommand*{\jbreak}{\cd{\tb{break}}}
+\newcommand*{\jbyte}{\cd{\tb{byte}}}
+\newcommand*{\jcase}{\cd{\tb{case}}}
+\newcommand*{\jcatch}{\cd{\tb{catch}}}
+\newcommand*{\jchar}{\cd{\tb{char}}}
+\newcommand*{\jclass}{\cd{\tb{class}}}
+\newcommand*{\jcontinue}{\cd{\tb{continue}}}
+\newcommand*{\jconst}{\cd{\tb{const}}}
+\newcommand*{\jdefault}{\cd{\tb{default}}}
+\newcommand*{\jdelete}{\cd{\tb{delete}}}
+\newcommand*{\jdo}{\cd{\tb{do}}}
+\newcommand*{\jdouble}{\cd{\tb{double}}}
+\newcommand*{\jelse}{\cd{\tb{else}}}
+\newcommand*{\jenum}{\cd{\tb{enum}}}
+\newcommand*{\jextends}{\cd{\tb{extends}}}
+\newcommand*{\jextern}{\cd{\tb{extern}}}
+\newcommand*{\jfalse}{\cd{\tb{false}}}
+\newcommand*{\jfinal}{\cd{\tb{final}}}
+\newcommand*{\jfinally}{\cd{\tb{finally}}}
+\newcommand*{\jfloat}{\cd{\tb{float}}}
+\newcommand*{\jfor}{\cd{\tb{for}}}
+\newcommand*{\jgoto}{\cd{\tb{goto}}}
+\newcommand*{\jhdefine}{\cd{\tb{\#define}}}
+\newcommand*{\jhelse}{\cd{\tb{\#else}}}
+\newcommand*{\jhendif}{\cd{\tb{\#endif}}}
+\newcommand*{\jhif}{\cd{\tb{\#if}}}
+\newcommand*{\jhifdef}{\cd{\tb{\#ifdef}}}
+\newcommand*{\jhifndef}{\cd{\tb{\#ifndef}}}
+\newcommand*{\jhinclude}{\cd{\tb{\#include}}}
+\newcommand*{\jif}{\cd{\tb{if}}}
+\newcommand*{\jimplements}{\cd{\tb{implements}}}
+\newcommand*{\jimport}{\cd{\tb{import}}}
+\newcommand*{\jinstanceof}{\cd{\tb{instanceof}}}
+\newcommand*{\jint}{\cd{\tb{int}}}
+\newcommand*{\jinterface}{\cd{\tb{interface}}}
+\newcommand*{\jlong}{\cd{\tb{long}}}
+\newcommand*{\jnamespace}{\cd{\tb{namespace}}}
+\newcommand*{\jnative}{\cd{\tb{native}}}
+\newcommand*{\jnew}{\cd{\tb{new}}}
+\newcommand*{\jpackage}{\cd{\tb{package}}}
+\newcommand*{\jprivate}{\cd{\tb{private}}}
+\newcommand*{\jprotected}{\cd{\tb{protected}}}
+\newcommand*{\jpublic}{\cd{\tb{public}}}
+\newcommand*{\jreturn}{\cd{\tb{return}}}
+\newcommand*{\jshort}{\cd{\tb{short}}}
+\newcommand*{\jsigned}{\cd{\tb{signed}}}
+\newcommand*{\jstatic}{\cd{\tb{static}}}
+\newcommand*{\jstrictfp}{\cd{\tb{strictfp}}}
+\newcommand*{\jstruct}{\cd{\tb{struct}}}
+\newcommand*{\jsuper}{\cd{\tb{super}}}
+\newcommand*{\jswitch}{\cd{\tb{switch}}}
+\newcommand*{\jsynchronized}{\cd{\tb{synchronized}}}
+\newcommand*{\jthis}{\cd{\tb{this}}}
+\newcommand*{\jthrow}{\cd{\tb{throw}}}
+\newcommand*{\jthrows}{\cd{\tb{throws}}}
+\newcommand*{\jtransient}{\cd{\tb{transient}}}
+\newcommand*{\jtrue}{\cd{\tb{true}}}
+\newcommand*{\jtry}{\cd{\tb{try}}}
+\newcommand*{\jtypedef}{\cd{\tb{typedef}}}
+\newcommand*{\junsigned}{\cd{\tb{unsigned}}}
+\newcommand*{\jusing}{\cd{\tb{using}}}
+\newcommand*{\jvirtual}{\cd{\tb{virtual}}}
+\newcommand*{\jvoid}{\cd{\tb{void}}}
+\newcommand*{\jvolatile}{\cd{\tb{volatile}}}
+\newcommand*{\jwhile}{\cd{\tb{while}}}
+
+
+%%%%%%%%%%%%%%%%%%%% Derek O'Connor stuff %%%%%%%%%%%%%%%%%%%%%
+\def\boxit#1{\vbox{\hrule\hbox{\vrule\kern3pt
+             \vbox{\kern3pt#1\kern3pt}\kern3pt\vrule}\hrule}}
+
+%%%%%%%%%%%%%%%%%%%% Pascal Code Macros %%%%%%%%%%%%%%%%%%%%%%%
+\def\startline{\par\nobreak\noindent}
+\def\displaybreak{\smallskip}
+
+{\obeylines\obeyspaces%
+\global\def\beginCode{%\displaybreak%
+%\hrule\vskip1pt\hrule\vskip2pt
+%\displaybreak
+\begingroup%
+\parskip=0pt%
+\obeylines\obeyspaces%
+\let^^M=\startline%
+\codefont}%
+
+\global\def\endCode{\baselineskip=3pt\endgroup% DO'C used 10pt
+%\displaybreak%
+}}
+
+\def\HeadCode{\beginCode$$\boxit\{\hsize=11cm\vskip0.2truecm}
+\def\EndCode{\}$$\endCode\}}
+
+%\hrule\vskip1pt\hrule\vskip2pt
+%\displaybreak
+
+
+%% Original Derek O'Connor code
+
+%% \def\boxit#1{\vbox{\hrule\hbox{\vrule\kern3pt
+%%              \vbox{\kern3pt#1\kern3pt}\kern3pt\vrule}\hrule}}
+
+
+%% %%%%%%%%%%%%%%%%%%%% Pascal Code Macros %%%%%%%%%%%%%%%%%%%%%%%
+%% \def\startline{\par\nobreak\noindent}
+%% \def\displaybreak{\smallskip}
+
+%% {\obeylines\obeyspaces%
+%% \global\def\beginCode{\displaybreak%
+%% %\hrule\vskip1pt\hrule\vskip2pt
+%% %\displaybreak
+%% \begingroup%
+%% \parskip=0pt%
+%% \obeylines\obeyspaces%
+%% \let^^M=\startline%
+%% \codefont}%
+
+%% \global\def\endCode{\baselineskip=20pt\endgroup%
+%% %\displaybreak%
+%% \displaybreak}}
+
+
+%% \def\HeadCode{\beginCode$$\boxit\{\hsize=11cm\vskip0.2truecm}
+%% \def\EndCode{\}$$\endCode\}}
+
+% from WGS
+%% \def\obeytabs{\catcode`\    =\active}
+%% {\obeytabs\gdef {\leavevmode\kern21pt}}
+%% \chardef\other=12
+%% \long\def\ttverbatim{\begingroup
+%% \def\space{\leavevmode\kern10pt}%
+%%   \catcode`\@=\catcode`\\
+%%   \catcode`\\=\other
+%%   \catcode`\{=\other
+%%   \catcode`\}=\other
+%%   \catcode`\$=\other
+%%   \catcode`\&=\other
+%%   \catcode`\#=\other
+%%   \catcode`\%=\other
+%%   \catcode`\~=\other
+%%   \catcode`\_=\other
+%%   \catcode`\^=\other
+%%   \obeyspaces \obeylines \obeytabs \tt}
+
+% Miscellaneous stuff
+
+%% \def\inputverbatim#1{\ttverbatim\input#1\endgroup}
+
+%% \def\verbatimarg#1{\ttverbatim{#1}\endgroup}
+
+%% \newcommand*{\myFig}[2][0.3333]{%
+%% \begin{minipage}[t]{#1\textwidth}
+%% \parbox[b]{\textwidth}{%
+%% \centering{{#2}}
+%% \end{minipage}}
+
+%% \newcommand*{\myFigBox}{%[2][0.3333]{%
+%% \begin{minipage}[t]{\textwidth}
+%% \parbox[b]{\textwidth}{%
+%% \centering
+%% {\psframebox[fillstyle=solid,fillcolor=yellow]%
+%% {Hello\\ World}}
+%% \end{minipage}}

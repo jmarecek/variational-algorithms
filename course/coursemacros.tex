@@ -1,0 +1,61 @@
+% Macros shared by all chapters of the course "Variational Methods".
+% Loaded by both handoutsbeamer.tex (article mode) and overheadsbeamer.tex (presentation mode).
+
+% A figure that is shown full-frame in the slides and as a captioned float in the handout.
+%   \figslide[<includegraphics options for the slide>]{<file>}{<caption>}{<label>}
+% In the handout, the figure is always set at 0.92 of the line width.
+\newcommand{\figslide}[4][height=0.62\textheight]{%
+  \onp{\begin{center}\includegraphics[#1]{#2}\end{center}\vspace{-0.6em}{\tiny #3}}%
+  \ona{\begin{figure}[htb]\centering\includegraphics[width=0.92\linewidth,height=0.42\textheight,keepaspectratio]{#2}\caption{#3}\label{#4}\end{figure}}}
+
+% Cross references to chapters and lectures
+% "Chapter" in the handout, "Lecture" in the slides
+\newcommand{\Chap}{\only<article>{Chapter}\only<presentation>{Lecture}}
+\newcommand{\Chaps}{\only<article>{Chapters}\only<presentation>{Lectures}}
+\newcommand{\chap}{\only<article>{chapter}\only<presentation>{lecture}}
+\newcommand{\chaps}{\only<article>{chapters}\only<presentation>{lectures}}
+
+% Notation
+% (\bs is the backslash in declarns.tex; use \boldsymbol directly)
+\newcommand{\Herm}{\mathrm{Herm}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\renewcommand*{\Tr}{\ensuremath{\operatorname{Tr}}}
+
+\DeclareMathOperator{\opt}{opt}
+\DeclareMathOperator{\dist}{dist}
+\DeclareMathOperator{\spn}{span}
+
+\providecommand{\R}{\mathbb{R}}
+\providecommand{\C}{\mathbb{C}}
+\providecommand{\N}{\mathbb{N}}
+\providecommand{\one}{\mathbb{1}}
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+
+% Chapter cross-references that also work when a single chapter is compiled on its own:
+% \chref{C.xxx} expands to \ref{C.xxx} if the label is known, and to the fixed chapter
+% number of the course plan otherwise.
+\makeatletter
+\@namedef{chapnum@C.Motivation}{1}
+\@namedef{chapnum@C.EQA}{2}
+\@namedef{chapnum@C.Inapprox}{3}
+\@namedef{chapnum@C.Annealing}{4}
+\@namedef{chapnum@C.VQE}{5}
+\@namedef{chapnum@C.QAOA}{6}
+\@namedef{chapnum@C.PSR}{7}
+\@namedef{chapnum@C.IterationComplexity}{8}
+\@namedef{chapnum@C.PerIteration}{9}
+\@namedef{chapnum@C.WSRounded}{10}
+\@namedef{chapnum@C.WSContinuous}{11}
+\@namedef{chapnum@C.VQLS}{12}
+\@namedef{chapnum@C.Portfolio}{13}
+\newcommand{\chref}[1]{\ifcsname r@#1\endcsname\ref{#1}\else\ifcsname chapnum@#1\endcsname\csname chapnum@#1\endcsname\else\ref{#1}\fi\fi}
+\makeatother
+
+% Code listings (Python) shown in both the slides and the handout
+\lstset{language=Python,basicstyle=\ttfamily\scriptsize,keywordstyle=\color{blue!60!black}\bfseries,commentstyle=\color{green!40!black}\itshape,stringstyle=\color{red!50!black},showstringspaces=false,columns=fullflexible,keepspaces=true,breaklines=true,frame=single,framerule=0.3pt,rulecolor=\color{gray},xleftmargin=1em,xrightmargin=1em,numbers=none}
+
+% TikZ figures drawn in the chapters
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{calc,arrows.meta,positioning,backgrounds}
