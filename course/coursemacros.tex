@@ -29,7 +29,8 @@
 \providecommand{\R}{\mathbb{R}}
 \providecommand{\C}{\mathbb{C}}
 \providecommand{\N}{\mathbb{N}}
-\providecommand{\one}{\mathbb{1}}
+\usepackage{dsfont}
+\providecommand{\one}{}\renewcommand{\one}{\mathds{1}}   % identity operator (dsfont has a proper double-struck 1; \mathbb{1} has none)
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
 
 % Chapter cross-references that also work when a single chapter is compiled on its own:
@@ -61,4 +62,4 @@
 \usetikzlibrary{calc,arrows.meta,positioning,backgrounds}
 
 % Angstrom that works in both text and math, in both modes
-\providecommand{\angstrom}{\text{\normalfont\r{A}}}
+\providecommand{\angstrom}{\ensuremath{\mathring{\mathrm{A}}}}   % \r is redefined by the template's macros, so use the math ring accent

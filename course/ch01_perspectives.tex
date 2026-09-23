@@ -189,6 +189,22 @@ hardness & $\mathbf{QMA}$-hard in general & $\mathbf{NP}$-hard; $\mathbf{APX}$-h
 \ona{\begin{figure}[htb]\caption{Potential-energy curves of H$_2$ in the STO-3G basis: exact ground and excited states and the Hartree--Fock energy, computed with PySCF by \texttt{code/ch01\_h2.py}.}\label{fig:ch01:h2curves}\end{figure}}
 \end{frame}
 
+\begin{frame}\ft{Is there an exponential quantum advantage here?}
+\ona{H$_2$ in a minimal basis is trivial for any method. The question that matters is asymptotic: for a family of ever larger molecules, with basis size $L$ growing with the number of atoms, does a quantum computer compute the ground-state energy exponentially faster than the best classical method? This is the \emph{exponential quantum advantage} (EQA) hypothesis, examined critically by \citet{lee2023evaluating}, whom we follow here and in \Chap~\chref{C.EQA}. Their accounting of the cost of quantum phase estimation to precision $\epsilon$ is}
+\begin{equation}\label{eq:ch01:qpecost}
+    \mathrm{poly}(1/S)\,\big[\mathrm{poly}(L)\,\mathrm{poly}(1/\epsilon) + C\big], \qquad S = |\braket{\Phi|\Psi_0}|,
+\end{equation}
+\ona{where $C$ is the cost of preparing the trial state $\Phi$, the bracket is the phase-estimation circuit, and the prefactor, $1/S^2$ for plain phase estimation, is the number of repetitions needed to land on the ground state rather than another eigenstate. The $\mathrm{poly}(L)$ in the middle is what is usually quoted. EQA requires, in addition, that $S$ does not decay exponentially with $L$, \emph{and} that every classical heuristic costs $\exp(L)$ on the same molecules.}
+\onp{\scriptsize EQA hypothesis \cite{lee2023evaluating}: for generic chemistry, quantum polynomial \emph{and} classical exponential in $L$. In the QPE cost, the overlap $S$ of the trial state is the crux.}
+\figslide[height=0.36\textheight]{figures/eqa/fig1.pdf}{Ansatz state preparation for iron--sulphur clusters, from \citet{lee2023evaluating}. (A) [2Fe-2S], [4Fe-4S], the P-cluster and the FeMo cofactor of nitrogenase, up to 154 qubits. (B) Weight $S^2$ of the best single determinant (purple) and of the best configuration state function (orange) in the exact ground state, against the number of metal centres: an exponential decrease, down to $10^{-7}$ for FeMo-co.}{fig:ch01:eqa1}
+\end{frame}
+
+\begin{frame}\ft{And the classical competition does not scale exponentially}
+\ona{The second requirement of EQA fails empirically too: for the molecules usually cited as motivation, classical heuristics reach chemical accuracy at polynomial cost. Coupled-cluster methods have an empirical precision cost $\mathrm{poly}(1/\epsilon)$ and, exploiting locality, a cost linear in $L$ on gapped systems such as alkanes, with constant error per subunit; they run routinely on thousands of electrons. For strongly correlated models, tensor networks show near-linear cost in $L$ and $\bar\epsilon \sim 1/\mathrm{poly}(D)$ in the bond dimension, even at the hard $1/8$-doped Hubbard point. The conclusion of \citet{lee2023evaluating} is that evidence for a \emph{generic} exponential advantage in ground-state chemistry has yet to be found, while polynomial speedups remain possible and would still be valuable.}
+\figslide[height=0.45\textheight]{figures/eqa/fig3.pdf}{Computational complexity of classical heuristics for molecules, from \citet{lee2023evaluating}. (A) Energy error of N$_2$ against a time metric across coupled-cluster levels: $\mathrm{poly}(1/\epsilon)$. (B) Cost of reduced-scaling CCSD(T) on $n$-alkanes C$_m$H$_{2m+2}$, $m \le 120$: nearly linear in size, with constant error per carbon in the enthalpy of formation. (C) A fragment of photosystem II with thousands of electrons, treated on a few cores.}{fig:ch01:eqa3}
+\onp{\scriptsize Classical heuristics: $\mathrm{poly}(1/\epsilon)$ and near-linear in $L$ where they apply. Verdict \cite{lee2023evaluating}: no evidence yet of generic EQA; polynomial speedups still possible. Details in \Chap~\chref{C.EQA}.}
+\end{frame}
+
 \begin{frame}\ft{Molecular energy levels}
 \ona{Quantum computing for chemistry begins with a molecule: nuclei at fixed positions (Born--Oppenheimer) and $N$ electrons in a basis of $M$ spin-orbitals. In second quantisation the electronic Hamiltonian is}
 \begin{equation}\label{eq:ch01:molH}
