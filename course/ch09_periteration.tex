@@ -1,0 +1,205 @@
+%\documentclass[overheadsbeamer.tex]{subfiles}
+\documentclass[handoutsbeamer.tex]{subfiles}
+
+\begin{document}
+
+\thispagestyle{empty}
+
+\ona{ \setcounter{chapter}{8} } % ONE LESS
+\lecture{Per-Iteration Complexity of QAOA}{Lect09}
+\chapter{Per-Iteration Complexity of QAOA}\label{C.PerIteration}
+
+\ona{\Chap~\chref{C.IterationComplexity} counted iterations. This \chap{} asks what one iteration \emph{costs}: shots, circuits, circuit depth, classical simulation time, and hardware latency; then why no per-iteration budget rescues the worst case, following the $\mathbf{NP}$-hardness proof of \citet{bittel2021training}, which we cover in full in the lecture and sketch on one page here. It then follows \citet{marecek2026angles}, \emph{Setting angles in quantum approximate optimization at utility-scale}, where these costs decide how the angles of QAOA are set at 100 qubits or more, and which of the many proposed methods to trust.}
+
+\section{The cost of one iteration}
+
+\begin{frame}\ft{Shots: estimating the energy}
+\ona{One evaluation of $F_p(\boldsymbol\theta) = \langle H_C\rangle$ for MaxCut is the average of the cut value $f(x) = \frac12\sum_{(i,j)\in E}w_{ij}(1-z_iz_j)$ over $M$ samples $x$. Since $|f(x)| \le \|w\|_1 = \sum_e|w_e|$, Hoeffding's inequality gives}
+\begin{equation}\label{eq:ch09:shots}
+    \mathrm{Pr}\big[|\hat F - F_p| \ge \epsilon\big] \le 2\exp\Big(-\frac{M\epsilon^2}{2\|w\|_1^2}\Big),
+    \qquad\text{so}\qquad M = \mathcal O\Big(\frac{\|w\|_1^2}{\epsilon^2}\log\frac1\delta\Big)
+\end{equation}
+\ona{shots suffice for additive error $\epsilon$ with probability $1-\delta$; in terms of approximation ratio, $\epsilon = \eta\cdot\mathrm{OPT}$ with $\mathrm{OPT} \ge \|w\|_1/2$ for positive weights gives $M = \mathcal O(\eta^{-2}\log(1/\delta))$, independent of $n$. The variance $\sigma^2$ of \Chap~\chref{C.IterationComplexity} is $\mathrm{Var}[f(x)]/M$. For general Hamiltonians $H = \sum_kh_kP_k$, terms are grouped into commuting sets and the count becomes $\mathcal O((\sum_k|h_k|)^2/\epsilon^2)$.}
+\onp{$M = \mathcal O(\|w\|_1^2\epsilon^{-2}\log(1/\delta))$ shots per evaluation; a relative precision $\eta$ needs $\mathcal O(\eta^{-2})$ shots, independent of $n$; MaxCut is diagonal, one measurement basis.}
+\end{frame}
+
+\begin{frame}\ft{Circuits, depth, and time}
+\begin{itemize}\setlength\itemsep{0.3em}
+    \item \textbf{Circuit evaluations per iteration:} COBYLA $1$, SPSA $2$, parameter-shift gradient $2\cdot 2p$ (\Chap~\chref{C.PSR}); each with $M$ shots.
+    \item \textbf{Gates per layer:} $|E|$ two-qubit $ZZ$ rotations and $n$ single-qubit rotations. On hardware with restricted connectivity, each $ZZ$ between non-adjacent qubits costs SWAPs; for a heavy-hex device and a dense problem graph the depth grows by a factor $\mathcal O(n)$, which is why hardware studies use hardware-native (heavy-hex, line-based) graphs.
+    \item \textbf{Wall-clock:} on \emph{ibm\_boston}, $t_{\rm shot} \approx 100\,\mu$s and a fixed latency $t_{\rm qc} \approx 6$ s per submitted circuit; one iteration of COBYLA with $M = 20\,000$ shots takes about 8 s, of which the latency dominates. A closed loop of 80 iterations on 100 qubits took minutes of QPU time (\Chap~\chref{C.Motivation}).
+    \item \textbf{Total:} $T = N\,(t_{\rm qc} + c\,M\,t_{\rm shot}) + Q\,t_{\rm shot}$ for $N$ iterations of $c$ circuits each and $Q$ final samples; this is the resource model of the Pareto analysis below.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{Classical evaluation of $\langle H_C\rangle$}
+\ona{When the loop is run offline, the cost is that of a classical simulator:}
+\begin{itemize}\setlength\itemsep{0.3em}
+    \item \textbf{Depth one is cheap:} $\braket{Z_iZ_j}$ depends only on the neighbourhoods of $i,j$ and has a closed form; the whole landscape is $\mathcal O(|E|\cdot\deg^2)$ per point.
+    \item \textbf{Statevector:} $\mathcal O(2^n)$ memory and $\mathcal O(p(|E|+n)2^n)$ time; 40 qubits took five minutes on 1024 GPUs.
+    \item \textbf{Matrix product states} with bond dimension $\chi$: each two-qubit gate costs $\mathcal O(\chi^3)$ after mapping the graph to a line, so $\mathcal O(p\,|E|\,\chi^3)$ per evaluation, polynomial in $n$ but exponential in the entanglement the circuit builds; long-range edges need swaps or a SAT-optimised relabelling. Accuracy is monitored by $F_{\rm approx} = \prod_g\sum_{j\le\chi}\lambda_{j,g}^2$.
+    \item \textbf{Pauli propagation:} propagate $H_C$ backwards through the circuit, truncating Pauli strings of weight above $W$ or coefficient below a threshold; cheap for sparse graphs, cost growing fast with density.
+    \item \textbf{Empirically}, at $p = 10$ and $\chi = 24$, both scale polynomially in $|E|$, with $100$--$1000$ s per evaluation for a fully connected 100-node graph\ona{, Fig.~\ref{fig:ch09:evaltime}}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{Evaluation time versus graph size}
+\figslide[height=0.55\textheight]{figures/numerics/figure15.pdf}{Time to evaluate $\langle H_C\rangle$ of depth-ten QAOA as a function of the number of edges, colour giving the number of nodes \cite{marecek2026angles}: (a),(b) Quimb MPS without and with the SAT remapping time, (c),(d) Qiskit Aer MPS, (e) Pauli propagation, (f) the SAT remapping alone.}{fig:ch09:evaltime}
+\end{frame}
+
+\section{No budget rescues the worst case: training is NP-hard}
+
+\begin{frame}\ft{The statements}
+\onp{\scriptsize}
+\ona{Per-iteration costs are polynomial. Iteration counts, by \Chap~\chref{C.IterationComplexity}, are polynomial to reach a \emph{stationary} point. What no polynomial budget buys is the \emph{global} optimum, in the worst case. \citet{bittel2021training} prove this through the following chain; all figures of merit are normalised by the spectral width $\Delta(O) = \lambda_{\max}(O) - \lambda_{\min}(O)$.}
+\begin{probl}[Continuous MaxCut]\label{p:ch09:cmc}
+Given the adjacency matrix $A \in \{0,1\}^{d\times d}$ of a graph, find $\boldsymbol\phi \in [0,2\pi)^d$ minimising $\mu(\boldsymbol\phi) = \frac14\sum_{i,j}A_{ij}[\cos\phi_i\cos\phi_j - 1]$.
+\end{probl}
+\begin{thm}[\citet{bittel2021training}]\label{thm:ch09:bittel}
+\begin{enumerate}\setlength\itemsep{0.05em}
+    \item[(a)] Problem~\ref{p:ch09:cmc} is $\mathbf{NP}$-hard, and any polynomial-time algorithm for it has an approximation ratio at most $\alpha_{\max}$, that of MaxCut.
+    \item[(b)] VQA minimisation with oracle access to $\braket{O(\boldsymbol\phi)}$ is $\mathbf{NP}$-hard, and no polynomial-time algorithm guarantees an optimization error $\rho < 1$.
+    \item[(c)] VQA minimisation on a Hilbert space of dimension $2d$, i.e., $\mathcal O(\log d)$ qubits, is $\mathbf{NP}$-hard, with $d$ layers and with a single layer; the decision version is $\mathbf{NP}$-complete.
+    \item[(d)] QAOA minimisation with one layer is $\mathbf{NP}$-hard, even with $\|H_b\|,\|H_c\| \le 3$ and periodic angles; every polynomial-time algorithm has optimization error $\rho \ge (1-\alpha_{\max})/2$; gradient methods have $\rho \ge 1/4$.
+    \item[(e)] The same holds for free-fermionic circuits.
+\end{enumerate}
+\end{thm}
+\end{frame}
+
+\begin{frame}\ft{Proof sketch, part I: from MaxCut to cosines}
+\onp{\scriptsize}\ona{\small}
+\textbf{(a) Continuous MaxCut.} Fix all coordinates but $\phi_i$. Since $A_{ii} = 0$ and $A = A^\top$,
+\begin{equation}
+    \mu(\boldsymbol\phi) = \cos(\phi_i)\Big[\tfrac12\sum_{j\ne i}A_{ij}\cos\phi_j\Big] + C_i,
+\end{equation}
+with $C_i$ independent of $\phi_i$: the dependence is through $\cos\phi_i$ alone, so $\mu(\boldsymbol\phi) \ge \min\{\mu|_{\phi_i=0},\ \mu|_{\phi_i=\pi}\}$. Rounding the coordinates one by one to $\{0,\pi\}$ never increases $\mu$, in polynomial time. On $\{0,\pi\}^d$, with $v_i = \cos\phi_i \in \{\pm1\}$,
+\begin{equation}
+    \min_{\boldsymbol\phi\in\{0,\pi\}^d}\mu = \tfrac14\min_{v\in\{\pm1\}^d}\sum_{i,j}A_{ij}(v_iv_j - 1) = -\tfrac12\min_v\sum_{i,j}A_{ij}\mathbb 1[v_i\ne v_j] = -\mathrm{MaxCut}(A),
+\end{equation}
+a many-one reduction of MaxCut to Problem~\ref{p:ch09:cmc}, preserving approximation ratios. \emph{Remark:} at $\{0,\pi\}^d$ the gradient vanishes and the Hessian is diagonal, so local minima of $\mu$ are exactly the fixed points of greedy single-vertex local search, whose ratio is $1/2$: gradient methods on $\mu$ guarantee only $1/2$.
+
+\textbf{(b) Oracular VQA.} Take $N = d$ qubits, $O = \frac14\sum_{ij}A_{ij}(Z_iZ_j - \one)$, generators $H_i = Y_i/2$, $L = d$ layers, initial state $\ket0^{\otimes d}$. Then $\ket{\Psi(\boldsymbol\phi)} = \bigotimes_iR_Y(\phi_i)\ket0$ has $\braket{Z_i} = \cos\phi_i$, so $\braket{O(\boldsymbol\phi)} = \mu(\boldsymbol\phi)$ exactly. \emph{Boosting:} with $\tilde O = (-1)^{k-1}O^{\otimes k}$ and $\tilde U = U^{\otimes k}$ on $kd$ qubits, $\braket{\tilde O} = -|\mu|^k$, spectral width $\mathrm{MC}^k$, and an algorithm with ratio $\alpha$ has error $\rho \ge 1 - \alpha^k \to 1$: no $\rho < 1$ can be guaranteed unless $\mathbf P = \mathbf{NP}$.
+\end{frame}
+
+\begin{frame}\ft{Proof sketch, part II: logarithmically many qubits, one layer}
+\onp{\scriptsize}\ona{\small}
+\textbf{(c) Logarithmically many qubits.} On $\mathcal H = \C^{2d}$ let $O' = \frac d8\,A\otimes\begin{psmallmatrix}1&1\\1&1\end{psmallmatrix}$ and $O = O'$ off the diagonal with $O_{jj} = -\sum_\alpha O'_{\alpha j}$; initial state $\ket{\Psi_0} = (2d)^{-1/2}\sum_j\ket j$; generators $H_i = \ket{2i-1}\!\bra{2i-1} - \ket{2i}\!\bra{2i}$, $L = d$. Then $\ket{\Psi(\boldsymbol\phi)} = (2d)^{-1/2}\sum_j(e^{-i\phi_j}\ket{2j-1} + e^{i\phi_j}\ket{2j})$ and a direct computation gives
+\begin{equation}
+    \braket{O(\boldsymbol\phi)} = \tfrac18\sum_{ij}A_{ij}\big(\cos(\phi_i-\phi_j) + \cos(\phi_i+\phi_j) - 2\big) = \mu(\boldsymbol\phi).
+\end{equation}
+Everything here is classically computable in polynomial time, so the hardness is intrinsic to the optimization, not inherited from the quantum part; a parameter vector is a polynomial witness, hence $\mathbf{NP}$-completeness of the decision version. \emph{One layer:} replace the $d$ generators by $H = \sum_jE_j(\ket{2j-1}\!\bra{2j-1} - \ket{2j}\!\bra{2j})$ with $E_j = 2\pi/m^j$. The spectrum is $\epsilon$-approximately ergodic with $\epsilon = 4\pi/m$: for every $\boldsymbol\phi$ there is a time $t$ with $\|\phi_j - E_jt\|_{2\pi} \le \epsilon$ for all $j$ (a nested-clock argument, $\mathcal O(d\log m)$ bits). So $\braket{O(t)} = \mu(\boldsymbol Et)$ approximates $\mu(\boldsymbol\phi)$ to any precision along a single one-parameter curve; minimising over $t$ is $\mathbf{NP}$-hard.
+\end{frame}
+
+\begin{frame}\ft{Proof sketch, part III: QAOA}
+\onp{\scriptsize}\ona{\small}
+\textbf{(d) QAOA.} On $\C^{2d+1}$ take $H_b = \mathrm{diag}(E_1,-E_1,\dots,E_d,-E_d,-1)$ with ground state $\ket{2d+1}$, and $H_c = O\oplus0 + \tau(\ket{+_{2d}}\!\bra{2d+1} + \text{h.c.})$. Then $U_c(\gamma)\ket{2d+1} = \cos(\tau\gamma)\ket{2d+1} + i\sin(\tau\gamma)\ket{+_{2d}}$, since $\ket{+_{2d}}$ is an eigenvector of $O\oplus0$, and $U_b(\beta)$ imprints the phases $e^{\mp iE_j\beta}$, so
+\begin{equation}
+    \braket{H_c(\beta,\gamma)} = \sin^2(\tau\gamma)\,\mu(\boldsymbol E\beta) + 2\tau\cos(\tau\gamma)\sin(\tau\gamma)\,g(\beta).
+\end{equation}
+For $\tau \ll 1$ the second term is negligible and $\gamma = \pi/(2\tau)$ is optimal, reducing to (c). A more careful construction with $E_i \in \{-3,\dots,3\}$ and $\|H_c\| = 1$ achieves $\braket{H_c}_{\min} = 1 - 2\,\mathrm{MC}/|E|$ by penalising deviations from the intended structure; with spectral width $2$ and $\mathrm{MC} \ge |E|/2$, an algorithm with ratio $\alpha$ has $\rho \ge \frac12\big(\tfrac{2\mathrm{MC}}{|E|} - \tfrac{2\alpha\mathrm{MC}}{|E|}\big) \ge (1-\alpha)/2$, hence $\rho \ge (1-\alpha_{\max})/2$ for every polynomial-time algorithm and $\rho \ge 1/4$ for gradient methods. \qed
+\end{frame}
+
+\begin{frame}\ft{The circuit behind the reduction}
+\figslide[height=0.45\textheight]{figures/bittel/sketch.pdf}{The variational circuit of the reduction, after \citet{bittel2021training}: parametrised layers $U_i(\phi_i)$, a measured observable $O$, a classical optimizer that proposes $\boldsymbol\phi$, and post-processing. In the reduction the layers are single-qubit $Y$ rotations, or diagonal phases on $\mathcal O(\log d)$ qubits, and the optimizer faces the landscape of continuous MaxCut.}{fig:ch09:bittel}
+\ona{What the theorem does \emph{not} say: it does not forbid good angles for typical instances, which is what the rest of this \chap{} finds empirically, nor good solutions from local minima, which is what warm starts guarantee (\Chaps~\chref{C.WSRounded}--\chref{C.WSContinuous}). It says that a per-iteration budget, however generous, is not the bottleneck in the worst case: the number of iterations to the global optimum is.}
+\onp{Not forbidden: good angles on typical instances (empirically, below); good solutions from local minima (warm starts). Forbidden: a worst-case guarantee from any polynomial budget.}
+\end{frame}
+
+\section{Angle setting at utility scale}
+
+\begin{frame}\ft{Three ways to set angles without a closed loop}
+\ona{Recall the QAOA state $\ket{\psi(\boldsymbol\theta)} = \prod_{k=1}^p U_M(\beta_k)U_C(\gamma_k)\ket{+}^{\otimes n}$ and its energy $\langle H_C\rangle$. Closed-loop optimization of $\boldsymbol\theta$ on hardware is (i) slow, given clock speeds and queueing; (ii) impossible to check, since at utility scale $\langle H_C\rangle$ cannot be simulated exactly; and (iii) \textbf{NP}-hard in the worst case, with many local optima even at $p=1$. Figure~\ref{fig:ch07:strategies} shows the alternatives:}
+\figslide[height=0.5\textheight]{figures/numerics/figure1.pdf}{Angle setting at utility scale \cite{marecek2026angles}. Angles are found classically, by evaluating the energy on (a) representative structured problems, (b) small representative instances with exact energy, or (c) the utility-scale instance with an approximate energy; they are transferred to the QAOA circuit (e) for the utility-scale instance (d), and only the final sampling (f) runs on hardware.}{fig:ch07:strategies}
+\end{frame}
+
+\begin{frame}\ft{A taxonomy of angle-setting methods}
+\ona{Some 30 methods from the literature fall into four classes, with many methods belonging to several:}
+\begin{description}\setlength\itemsep{0.2em}
+    \item[Physics-inspired] angles follow an annealing schedule: Trotterised quantum annealing (TQA), linear ramps with two slopes $(\Delta_\beta,\Delta_\gamma)$, spectral-gap-informed ramps, counterdiabatic and feedback-based (FALQON) schedules. No energy evaluation needed unless the slopes are optimised.
+    \item[Parameter transfer] optimal angles concentrate across similar instances: fixed angles for MaxCut on $k$-regular graphs \cite{Wurtz2021}, transfer from small to large instances, rescaling for weighted problems, surrogate models. Require a database of good angles.
+    \item[Iterative] initialise depth $p+1$ from depth $p$: Interp.\ and Fourier \cite{Zhou2020}, transition states, basin hopping. Smooth schedules, good quality, but repeated optimizations.
+    \item[Machine learning] predict angles from instances: clustering, regression from $p=1$ to $p>1$, reinforcement learning, diffusion models, graph attention networks. Only as good as their training data.
+\end{description}
+\ona{Superscripts in what follows: $\dagger$ no optimization to the instance, no superscript only method parameters (e.g., slopes) optimised, $\star$ every angle optimised, always with COBYLA.}
+\end{frame}
+
+\begin{frame}\ft{Evaluating the energy when you cannot simulate}
+\ona{If a method needs $\langle H_C\rangle$, one of four evaluators supplies it:}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item \textbf{Statevector (SV):} exact, up to $\sim 40$ qubits on a GPU cluster (a 40-qubit run takes five minutes on 1024 A100 GPUs), $\sim 20$ on a laptop.
+    \item \textbf{Hardware:} sampling the QPU; slow and noisy, but the ground truth for what the QPU will do.
+    \item \textbf{Matrix product states (MPS):} tensor-network approximation controlled by the bond dimension; accurate for low-connectivity graphs without short cycles, especially after remapping the problem graph onto the tensor line (a SAT-solved mapping). Tends to \emph{underestimate} the energy, yet still guides the optimizer well.
+    \item \textbf{Pauli propagation (PP):} Heisenberg-picture propagation of $H_C$ truncated by Pauli weight $W$ and coefficient threshold; accurate for sparse graphs, expensive for dense ones.
+\end{itemize}
+\ona{Crucially, methods are only comparable under the same evaluator, and a good approximate energy is not the same as a good hardware energy.}
+\end{frame}
+
+\section{Benchmarks}
+
+\begin{frame}\ft{Methodology}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item \textbf{Methods:} Interp., Fourier, TQA, recursive transition states (RTS), linear ramps, fixed angles \cite{Wurtz2021}, parameter transfer; 34 configurations, 79\,908 training chains.
+    \item \textbf{Problems:} MaxCut and Maximum Independent Set (MIS) on Erd\H{o}s--R\'enyi (ER), heavy-hex (HH, the IBM qubit topology), line-based (LB, a line plus SWAP layers) and random-regular (RR) graphs; small set (20--21 nodes) for SV, large set (50--144 nodes) for MPS and PP; plus low-autocorrelation binary sequences (LABS) up to 21 spins.
+    \item \textbf{Depths:} $p \le 10$, since noise limits what can be executed.
+    \item \textbf{Metrics:} energy or approximation ratio (against CPLEX optima), \emph{and} the wall-clock cost of finding the angles.
+    \item \textbf{Validation:} on \emph{ibm\_boston} and \emph{ibm\_fez} for 144-node heavy-hex and 100-node line-based instances, and a Kruskal--Wallis test with Conover--Iman post-hoc comparisons to decide which methods are statistically distinguishable.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{Quality: which method is best?}
+\figslide[height=0.55\textheight]{figures/numerics/figure5.pdf}{Proportion of the 37 graphs on which each method gives the best angles, per depth and per energy evaluator \cite{marecek2026angles}. Linear ramps and Interp.\ win most often; fixed angles are best when available but exist for only a quarter of the graph-depth pairs.}{fig:ch07:best}
+\end{frame}
+
+\begin{frame}\ft{Quality: method rankings depend on the problem class}
+\figslide[height=0.5\textheight]{figures/numerics/figure6.pdf}{Energy versus depth for MIS (a) and MaxCut (b) on ten 40-node random 3-regular graphs, PP evaluator \cite{marecek2026angles}. Fourier is the worst on MaxCut but among the best on MIS; MaxCut fixed angles do not transfer to MIS.}{fig:ch07:misvsmc}
+\ona{At $p = 10$, approximation ratios of $94$--$98\%$ are typical for the best methods on MaxCut, $80$--$88\%$ for the worst; Fourier and TQA underperform on MaxCut, and RTS did not finish at utility scale. Iterative methods are sensitive to their $p=1$ initialisation, especially on LABS whose depth-one landscape has narrow basins; linear ramps sidestep this by parametrising the schedule globally and cost $5\%$ of the compute time.}
+\end{frame}
+
+\begin{frame}\ft{Validation I: do approximate energies find good angles?}
+\figslide[height=0.5\textheight]{figures/numerics/figure7.pdf}{40-qubit 3-regular MaxCut: energy of angles optimised with PP and MPS (solid) and their exact statevector energy (dotted), for (a) fixed angles and (b) TQA \cite{marecek2026angles}.}{fig:ch07:ppmpssv}
+\ona{The MPS energies are systematically below the truth, yet the angles they produce are as good as, and at larger depth better than, those from PP when re-evaluated exactly, and the MPS optimization was $1.5$--$3$ times faster. Accuracy of the evaluator and quality of the resulting angles are different things.}
+\end{frame}
+
+\begin{frame}\ft{Validation II: landscapes on 144 qubits}
+\figslide[height=0.45\textheight]{figures/numerics/figure8.pdf}{Energy landscape of depth-five linear-ramp QAOA over the two slopes for a 144-qubit heavy-hex MaxCut problem: (a) MPS, (b) PP, (c) \emph{ibm\_fez} with 1000 shots per point \cite{marecek2026angles}. Crosses mark each method's maximum.}{fig:ch07:landscape}
+\ona{The two classical evaluations took 42 minutes on a 96-core node; the hardware scan took 3 minutes. Here PP is the closer approximation to the QPU landscape.}
+\end{frame}
+
+\begin{frame}\ft{Validation III: hardware ratios versus estimated ratios}
+\figslide[height=0.5\textheight]{figures/numerics/figure9.pdf}{Hardware approximation ratio on \emph{ibm\_boston} against the estimated ratio from training, ten 144-node heavy-hex graphs, $p=5$ (a) and $p=10$ (b) \cite{marecek2026angles}. Correlations: 0.66 and 0.61 for MPS, 0.93 and 0.89 for PP.}{fig:ch07:hw}
+\ona{Estimated and hardware ratios correlate positively, though hardware ratios are lower due to noise. Interp.\ and re-optimised fixed angles with PP perform best on both axes. Fourier with PP reports a high estimated ratio, but the QPU shows this outperformance is fake: its hardware ratios are the lowest. At $p=10$ most methods become statistically indistinguishable on hardware, even though they are distinguishable in estimated ratio: near the noise limit, it matters little how the angles were trained.}
+\end{frame}
+
+\section{Cost}
+
+\begin{frame}\ft{Quality against cost}
+\ona{Define the total duration $T_{\rm total} = T_{\rm AS} + T_{\rm QPU}$: the angle-setting time (mostly classical energy evaluations inside COBYLA, cumulative over depths for iterative methods) plus the sampling time $Q\,t_{\rm shot}$. Figure~\ref{fig:ch07:perf} places every strategy in the plane of cost and hardware quality.}
+\figslide[height=0.45\textheight]{figures/numerics/figure10.pdf}{Hardware approximation ratio against total duration for ten 144-node heavy-hex instances at (a) $p=5$ and (b) $p=10$ \cite{marecek2026angles}.}{fig:ch07:perf}
+\ona{Physics-inspired and transfer methods finish within $10^3$ s at ratios of $82$--$85\%$; iterative methods exceed $10^4$ s for a modest, sometimes unmeasurable, improvement on hardware.}
+\end{frame}
+
+\begin{frame}\ft{The Pareto frontier and the window sticker}
+\figslide[height=0.45\textheight]{figures/numerics/figure12.pdf}{Actionable Pareto frontier for 144-node heavy-hex MaxCut when the angles are trained on the quantum computer itself, emulated by an MPS sampler, under (a) shot time only and (b) a 6 s submission overhead per circuit \cite{marecek2026angles}. Solid: emulation; dotted: measured on \emph{ibm\_boston}.}{fig:ch07:pareto}
+\ona{Following the Stochastic Benchmark framework \cite{Neira2024}, one fits a \emph{prescription} for each method on training instances and evaluates it on test instances. Without latency, fixed angles dominate small budgets and instance-tailored fixed angles the rest. With today's 6 s latency per circuit submission, parameter transfer wins intermediate budgets and the same best ratio needs two orders of magnitude more time. Producing such a plot for real cost $5\times10^9$ emulated shots; on hardware, the submission overhead alone would take years.}
+\end{frame}
+
+\section{Operational guidance}
+
+\begin{frame}\ft{What a practitioner should do}
+\onp{\footnotesize}
+\begin{enumerate}\setlength\itemsep{0.2em}
+    \item \textbf{Train offline with approximate evaluators} (MPS after remapping the graph to the tensor line; PP for sparse graphs), but \textbf{validate on the QPU}: a method that looks good under an approximate energy may underperform on hardware.
+    \item \textbf{Start from transferred or fixed angles.} They cost an $\mathcal O(1)$ look-up, perform well on the problems they were designed for, and are good initial points elsewhere; tailoring them adds $1$--$2\%$ at large cost.
+    \item \textbf{Prefer linear ramps} for rugged, higher-order problems (LABS); prefer Interp.\ when quality matters and time does not; be aware that iterative methods hinge on the $p=1$ start, which is cheap to scan exactly.
+    \item \textbf{Test several methods at small scale} for a new problem class: rankings change between MaxCut and MIS.
+    \item \textbf{Near the noise limit}, small quality differences are unmeasurable; choose the fastest method.
+    \item \textbf{Build a database} of good angles when similar problems recur; benchmarking ranks methods and tells you where to spend resources.
+\end{enumerate}
+\ona{And keep the yardstick of \Chap~\chref{C.Motivation} in mind: standard MaxCut is solved classically in seconds. The insights should transfer to warm-start and recursive QAOA, which overcome the constant-depth obstructions that standard QAOA faces, and which we turn to next.}
+\end{frame}
+
+\begin{frame}[allowframebreaks]\ft{References}
+\biblio
+\end{frame}
+
+\end{document}

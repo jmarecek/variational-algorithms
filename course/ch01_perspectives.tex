@@ -102,7 +102,7 @@ hardness & $\mathbf{QMA}$-hard in general & $\mathbf{NP}$-hard; $\mathbf{APX}$-h
 \end{frame}
 
 \begin{frame}\ft{The smallest molecule}
-\ona{Molecular hydrogen, H$_2$: two protons at distance $R$ ($R_{\rm eq} \approx 0.74$ \AA{} $= 1.40$ Bohr) and two electrons. Figure~\ref{fig:ch01:h2mol} shows the nuclei and the electron density of the bonding state, concentrated between the nuclei.}
+\ona{Molecular hydrogen, H$_2$: two protons at distance $R$ ($R_{\rm eq} \approx 0.74$~\angstrom{} $= 1.40$ Bohr) and two electrons. Figure~\ref{fig:ch01:h2mol} shows the nuclei and the electron density of the bonding state, concentrated between the nuclei.}
 \begin{center}
 \begin{tikzpicture}[scale=1.1]
   % electron cloud: overlapping shaded blobs
@@ -129,16 +129,16 @@ hardness & $\mathbf{QMA}$-hard in general & $\mathbf{NP}$-hard; $\mathbf{APX}$-h
 \begin{equation}\label{eq:ch01:h2qubit}
     H = g_0\,\one + g_1 Z_0 + g_2 Z_1 + g_3 Z_0Z_1 + g_4 X_0X_1 + g_5 Y_0Y_1,
 \end{equation}
-\ona{with coefficients $g_k(R)$ computed classically from the one- and two-electron integrals. At $R = 0.75$ \AA: $g_0 = -0.4804$, $g_1 = 0.3435$, $g_2 = -0.4347$, $g_3 = 0.5716$, $g_4 = g_5 = 0.0910$ Hartree (electronic part; the nuclear repulsion $1/R$ is added separately).}
+\ona{with coefficients $g_k(R)$ computed classically from the one- and two-electron integrals for each bond length $R$, and tabulated, e.g., in \citet{omalley2016scalable}. All numbers below are exact diagonalisations in the minimal (STO-3G) basis, computed with PySCF by \texttt{code/ch01\_h2.py}; the nuclear repulsion $1/R$ is included.}
 \onp{Minimal basis: two orbitals $\sigma_g,\sigma_u$ $\to$ four spin-orbitals $\to$ four qubits $\to$ two qubits by symmetry, six Pauli terms \cite{omalley2016scalable}; $g_k(R)$ from classical integrals.}
 \end{frame}
 
 \begin{frame}\ft{The wave function of H$_2$}
-\ona{In the minimal basis the molecular orbitals are the symmetric and antisymmetric combinations of the atomic $1s$ orbitals $\phi_{A,B}(\boldsymbol r) \propto e^{-|\boldsymbol r - \boldsymbol R_{A,B}|}$, shown along the bond axis in Fig.~\ref{fig:ch01:h2wf}. Hartree--Fock puts both electrons (spin up and down) into $\sigma_g$: in the two-qubit encoding of \eqref{eq:ch01:h2qubit} this is the basis state $\ket{10}$, of energy $-1.83$ Hartree (electronic). The exact ground state mixes in the doubly excited configuration $\ket{01}$,}
+\ona{In the minimal basis the molecular orbitals are the symmetric and antisymmetric combinations of the atomic $1s$ orbitals $\phi_{A,B}(\boldsymbol r) \propto e^{-|\boldsymbol r - \boldsymbol R_{A,B}|}$, shown along the bond axis in Fig.~\ref{fig:ch01:h2wf}. Hartree--Fock puts both electrons (spin up and down) into $\sigma_g$: in the two-qubit encoding of \eqref{eq:ch01:h2qubit} this is the basis state $\ket{10}$, of energy $-1.116$ Hartree at $R = 0.75$~\angstrom. The exact ground state, of energy $-1.137$ Hartree, mixes in the doubly excited configuration $\ket{01}$,}
 \begin{equation}\label{eq:ch01:h2gs}
-    \ket{\psi_0} = \cos\tfrac\theta2\,\ket{10} - \sin\tfrac\theta2\,\ket{01},\qquad \theta \approx 0.23 \text{ at } R = R_{\rm eq},
+    \ket{\psi_0} = \cos\tfrac\theta2\,\ket{10} - \sin\tfrac\theta2\,\ket{01},\qquad \theta = 0.23,\ 0.73,\ 1.50 \text{ at } R = 0.75,\ 1.5,\ 3.0\,\angstrom,
 \end{equation}
-\ona{which is exactly the one-parameter unitary coupled-cluster ansatz $e^{-i\theta/2\,(X_0Y_1 - Y_0X_1)/2}\ket{10}$: a variational circuit with a single angle, and the first VQE ever run on hardware \cite{omalley2016scalable}. The mixing grows with $R$ and becomes $\theta \to \pi/2$ at dissociation, where Hartree--Fock fails.}
+\ona{which is exactly the one-parameter unitary coupled-cluster ansatz $e^{-i\theta/2\,(X_0Y_1 - Y_0X_1)/2}\ket{10}$: a variational circuit with a single angle, and the first VQE ever run on hardware \cite{omalley2016scalable}. The mixing grows with $R$ and tends to $\theta \to \pi/2$ at dissociation, where Hartree--Fock fails by $0.28$ Hartree.}
 \begin{center}
 \begin{tikzpicture}
 \begin{axis}[width=0.8\linewidth,height=0.42\linewidth,xlabel={position along the bond axis (Bohr)},ylabel={amplitude},xmin=-4,xmax=4,ymin=-1.1,ymax=1.3,axis lines=left,legend style={font=\scriptsize,draw=none,at={(0.02,0.98)},anchor=north west},legend columns=2,samples=200,domain=-4:4,no markers,every axis plot/.append style={thick}]
@@ -155,23 +155,39 @@ hardness & $\mathbf{QMA}$-hard in general & $\mathbf{NP}$-hard; $\mathbf{APX}$-h
 \end{frame}
 
 \begin{frame}\ft{The energy levels of H$_2$}
-\ona{Diagonalising the two-qubit Hamiltonian \eqref{eq:ch01:h2qubit} at $R = 0.75$ \AA{} gives four electronic energy levels, Fig.~\ref{fig:ch01:h2levels}. The ground state is the correlated singlet \eqref{eq:ch01:h2gs}; Hartree--Fock, the state $\ket{10}$, lies $0.02$ Hartree above it, about ten times chemical accuracy: this correlation energy is what the variational circuit must recover. The remaining levels are the excited configurations. Adding the nuclear repulsion $1/R \approx 0.706$ Hartree gives the total energies; repeating the calculation for every $R$ gives the potential-energy curves whose minimum is the bond length and whose curvature is the vibrational frequency.}
+\ona{Diagonalising \eqref{eq:ch01:h2qubit} at $R = 0.75$~\angstrom{}, equivalently full configuration interaction in the minimal basis, gives four energy levels, Fig.~\ref{fig:ch01:h2levels}. The ground state is the correlated singlet \eqref{eq:ch01:h2gs}; Hartree--Fock lies $0.021$ Hartree above it, thirteen times chemical accuracy: this correlation energy is what a variational circuit must recover. The other levels are excited configurations.}
 \begin{center}
-\begin{tikzpicture}[x=1cm,y=1.9cm,every node/.style={font=\scriptsize}]
-\draw[->] (0,-2.0) -- (0,0.35) node[above] {$E$ (Hartree, electronic)};
-\foreach \y in {-2.0,-1.5,-1.0,-0.5,0} {\draw (-0.08,\y) -- (0.08,\y) node[left=6pt] {\y};}
-\draw[very thick,blue!70!black] (1,-1.8512) -- (3.2,-1.8512) node[right,yshift=-4pt] {$E_0 = -1.851$: singlet ground state $\cos\tfrac\theta2\ket{10}-\sin\tfrac\theta2\ket{01}$};
-\draw[thick,dashed,gray] (1,-1.8302) -- (3.2,-1.8302) node[right,gray,yshift=5pt] {Hartree--Fock $\ket{10}$: $-1.830$};
-\draw[very thick,red!70!black] (1,-0.2528) -- (3.2,-0.2528) node[right] {$E_1 = -0.253$};
-\draw[very thick,red!70!black] (1,0.0) -- (3.2,0.0) node[right] {$E_2 = 0.000$: triplet-like $\ket{00},\ket{11}$ sector};
-\draw[very thick,red!70!black] (1,0.1824) -- (3.2,0.1824) node[right] {$E_3 = 0.182$: doubly excited};
-\draw[<->,thick] (3.6,-1.8512) -- (3.6,-0.2528) node[midway,right] {gap $\gamma \approx 1.6$};
+\begin{tikzpicture}[x=1cm,y=2.4cm,every node/.style={font=\scriptsize}]
+\draw[->] (0,-1.3) -- (0,0.65) node[above] {$E$ (Hartree)};
+\foreach \y in {-1.0,-0.5,0,0.5} {\draw (-0.08,\y) -- (0.08,\y) node[left=6pt] {\y};}
+\draw[very thick,blue!70!black] (1,-1.1371) -- (3.4,-1.1371) node[right,yshift=-5pt] {$E_0 = -1.137$: singlet ground state};
+\draw[thick,dashed,gray] (1,-1.1162) -- (3.4,-1.1162) node[right,gray,yshift=5pt] {Hartree--Fock $\ket{10}$: $-1.116$};
+\draw[very thick,red!70!black] (1,-0.5428) -- (3.4,-0.5428) node[right] {$E_1 = -0.543$};
+\draw[very thick,red!70!black] (1,-0.1792) -- (3.4,-0.1792) node[right] {$E_2 = -0.179$};
+\draw[very thick,red!70!black] (1,0.4598) -- (3.4,0.4598) node[right] {$E_3 = 0.460$: doubly excited};
+\draw[<->,thick] (0.6,-1.1371) -- (0.6,-0.5428) node[midway,left] {$\gamma = 0.59$};
 \end{tikzpicture}
 \end{center}
-\ona{\begin{figure}[htb]\caption{Electronic energy levels of H$_2$ in the minimal basis from the two-qubit Hamiltonian \eqref{eq:ch01:h2qubit} at $R = 0.75$ \AA{} (nuclear repulsion $1/R \approx 0.706$ Hartree not included). The dashed line is the Hartree--Fock energy; the difference to $E_0$ is the correlation energy.}\label{fig:ch01:h2levels}\end{figure}}
-\ona{Three things to retain for the rest of the course: the ground state is what we want; a cheap trial state (Hartree--Fock) is close to it in energy and has large overlap with it, $|\braket{10|\psi_0}|^2 = \cos^2(\theta/2) \approx 0.99$; and there is a spectral gap $\gamma$ to the next level. Overlap and gap are exactly the two quantities on which the guarantees of the following slides, and of \Chap~\chref{C.EQA}, depend.}
+\ona{\begin{figure}[htb]\caption{Energy levels of H$_2$ in the minimal basis at $R = 0.75$~\angstrom{} (full configuration interaction, STO-3G, nuclear repulsion included). The dashed line is the Hartree--Fock energy; the difference to $E_0$ is the correlation energy.}\label{fig:ch01:h2levels}\end{figure}}
+\ona{Three things to retain: the ground state is what we want; a cheap trial state (Hartree--Fock) is close to it in energy and has large overlap with it, $|\braket{10|\psi_0}|^2 = \cos^2(\theta/2) = 0.987$; and there is a spectral gap $\gamma$ to the next level. Overlap and gap are the two quantities on which the guarantees of the following slides, and of \Chap~\chref{C.EQA}, depend.}
+\onp{Overlap of Hartree--Fock with the ground state $0.987$; gap $\gamma = 0.59$ Hartree: the two quantities the guarantees below depend on.}
 \end{frame}
 
+\begin{frame}\ft{Energy levels as a function of bond length}
+\ona{Repeating the diagonalisation for every $R$ gives the potential-energy curves of Fig.~\ref{fig:ch01:h2curves}: the minimum of the ground-state curve is the bond length ($0.71$~\angstrom{} in this basis, $0.74$ experimentally), its curvature the vibrational frequency, and its depth the dissociation energy. Hartree--Fock is accurate near equilibrium and wrong by $0.28$ Hartree at dissociation, where the two electrons must localise on different atoms, a strongly correlated state; the overlap of the trial state with the truth drops from $0.99$ to $0.54$, and this is the regime in which quantum algorithms are hoped to help.}
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[width=0.72\linewidth,height=0.42\linewidth,xlabel={bond length $R$ (\angstrom)},ylabel={energy (Hartree)},xmin=0.4,xmax=3,ymin=-1.2,ymax=0.7,legend style={font=\scriptsize,draw=none,at={(0.98,0.45)},anchor=east},thick,no markers]
+\addplot[blue!70!black] table[x=R,y=E0] {figures/h2/h2_curves.dat};
+\addplot[gray,dashed] table[x=R,y=E_HF] {figures/h2/h2_curves.dat};
+\addplot[red!70!black] table[x=R,y=E1] {figures/h2/h2_curves.dat};
+\addplot[red!70!black,dotted] table[x=R,y=E2] {figures/h2/h2_curves.dat};
+\legend{$E_0$ exact (FCI),Hartree--Fock,$E_1$,$E_2$}
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\ona{\begin{figure}[htb]\caption{Potential-energy curves of H$_2$ in the STO-3G basis: exact ground and excited states and the Hartree--Fock energy, computed with PySCF by \texttt{code/ch01\_h2.py}.}\label{fig:ch01:h2curves}\end{figure}}
+\end{frame}
 
 \begin{frame}\ft{Molecular energy levels}
 \ona{Quantum computing for chemistry begins with a molecule: nuclei at fixed positions (Born--Oppenheimer) and $N$ electrons in a basis of $M$ spin-orbitals. In second quantisation the electronic Hamiltonian is}
@@ -292,19 +308,19 @@ A \emph{variational method} restricts $\ket{\psi}$ to a family $\{\ket{\psi(\bol
   \node[circle,fill=\c,inner sep=2.5pt] (v\i) at ({90+72*\i}:1.1) {};}
 \draw[dashed,thick] (v0)--(v1); \draw[dashed,thick] (v1)--(v2); \draw[dashed,thick] (v2)--(v3); \draw[dashed,thick] (v3)--(v4);
 \draw[gray,thick] (v4)--(v0);
-\node[align=center,text width=3.4cm] at (0,-1.75) {(a) optimum: $4$ of $5$ edges cut};
-\node at (0,-2.15) {$\mathrm{OPT} = 4$};
+\node[align=center,text width=3.4cm] at (0,-1.95) {(a) optimum: $4$ of $5$ edges cut};
+\node at (0,-2.4) {$\mathrm{OPT} = 4$};
 \end{scope}
 % (b) vector relaxation: pentagram
 \begin{scope}[xshift=4.6cm]
 \draw[gray!60] (0,0) circle (1.1);
 \foreach \i in {0,...,4}{
-  \draw[-{Stealth[length=4pt]},thick,blue!70!black] (0,0) -- ({90+144*\i}:1.1) node[pos=1.18] {$v_{\i}$};}
+  \draw[-{Stealth[length=4pt]},thick,blue!70!black] (0,0) -- ({90+144*\i}:1.1) node[pos=1.2,font=\tiny] {$v_{\i}$};}
 \foreach \i in {0,...,4}{\pgfmathtruncatemacro{\j}{mod(\i+1,5)}
   \draw[orange!90!black,thin] ({90+144*\i}:1.1) -- ({90+144*\j}:1.1);}
 \draw[<->] ({90+144*0}:0.55) arc ({90}:{90+144}:0.55); \node at (0.05,0.75) {$\tfrac{4\pi}{5}$};
-\node[align=center,text width=3.6cm] at (0,-1.75) {(b) unit vectors, adjacent ones $144^\circ$ apart};
-\node at (0,-2.25) {$\mathrm{SDP} = \tfrac52(1-\cos\tfrac{4\pi}5) \approx 4.52$};
+\node[align=center,text width=3.6cm] at (0,-1.95) {(b) unit vectors, adjacent ones $144^\circ$ apart};
+\node at (0,-2.4) {$\mathrm{SDP} = \tfrac52(1-\cos\tfrac{4\pi}5) \approx 4.52$};
 \end{scope}
 % (c) SDP Gram matrix
 \begin{scope}[xshift=8.6cm,yshift=1.25cm]
@@ -349,7 +365,7 @@ A \emph{variational method} restricts $\ket{\psi}$ to a family $\{\ket{\psi(\bol
 \addplot3[surf,shader=interp,opacity=0.8,colormap/cool,domain=-1:1,y domain=-1:1,samples=35,samples y=35,z buffer=sort] {x*y + sqrt(max(0,(1-x^2)*(1-y^2)))};
 \addplot3[surf,shader=interp,opacity=0.8,colormap/cool,domain=-1:1,y domain=-1:1,samples=35,samples y=35,z buffer=sort] {x*y - sqrt(max(0,(1-x^2)*(1-y^2)))};
 % objective hyperplane x+y+z = -1.5 (tangent at the SDP optimum), drawn as a patch
-\addplot3[surf,fill opacity=0.3,color=orange,domain=-1.1:0.1,y domain=-1.1:0.1,samples=2,samples y=2,shader=flat,faceted color=orange!80!black] {-1.5 - x - y};
+\addplot3[surf,fill opacity=0.25,color=orange,domain=-0.95:-0.05,y domain=-0.95:-0.05,samples=2,samples y=2,shader=flat,faceted color=orange!80!black] {-1.5 - x - y};
 \addplot3[only marks,mark=*,mark size=2.2pt,color=blue!70!black] coordinates {(1,1,1) (1,-1,-1) (-1,1,-1) (-1,-1,1)};
 \addplot3[only marks,mark=*,mark size=2.6pt,color=red!80!black] coordinates {(-0.5,-0.5,-0.5)};
 \node[font=\scriptsize,red!80!black,anchor=south west] at (axis cs:-0.5,-0.5,-0.5) {\ SDP optimum};
@@ -390,15 +406,15 @@ For unit vectors $v_i, v_j$ at angle $\theta_{ij} = \arccos(v_i^\top v_j) \in [0
 % arcs of directions of r that separate: perpendicular directions
 \draw[red!70!black,very thick] (110:1.3) arc (110:175:1.3);
 \draw[red!70!black,very thick] (290:1.3) arc (290:355:1.3);
-\node[red!70!black] at (142:1.62) {length $\theta_{ij}$};
-\node[red!70!black] at (322:1.62) {length $\theta_{ij}$};
+\node[red!70!black] at (142:1.7) {arc $\theta_{ij}$};
+\node[red!70!black] at (322:1.7) {arc $\theta_{ij}$};
 % one sample hyperplane
 \draw[dashed,thick,orange!90!black] (50:1.5) -- (230:1.5);
 \draw[-{Stealth[length=4pt]},orange!90!black] (0,0) -- (140:0.9) node[pos=1.2] {$\bar r$};
-\node at (0,-1.95) {$\mathrm{Pr}[\text{cut}] = \dfrac{2\theta_{ij}}{2\pi}$: $\bar r$ falls in a red arc};
+\node[align=center,text width=4.6cm] at (0,-2.15) {$\mathrm{Pr}[\text{cut}] = 2\theta_{ij}/2\pi$: the hyperplane separates $v_i,v_j$ iff $\bar r$ falls in a red arc};
 \end{scope}
 % right: pentagram cut by a random hyperplane
-\begin{scope}[xshift=5.6cm]
+\begin{scope}[xshift=6.6cm]
 \draw[gray!60] (0,0) circle (1.3);
 \pgfmathsetmacro{\ang}{63}
 \draw[dashed,thick,orange!90!black] ({\ang}:1.6) -- ({\ang+180}:1.6);
@@ -408,7 +424,7 @@ For unit vectors $v_i, v_j$ at angle $\theta_{ij} = \arccos(v_i^\top v_j) \in [0
   \pgfmathsetmacro{\sgn}{cos(\phi-\ang-90)}
   \pgfmathparse{\sgn>0 ? "blue!70" : "orange!90!black"}\edef\col{\pgfmathresult}
   \draw[-{Stealth[length=4pt]},thick,\col] (0,0) -- ({\phi}:1.3) node[pos=1.18,\col] {$v_{\i}$};}
-\node at (0,-1.95) {a random hyperplane splits the pentagram: here a $4$-edge cut};
+\node[align=center,text width=4.6cm] at (0,-2.15) {a random hyperplane splits the pentagram: here into a $4$-edge cut};
 \end{scope}
 \end{tikzpicture}
 \end{center}

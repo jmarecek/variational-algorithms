@@ -1,0 +1,111 @@
+%\documentclass[overheadsbeamer.tex]{subfiles}
+\documentclass[handoutsbeamer.tex]{subfiles}
+
+\begin{document}
+
+\thispagestyle{empty}
+
+\ona{ \setcounter{chapter}{1} } % ONE LESS
+\lecture{The Exponential Quantum Advantage Hypothesis}{Lect02}
+\chapter{The Exponential Quantum Advantage Hypothesis}\label{C.EQA}
+
+\ona{This \chap{} examines the claim that motivated much of quantum computing for chemistry, and by extension the variational methods of this course: that quantum computers offer an \emph{exponential} advantage for the ground-state problem of molecules. We follow the critical evaluation of \citet{lee2023evaluating} and place it next to the complexity-theoretic view of the survey \cite{abbas2024challenges}. The lesson carries over to optimization: worst-case complexity is neither necessary nor sufficient for a practical advantage.}
+
+\section{The hypothesis}
+
+\begin{frame}\ft{What is claimed}
+\ona{The ground-state energy of the electronic Hamiltonian is the central quantity of quantum chemistry (\Chap~\chref{C.Motivation}). Exact classical methods (full configuration interaction) scale exponentially in the number of electrons and orbitals. Quantum phase estimation (QPE), given a trial state $\ket{\phi}$ with overlap $|\braket{\phi|\psi_0}|^2 = \gamma^2$ with the true ground state, returns the ground-state energy to precision $\epsilon$ with $\mathcal O(1/(\gamma^2\epsilon))$ uses of a Hamiltonian simulation of polynomial cost. This suggested:}
+\begin{center}
+\emph{The exponential quantum advantage (EQA) hypothesis:} for generic ground-state chemistry problems, quantum algorithms achieve an exponential speedup over the best classical algorithms.
+\end{center}
+\ona{The hypothesis has two halves, both of which must hold for \emph{typical} molecules of interest: (i) the quantum algorithm runs in polynomial time, and (ii) every classical algorithm requires exponential time.}
+\onp{\begin{itemize}\item QPE: cost $\mathcal O(1/(\gamma^2\epsilon))$, $\gamma$ = overlap of the trial state with the ground state. \item Exact classical methods: exponential. \item EQA: exponential speedup for \emph{generic} ground-state chemistry.\end{itemize}}
+\end{frame}
+
+\begin{frame}\ft{What is known from complexity theory}
+\begin{itemize}\setlength\itemsep{0.3em}
+    \item The general local-Hamiltonian ground-state problem is $\mathbf{QMA}$-complete: hard even for quantum computers. Electronic-structure Hamiltonians are a restricted family, but the ground-state problem with an arbitrary external potential remains $\mathbf{QMA}$-hard.
+    \item Hence no polynomial-time quantum algorithm can solve \emph{all} instances, and half (i) of EQA can only hold for the instances chemists care about, i.e., it is a statement about \emph{typical} or \emph{structured} instances, not worst cases.
+    \item Half (ii) is a statement about the absence of classical algorithms, which complexity theory cannot deliver for typical instances either: classical heuristics such as coupled cluster, density-matrix renormalisation group and quantum Monte Carlo are not exact, but succeed on large classes of molecules.
+\end{itemize}
+\ona{So the hypothesis is empirical, and \citet{lee2023evaluating} test it empirically, as one tests any hypothesis about heuristics.}
+\end{frame}
+
+\section{Evaluating the evidence}
+
+\begin{frame}\ft{Half (i): the overlap problem}
+\ona{QPE needs a trial state with non-negligible overlap $\gamma$. For a single molecule the overlap of a mean-field (Hartree--Fock) state is often reasonable. But for the EQA hypothesis one must ask how $\gamma$ scales with system size for a \emph{family} of instances, e.g., a chain of iron--sulphur clusters or a growing lattice of a correlated material.}
+\begin{itemize}\setlength\itemsep{0.3em}
+    \item For weakly correlated systems, the overlap of a mean-field state decays exponentially with size (the orthogonality catastrophe), but so do the correlation energies per subsystem stabilise, and classical methods succeed.
+    \item For strongly correlated systems, \citet{lee2023evaluating} numerically find that overlaps of the best cheap trial states also decay exponentially with size, e.g., in Fe--S clusters and in the Hubbard model away from half filling; more elaborate state-preparation heuristics (adiabatic preparation, variational circuits) may help, but their cost is not understood, and adiabatic preparation itself faces vanishing gaps.
+    \item An exponentially small $\gamma$ makes QPE exponentially expensive: half (i) fails unless a polynomial-cost state preparation exists, which is exactly the hard part.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{What can be guaranteed given the overlap}
+\ona{The overlap is also where the positive results live. \citet{zhang2022computing} show that if one \emph{is} given a state with overlap $\eta$ and a Hamiltonian with gap $\gamma$, then not only the ground-state energy \cite{lt21} but any ground-state property $\braket{\psi_0|O|\psi_0}$ can be estimated to accuracy $\epsilon$ with maximal evolution time $\widetilde{\mathcal O}(\gamma^{-1})$ and total evolution time $\widetilde{\mathcal O}(\gamma^{-1}\epsilon^{-2}\eta^{-2})$, using one ancilla; see \Chap~\chref{C.Motivation}. Two remarks:}
+\begin{itemize}\setlength\itemsep{0.3em}
+    \item The guarantee is conditional on $\eta$, and the cost scales as $\eta^{-2}$: the EQA question is precisely whether $\eta$ stays polynomial along families of instances.
+    \item Even with the assumptions, the task is not classically easy: estimating ground-state properties to high precision classically would imply $\mathbf P = \mathbf{BQP}$; and without the assumptions, the decision version is $\mathsf{P^{QMA[\log]}}$-complete, harder than energy estimation. So the \emph{form} of a possible advantage is clear: polynomial cost given a good trial state, on instances where classical heuristics do not converge. Its existence for natural families is what remains unproven.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{Half (ii): are classical heuristics really exponential?}
+\ona{Exponential classical cost is easy to prove for exact methods and hard to prove for heuristics. \citet{lee2023evaluating} instead \emph{measure} the empirical scaling of classical heuristics to chemical accuracy:}
+\begin{itemize}\setlength\itemsep{0.3em}
+    \item For the molecules and materials typically cited as motivation (transition-metal complexes, Fe--S clusters, cytochrome P450, FeMoco), the cost of coupled-cluster, DMRG and selected-CI methods to reach chemical accuracy grows polynomially in practice, with modest exponents, across the sizes accessible.
+    \item In the few settings where classical heuristics do scale exponentially, the quantum algorithm's state-preparation cost appears to scale exponentially too, for the same physical reason: the ground state has little structure that either side can exploit.
+    \item The quantitative gap between polynomial classical scaling and polynomial quantum scaling, once constant factors and error correction are included, leaves at most a \emph{polynomial} speedup, and often a disadvantage.
+\end{itemize}
+\ona{The conclusion of \citet{lee2023evaluating} is that the evidence for generic exponential quantum advantage in ground-state chemistry is lacking; polynomial speedups remain possible and would still be valuable.}
+\end{frame}
+
+\begin{frame}\ft{The picture in one slide}
+\begin{center}\ona{\small}\onp{\scriptsize}
+\begin{tabular}{lcc}\toprule
+ & classical heuristics & QPE with cheap trial state \\\midrule
+weakly correlated & polynomial, accurate & polynomial \\
+strongly correlated, structured & polynomial in practice & polynomial if $\gamma$ large \\
+strongly correlated, unstructured & exponential & exponential ($\gamma\to0$) \\\bottomrule
+\end{tabular}
+\end{center}
+\ona{Exponential advantage would require the lower-left to be exponential while the lower-right is polynomial, i.e., instances that are hard for every classical heuristic but admit an easily prepared trial state. No natural family of molecules with this property is known.}
+\onp{EQA needs: classical exponential \emph{and} quantum polynomial on the same instances. No natural family is known.}
+\end{frame}
+
+\section{Heuristics, formally, and what this means for optimization}
+
+\begin{frame}\ft{Heuristics, formally}
+\ona{The same tension appears in optimization, where the survey \cite{abbas2024challenges} makes the point precisely. Heuristic algorithms are algorithms without provable performance guarantees, run-time guarantees, or both. One way to make claims about them precise is distributional: a pair $(L,D)$ of a language and a family of input distributions is in $\mathbf{HeurBPP}$ if a polynomial-time randomized algorithm $\mathcal A$ satisfies, for all $n$ and $\delta > 0$,}
+\begin{equation*}
+    \mathrm{Pr}_{x \sim D_n}\Big[\mathrm{Pr}\big[\mathcal{A}(x,0^{1/\delta}) = L(x)\big] \ge 2/3\Big] \ge 1-\delta,
+\end{equation*}
+\ona{i.e., it may err on a small fraction of instances; $\mathbf{HeurBQP}$ is the quantum analogue.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item Super-polynomial separations between the two are known only for contrived distributions, essentially Karp-reduction images of factoring; they have no practical value.
+    \item The overlap gap property makes some random constraint satisfaction problems average-case hard for large classes of classical \emph{and} low-depth quantum algorithms (\Chap~\chref{C.Inapprox}); whether deeper quantum algorithms escape is open.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{What complexity theory does and does not tell us}
+\ona{It is widely believed that quantum computers will not offer exponential speedups for $\mathbf{NPO}$-hard problems in the worst case. But in practice one rarely needs the worst case or an exact solution; approximations are acceptable, and the hardness of \emph{approximation} with quantum computers is largely unexplored. The survey's summary applies to chemistry and optimization alike:}
+\begin{center}
+    \textit{Understanding complexity theory is extremely useful for gauging a possible quantum advantage, but rigorous complexity-theoretic separations are neither necessary nor sufficient when seeking a practical quantum advantage.}
+\end{center}
+\ona{TSP illustrates the nuance: its decision version is $\mathbf{NP}$-hard and the optimization version $\mathbf{APX}$-hard; Euclidean TSP has a polynomial-time approximation scheme; heuristics solve instances with millions of nodes to near-optimality; and shortest path is in $\mathbf{P}$. In contrast, there exist problems with fewer than 100 variables that are hard classically, such as low-autocorrelation binary sequences.}
+\end{frame}
+
+\begin{frame}\ft{Lessons for variational methods}
+\begin{enumerate}\setlength\itemsep{0.4em}
+    \item \textbf{Claims must be about instance families}, with the classical baseline being the best heuristic, not the exact method. For MaxCut that baseline is Goemans--Williamson plus local search, not brute force (\Chap~\chref{C.Motivation}).
+    \item \textbf{State preparation is the crux.} In chemistry it is the overlap $\gamma$; in QAOA it is the initial state and the angles. Warm starts (\Chaps~\chref{C.WSRounded}--\chref{C.WSContinuous}) are the optimization analogue of a good trial state.
+    \item \textbf{Benchmark empirically and fairly}: model-independent problems, time-to-solution and cost, distributions over instances, and validation on hardware (\Chap~\chref{C.PerIteration}).
+    \item \textbf{Polynomial advantages are worth having}, and small improvements matter in applications such as finance (\Chap~\chref{C.Portfolio}); but they must be measured, not assumed.
+\end{enumerate}
+\end{frame}
+
+\begin{frame}[allowframebreaks]\ft{References}
+\biblio
+\end{frame}
+
+\end{document}

@@ -1,0 +1,101 @@
+%\documentclass[overheadsbeamer.tex]{subfiles}
+\documentclass[handoutsbeamer.tex]{subfiles}
+
+\begin{document}
+
+\thispagestyle{empty}
+
+\ona{ \setcounter{chapter}{11} } % ONE LESS
+\lecture{Applications: Variational Solvers for Systems of Linear Equations}{Lect12}
+\chapter{Applications: Variational Solvers for Systems of Linear Equations}\label{C.VQLS}
+
+\ona{This \chap{} applies the variational template to a problem outside combinatorial optimization: solving $Ax = b$. It follows the variational quantum linear solver (VQLS) of \citet{bravoprieto2023vqls}, with the classical-quantum comparison in the spirit of \Chap~\chref{C.EQA}.}
+
+\section{The problem and its fault-tolerant solution}
+
+\begin{frame}\ft{Quantum linear systems}
+\ona{Given $A \in \C^{N\times N}$, $N = 2^n$, and $b \in \C^N$, the \emph{quantum linear systems problem} asks for the normalised state}
+\begin{equation}
+    \ket{x} \propto A^{-1}\ket{b},
+\end{equation}
+\ona{not the vector $x$ itself: reading out all $N$ amplitudes would cost $\Omega(N)$. The output is useful for computing expectations $\braket{x|M|x}$, overlaps, or sampling from $|x_i|^2$.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item The HHL algorithm \cite{harrow2009quantum} prepares $\ket x$ in time $\mathrm{poly}(\log N,\kappa,1/\epsilon)$ for sparse $A$ with condition number $\kappa$, given oracles for $A$ and a state-preparation routine for $\ket b$; improvements bring the $\kappa$ and $\epsilon$ dependence to near-optimal \cite{childs2017quantum}.
+    \item Caveats: the oracles, the state preparation, the read-out, and the $\kappa$ dependence each can erase the exponential advantage; the algorithm needs fault tolerance.
+\end{itemize}
+\ona{VQLS is the near-term, heuristic alternative: a variational ansatz for $\ket x$ and a cost that vanishes exactly at the solution.}
+\end{frame}
+
+\section{The variational quantum linear solver}
+
+\begin{frame}\ft{Cost functions}
+\ona{Assume $A = \sum_{l=1}^{L} c_lA_l$ with unitaries $A_l$ (e.g., Pauli strings), and $\ket b = U_b\ket 0$. For a trial state $\ket{\psi(\boldsymbol\theta)} = V(\boldsymbol\theta)\ket0$, let $\ket\phi = A\ket{\psi}$. The \emph{global} cost is the infidelity of $\ket\phi$ with $\ket b$,}
+\begin{equation}\label{eq:ch12:global}
+    C_G(\boldsymbol\theta) = 1 - \frac{|\braket{b|\phi}|^2}{\braket{\phi|\phi}} = \frac{\braket{\phi|(\one - \ket b\!\bra b)|\phi}}{\braket{\phi|\phi}},
+\end{equation}
+\ona{which is zero iff $A\ket\psi \propto \ket b$. Global costs suffer from barren plateaus (\Chap~\chref{C.VQE}), so \citet{bravoprieto2023vqls} introduce the \emph{local} cost}
+\begin{equation}\label{eq:ch12:local}
+    C_L(\boldsymbol\theta) = \frac{\braket{\phi|H_L|\phi}}{\braket{\phi|\phi}},\qquad H_L = U_b\Big(\one - \frac1n\sum_{j=1}^n\ket0\!\bra0_j\otimes\one_{\bar j}\Big)U_b^\dagger,
+\end{equation}
+\ona{whose expectation involves only single-qubit projectors after undoing $U_b$; it is also zero exactly at the solution, and $C_L \le C_G \le nC_L$, so both certify the same solutions.}
+\onp{$C_G = 1 - |\braket{b|\phi}|^2/\braket{\phi|\phi}$ (global, barren plateaus); $C_L$ with local projectors (trainable); $C_L \le C_G \le nC_L$.}
+\end{frame}
+
+\begin{frame}\ft{Evaluating the cost on a quantum computer}
+\ona{Expanding $\ket\phi = \sum_lc_lA_l\ket\psi$, the numerator and denominator of \eqref{eq:ch12:global}--\eqref{eq:ch12:local} are sums of terms}
+\begin{equation}
+    \braket{\phi|\phi} = \sum_{l,l'}c_l^*c_{l'}\braket{0|V^\dagger A_l^\dagger A_{l'}V|0},\qquad
+    |\braket{b|\phi}|^2 = \sum_{l,l'}c_l^*c_{l'}\braket{0|U_b^\dagger A_{l'}V|0}\braket{0|V^\dagger A_l^\dagger U_b|0},
+\end{equation}
+\ona{each a matrix element of a unitary, estimated by a \emph{Hadamard test}: one ancilla, controlled application of the unitaries, and measurement of the ancilla in $X$ or $Y$ gives the real and imaginary parts. The local cost needs $\mathcal O(L^2)$ such circuits per evaluation, each of depth roughly that of $V$ plus two $A_l$; the ``Hadamard-overlap'' test avoids controlling $V$ at the price of doubling the qubits.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item The cost, like every VQA cost, is estimated with shot noise and bias; the optimizer's convergence is governed by \Chap~\chref{C.IterationComplexity}.
+    \item Gradients follow from the parameter-shift rule (\Chap~\chref{C.PSR}) applied to each Hadamard test.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{Guarantees and ansatz}
+\ona{VQLS has an operational guarantee relating the cost to the solution quality: if $C_G(\boldsymbol\theta) \le \epsilon$, then the trace distance between $\ket{\psi(\boldsymbol\theta)}$ and the true $\ket x$ satisfies}
+\begin{equation}
+    \tfrac12\big\|\ket\psi\!\bra\psi - \ket x\!\bra x\big\|_1 \le \kappa\sqrt{\epsilon},
+\end{equation}
+\ona{and similarly with $\kappa\sqrt{n\epsilon}$ for the local cost. The cost is a certificate; the condition number is the price, as in HHL.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item \textbf{Ansatz.} Hardware-efficient layers of $R_Y$ rotations and CZ gates for generic $A$; a problem-inspired ``quantum alternating operator'' ansatz built from the $A_l$ and $U_b$ when $A$ has structure, cf.\ QAOA.
+    \item \textbf{Optimizer.} Gradient descent with parameter-shift gradients or COBYLA; the local cost has larger gradients than the global one for shallow circuits, avoiding the plateau at small $n$.
+    \item \textbf{Scaling in numerics.} On Ising-inspired linear systems with up to 50 qubits (simulated with tensor networks), the time to reach a fixed precision was observed to scale linearly in $\kappa$, logarithmically in $1/\epsilon$, and polylogarithmically in $N$, for that family.
+\end{itemize}
+\end{frame}
+
+\section{An early fault-tolerant alternative}
+
+\begin{frame}\ft{Linear systems as a ground-state problem}
+\ona{The cost \eqref{eq:ch12:global} is the expectation of the Hamiltonian}
+\begin{equation}\label{eq:ch12:HG}
+    H_G = A^\dagger(\one - \ket b\!\bra b)A,
+\end{equation}
+\ona{whose ground state is $\ket x$ with energy $0$, and whose gap is at least $\lambda_{\min}(A^\dagger A) = \Omega(\kappa^{-2})$ by Weyl's inequality, since $A^\dagger\ket b\!\bra bA$ has rank one. \citet{zhang2022computing} exploit this: instead of \emph{optimising} an ansatz to the ground state, prepare any state with $\Omega(1)$ overlap with $\ket x$ (a constant-precision run of an adiabatic linear-systems solver takes $\widetilde{\mathcal O}(\kappa)$ time), then estimate $\braket{x|M|x}$ by their ground-state property estimation, evaluating the $M$-weighted CDF directly at energy zero, which is known.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item Gap amplification: the block Hamiltonian $\bar H_G' = \sigma^+\otimes\bar A^\dagger(\one-\ket{\bar b}\!\bra{\bar b}) + \sigma^-\otimes(\one - \ket{\bar b}\!\bra{\bar b})\bar A$ has eigenvalues $\pm\sqrt{\lambda_j}$, so the gap improves from $\kappa^{-2}$ to $\kappa^{-1}$.
+    \item Result: circuit depth $\widetilde{\mathcal O}(\kappa)$ and expected total runtime $\widetilde{\mathcal O}(\kappa\epsilon^{-2}\alpha^2)$ for an $\alpha$-block-encoded $M$, with a \emph{guarantee} on $\epsilon$; compared with VQLS, no optimizer, no local minima, and a depth independent of $\epsilon$.
+\end{itemize}
+\ona{As in chemistry (\Chap~\chref{C.VQE}), the variational solver's natural role becomes producing the initial state with overlap, while the guarantee comes from the Fourier post-processing.}
+\end{frame}
+
+\section{Assessment}
+
+\begin{frame}\ft{What can and cannot be claimed}
+\begin{itemize}\setlength\itemsep{0.3em}
+    \item \textbf{Trainability.} The local cost avoids the barren plateau of the global one at the sizes tested; whether it does so asymptotically for generic $A$ is not guaranteed, and problem-inspired ansätze face the same local-minima issues as QAOA (\Chap~\chref{C.QAOA}).
+    \item \textbf{Cost per iteration.} $\mathcal O(L^2)$ Hadamard tests with shots $\mathcal O(1/\epsilon^2)$ each, times $2\times$(parameters) for gradients: the per-iteration accounting of \Chap~\chref{C.PerIteration} applies verbatim.
+    \item \textbf{Classical baseline.} Conjugate gradients solve sparse well-conditioned systems in $\mathcal O(N\sqrt\kappa\log(1/\epsilon))$; quantum-inspired sampling algorithms match the polylog$(N)$ scaling of HHL for low-rank $A$. The honest comparison is against these, per instance family, in the sense of \Chap~\chref{C.EQA}.
+    \item \textbf{Where it may pay off.} When $\ket b$ is naturally available as a quantum state and only a few expectations of $\ket x$ are needed, e.g., as a subroutine inside a larger quantum algorithm, or for Hamiltonians whose $A_l$ are cheap to control.
+\end{itemize}
+\ona{The template is the same as in every \chap{} of this course: a cost with a certificate at zero, a circuit family, a noisy optimizer, and a classical competitor that must be beaten instance by instance.}
+\end{frame}
+
+\begin{frame}[allowframebreaks]\ft{References}
+\biblio
+\end{frame}
+
+\end{document}

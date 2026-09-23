@@ -1,0 +1,157 @@
+%\documentclass[overheadsbeamer.tex]{subfiles}
+\documentclass[handoutsbeamer.tex]{subfiles}
+
+\begin{document}
+
+\thispagestyle{empty}
+
+\ona{ \setcounter{chapter}{3} } % ONE LESS
+\lecture{Adiabatic Quantum Computing and Quantum Annealing}{Lect04}
+\chapter{Adiabatic Quantum Computing and Quantum Annealing}\label{C.Annealing}
+
+\ona{This \chap{} introduces the adiabatic paradigm from which QAOA descends, and then follows \citet{nagaj2012quantum}, \emph{Quantum Speedup by Quantum Annealing}, to show that quantum annealing can be exponentially faster than any classical algorithm on an oracular problem, and, remarkably, that it can be so even when the minimum spectral gap is exponentially small.}
+
+\section{The adiabatic paradigm}
+
+\begin{frame}\ft{Quantum annealing and adiabatic quantum computing}
+\ona{Quantum annealing is a heuristic to solve problems in optimization. The method consists of preparing a low-energy or ground state $\ket\psi$ of a quantum system such that, after a simple measurement, the optimal solution is obtained with large probability. $\ket\psi$ is prepared by following an \emph{annealing schedule}: a parametrised Hamiltonian path}
+\begin{equation}\label{eq:ch04:path}
+    H(s) = (1-s)\,H_{\rm init} + s\, H_{\rm final}, \qquad s = s(t) \in [0,1],
+\end{equation}
+\ona{whose initial ground state is easy to prepare and whose final ground state encodes the solution. A ground state of $H_{\rm init}$ is transformed into $\ket\psi$ by varying $s$ slowly.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item For optimization, $H_{\rm final} = H_C$ is diagonal and $H_{\rm init} = -\sum_j X_j$ with ground state $\ket{+}^{\otimes n}$; this is the continuous-time ancestor of QAOA, whose angles are a discretisation of $s(t)$ (\Chap~\chref{C.QAOA}).
+    \item The Hamiltonians along the path are \emph{stoquastic}: off-diagonal entries are non-positive in the computational basis, so there is no numerical sign problem, and quantum Monte Carlo can simulate them classically in many cases.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{The adiabatic approximation}
+\ona{A sufficient condition for convergence is given by the quantum adiabatic approximation. It asserts that, if the rate of change of the Hamiltonian scales with the energy gap $\Delta$ between the two lowest-energy states, the ground state can be prepared with controlled accuracy. In the form we use:}
+\begin{thm}[Adiabatic approximation, informal]\label{thm:ch04:adiabatic}
+Let the initial state be an eigenstate of $H(s_0)$ and let $\Delta(s)$ be the spectral gap to the nearest eigenstate on $s_0 \le s \le s_f$. Then an annealing rate $\dot s(t) \propto \varepsilon\,\Delta^2(s)$, or smaller, prepares the corresponding eigenstate of $H(s_f)$ with overlap at least $\sqrt{1-\varepsilon(s_f - s_0)}$.
+\end{thm}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item Total time $T \sim 1/\Delta_{\min}^2$; for many optimization problems $\Delta_{\min}$ is exponentially small in $n$, so the exact algorithm is exponentially slow.
+    \item The approximation may also be \emph{necessary}: but it results in undesired overheads if $\Delta$ is small yet transitions are forbidden by selection rules, or if transitions can be \emph{exploited}. The latter is the case below.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{The question}
+\ona{Because the Hamiltonians are stoquastic, the annealing can be simulated by probabilistic classical methods such as quantum Monte Carlo (QMC). Efficient QMC simulations exist whenever the Hamiltonians are, in addition, frustration-free. This places a doubt on whether a quantum-computer simulation of general quantum annealing can ever be done with substantially fewer resources than QMC or any other classical simulation.}
+\begin{center}
+\textit{Is there a problem on which quantum annealing with stoquastic Hamiltonians is provably, exponentially faster than any classical algorithm?}
+\end{center}
+\ona{\citet{nagaj2012quantum} answer yes, on an oracular problem: the glued trees of \citet{childs2003exponential}, for which quantum walks were already known to be exponentially faster than classical algorithms, but for which no efficient annealing schedule was known.}
+\end{frame}
+
+\section{The glued-trees problem}
+
+\begin{frame}\ft{Glued trees}
+\ona{We are given an oracle for the adjacency matrix $A$ of two binary trees of depth $n$ that are randomly \emph{glued} by a random cycle, see Fig.~\ref{fig:ch04:glued}. There are $N = 2^{n+2}-2 \in \mathcal O(2^n)$ vertices, named by randomly chosen $2n$-bit strings; the oracle returns the names of the neighbours of any given vertex. Two special vertices, ENTRANCE and EXIT, are the roots of the trees and the only vertices of degree two.}
+\begin{center}
+\textbf{Problem:} given the oracle and the name of ENTRANCE, find the name of EXIT.
+\end{center}
+\figslide[height=0.45\textheight]{figures/annealing/glued-trees.pdf}{Two binary trees of depth $n=4$ glued randomly; $N = 2^{n+2}-2$ vertices, each labelled by a random $2n$-bit string; $j$ is the column number \cite{nagaj2012quantum}.}{fig:ch04:glued}
+\ona{No classical algorithm can output the name of EXIT with high probability using fewer than a subexponential number of oracle calls: a random walk gets lost in the exponentially many middle vertices, and the random names give no other clue. A quantum walk solves it in polynomial time \cite{childs2003exponential}.}
+\end{frame}
+
+\begin{frame}\ft{The column subspace}
+\ona{As for the quantum walk, the key is the symmetry of the graph. Define the uniform superpositions over columns,}
+\begin{equation}\label{eq:ch04:columns}
+    \ket{{\rm col}_j} = \frac{1}{\sqrt{N_j}}\sum_{i \in j\text{-th column}} \ket{a(i)}, \qquad N_j = \begin{cases} 2^j & 0 \le j \le n,\\ 2^{2n+1-j} & n+1 \le j \le 2n+1,\end{cases}
+\end{equation}
+\ona{so that $\ket{{\rm col}_0} = \ket{a({\rm ENTRANCE})}$ and $\ket{{\rm col}_{2n+1}} = \ket{a({\rm EXIT})}$. Let
+\begin{equation}
+    H_0 = -\ket{a({\rm ENTRANCE})}\!\bra{a({\rm ENTRANCE})}, \qquad H_1 = -\ket{a({\rm EXIT})}\!\bra{a({\rm EXIT})}
+\end{equation}
+be the diagonal Hamiltonians distinguishing the two roots. The $(2n+2)$-dimensional column subspace is invariant under $A$, $H_0$ and $H_1$, and in it, after rescaling $A \gets \sqrt2 A$,}
+\begin{align}
+    \bra{{\rm col}_j} A \ket{{\rm col}_{j+1}} &= \begin{cases}\sqrt2 & j = n,\\ 1 & \text{otherwise,}\end{cases}\\
+    \bra{{\rm col}_j}H_0\ket{{\rm col}_j} &= -\delta_{j,0}, \qquad \bra{{\rm col}_j}H_1\ket{{\rm col}_j} = -\delta_{j,2n+1}.
+\end{align}
+\onp{The $(2n+2)$-dimensional column subspace is invariant under $A$, $H_0$, $H_1$: the problem is a line of $2n+2$ sites with one defect in the middle.}
+\end{frame}
+
+\section{An annealing schedule that exploits a small gap}
+
+\begin{frame}\ft{The Hamiltonian path}
+\ona{\citet{nagaj2012quantum} choose the path}
+\begin{equation}\label{eq:ch04:ourH}
+    H(s) = (1-s)\,\alpha H_0 \;-\; s(1-s)\,A \;+\; s\,\alpha H_1, \qquad 0 \le s \le 1,
+\end{equation}
+\ona{with a constant $0 < \alpha < 1/2$ independent of $n$. It interpolates from $H_0$, whose ground state is $\ket{a({\rm ENTRANCE})}$, to $H_1$, whose ground state is $\ket{a({\rm EXIT})}$, through the (negative) adjacency matrix. All three terms are stoquastic, and evolutions under $A$, $H_0$, $H_1$ can be implemented with $\mathcal O(T)$ oracle calls for time $T$.}
+\begin{thm}[\citet{nagaj2012quantum}]\label{thm:ch04:main}
+Annealing along \eqref{eq:ch04:ourH} at a rate $\dot s(t) \propto \varepsilon/n^6$ transforms $\ket{a({\rm ENTRANCE})}$ into a state with overlap $1 - \mathcal O(\sqrt\varepsilon)$ with $\ket{a({\rm EXIT})}$, using ${\rm poly}(n)$ oracle calls.
+\end{thm}
+\ona{The surprise is that the minimum gap along the path is \emph{exponentially} small in $n$, so Theorem~\ref{thm:ch04:adiabatic} alone would demand exponential time.}
+\end{frame}
+
+\begin{frame}\ft{The spectrum}
+\ona{Restricting to the column subspace, one proposes the ansatz $\ket\phi = \sum_j \gamma_j \ket{{\rm col}_j}$ with $\gamma_j = a e^{ipj} + b e^{-ipj}$ for $j \le n$ and mirrored for $j > n$, $p \in \C$; the eigenvalue condition gives $\lambda = -2s(1-s)\cos p$. Figure~\ref{fig:ch04:gaps} shows the three lowest eigenvalues for $n = 10$.}
+\figslide[height=0.55\textheight]{figures/annealing/gaps-fig2.pdf}{Three lowest eigenvalues of $H(s)$ in the column subspace, $\alpha = 1/\sqrt8$, $n=10$ \cite{nagaj2012quantum}. Inside $[s_1,s_2]$ and $[s_3,s_4]$ the gap $\Delta_{10}$ is exponentially small in $n$; elsewhere it is $\Omega(1/n^3)$. Brown arrows depict the level transitions induced by a $1/{\rm poly}(n)$ annealing rate.}{fig:ch04:gaps}
+\end{frame}
+
+\begin{frame}\ft{The spectrum: what matters}
+\ona{Write $x \approx_\epsilon y$ if $|x-y| \le \epsilon$ with $\epsilon \in \mathcal O(2^{-n/2})$. By the $s \leftrightarrow 1-s$ symmetry it suffices to consider $s \le 1/2$.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item As $n \to \infty$, the two lowest eigenvalues \emph{cross} at $s_\times = \alpha/\sqrt2$. For finite $n$ the crossing is avoided, but the gap $\Delta_{10}(s) = \lambda_1 - \lambda_0$ is exponentially small near $s_\times$; for $0 \le s \le s_\times$,
+    $\Delta_{10}(s) \approx_\epsilon -(1-s)\big(\tfrac{3s}{\sqrt2} - \tfrac{\alpha^2+s^2}{\alpha}\big)$.
+    \item Away from $s_\times$, i.e., on $[0,s_1]$ and $[s_2, 1/2]$ with $s_{1,2} = s_\times \mp \delta$, $\delta \in \Omega(1/n^3)$, we have $\Delta_{10}(s) \ge c/n^3$.
+    \item The gap to the \emph{second} excited state, $\Delta_{21}(s)$, is $\Omega(1)$ on $[s_1, \alpha]$ and $\ge c'/n^3$ on $[\alpha, 1/2]$: the third level never comes close.
+\end{itemize}
+\ona{So the dynamics at a polynomial rate stays in the two-dimensional manifold of the two lowest states, but within it, near $s_\times$, it is \emph{not} adiabatic.}
+\end{frame}
+
+\begin{frame}\ft{Five stages}
+\ona{Split $[0,1] = V_1 \cup \dots \cup V_5$ with $V_1 = [0,s_1)$, $V_2 = [s_1,s_2)$, $V_3 = [s_2,s_3)$, $V_4 = [s_3,s_4)$, $V_5 = [s_4,1]$, $s_3 = 1-s_2$, $s_4 = 1-s_1$, and write $\ket{\phi_0(s)}, \ket{\phi_1(s)}$ for the ground and first excited states. With $\dot s \propto \varepsilon/n^6$, the adiabatic approximation gives, on the three stages where the gap is polynomial,}
+\begin{align}
+    \ket{\phi_0(0)} &\to \ket{\phi_0(s_1)}, &
+    \ket{\phi_1(s_2)} &\to \ket{\phi_1(s_3)}, &
+    \ket{\phi_0(s_4)} &\to \ket{\phi_0(1)},
+\end{align}
+\ona{each with error amplitude $\mathcal O(\sqrt\varepsilon)$. On $V_2$ and $V_4$, the gap to the second excited state keeps the dynamics in $\spn\{\ket{\phi_0},\ket{\phi_1}\}$, and the claim is that the levels \emph{swap}:}
+\begin{align}\label{eq:ch04:swap}
+    \ket{\phi_0(s_1)} \to \ket{\phi_1(s_2)}, \qquad \ket{\phi_1(s_3)} \to \ket{\phi_0(s_4)}.
+\end{align}
+\ona{Chaining the five stages transforms $\ket{\phi_0(0)} = \ket{a({\rm ENTRANCE})}$ into $\ket{\phi_0(1)} = \ket{a({\rm EXIT})}$: the same transition that kicks the state \emph{up} at $s_\times$ kicks it back \emph{down} at $1-s_\times$, by symmetry.}
+\onp{Adiabatic on $V_1, V_3, V_5$; \emph{diabatic swap} of the two lowest levels on $V_2$ and $V_4$; the swaps cancel by symmetry.}
+\end{frame}
+
+\begin{frame}\ft{Why the levels swap: an almost-eigenstate}
+\ona{Let $\ket u = N^{-1/2}\sum_{i} \ket{a(i)}$ be the uniform superposition over all vertices. It is \emph{almost} an eigenstate for all $s$: $H(s)\ket u \approx_{\epsilon/2} -\frac{3 s(1-s)}{\sqrt2}\ket u$. Hence $f(t) = |\bra u U(t)\ket u|^2$ satisfies $\dot f \approx_\epsilon 0$, so over the time $T \in \mathcal O(n^3)$ spent in $V_2$, $f(T) \approx_{\epsilon'} 1$ with $\epsilon' \in \mathcal O(\epsilon n^3)$: the state $\ket u$ essentially does not move. Moreover, one checks}
+\begin{equation}
+    |\braket{u|\phi_1(s_1)}| \approx_{\epsilon'} 1, \qquad |\braket{u|\phi_0(s_2)}| \approx_{\epsilon'} 1,
+\end{equation}
+\ona{i.e., $\ket u$ is the first excited state before the crossing and the ground state after it. Therefore
+\begin{equation}
+    |\bra{\phi_1(s_1)}U(T)\ket{\phi_0(s_2)}|^2 \approx_{5\epsilon'} 1,
+\end{equation}
+and by unitarity the orthogonal complement in the two-dimensional manifold must also swap: $\ket{\phi_0(s_1)} \to \ket{\phi_1(s_2)}$, which is \eqref{eq:ch04:swap}. The overall error is dominated by the adiabatic stages, $\mathcal O(\sqrt\varepsilon)$ with $\varepsilon$ arbitrary.}
+\onp{$\ket u$ (uniform over all vertices) is an almost-eigenstate for all $s$, and it \emph{is} $\ket{\phi_1}$ before and $\ket{\phi_0}$ after the crossing $\Rightarrow$ the levels swap by unitarity.}
+\figslide[height=0.38\textheight]{figures/annealing/overlaps.pdf}{Overlap of $U(t)\ket{a({\rm ENTRANCE})}$ with the ground and first excited states, $n = 40$, $\alpha = 1/\sqrt8$, $s(t) = t/10000$, simulated in the column subspace \cite{nagaj2012quantum}.}{fig:ch04:overlaps}
+\end{frame}
+
+\section{Generalisations and lessons}
+
+\begin{frame}\ft{Initial-state randomisation}
+\ona{If one insists on a schedule that forbids transitions to the second excited level, $\dot s \propto \varepsilon/n^6$, success can still be guaranteed with probability $1/2$ by \emph{randomising the initial state}: prepare $\ket{a({\rm ENTRANCE})}$ or $\ket u$, each with probability $1/2$; both are efficiently preparable, and by unitarity exactly one of them ends in $\ket{a({\rm EXIT})}$.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item More generally, if the $k$ lowest eigenvalues are separated from the rest by $1/{\rm poly}(n)$ gaps, any eigenstate in this manifold can be prepared with probability of order $1/k$ by randomising the initial state, regardless of small gaps or crossings within the manifold.
+    \item Example: the one-dimensional transverse-field Ising chain, whose two lowest levels have an exponentially small gap while the third level stays $1/{\rm poly}(n)$ away, as is common for systems with conformal invariance.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{Lessons for variational methods}
+\begin{itemize}\setlength\itemsep{0.4em}
+    \item \textbf{The gap is not the whole story.} The relevant gap for the adiabatic approximation can be much larger than $\Delta_{\min}$ when transitions among low-lying levels are harmless or even useful. QAOA's freedom to optimise angles, rather than follow a fixed schedule, is a way to \emph{find} such shortcuts.
+    \item \textbf{Symmetry is a resource.} The proof works because the column subspace is invariant and $\ket u$ is an almost-eigenstate. In \Chap~\chref{C.Motivation} we saw the flip side: the $\mathbb Z_2$ symmetry of cold-start QAOA is an obstruction on bipartite graphs.
+    \item \textbf{Provable speedups exist for annealing}, on an oracular problem and against all classical algorithms, sign problem or not. Whether this extends to optimization is open.
+    \item \textbf{Next:} discretising the adiabatic evolution gives QAOA, and the adiabatic theorem gives its convergence (\Chap~\chref{C.QAOA}).
+\end{itemize}
+\end{frame}
+
+\begin{frame}[allowframebreaks]\ft{References}
+\biblio
+\end{frame}
+
+\end{document}

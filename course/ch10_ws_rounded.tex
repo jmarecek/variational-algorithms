@@ -1,0 +1,120 @@
+%\documentclass[overheadsbeamer.tex]{subfiles}
+\documentclass[handoutsbeamer.tex]{subfiles}
+
+\begin{document}
+
+\thispagestyle{empty}
+
+\ona{ \setcounter{chapter}{9} } % ONE LESS
+\lecture{Warm-Started Quantum Optimization: Rounded}{Lect10}
+\chapter{Warm-Started Quantum Optimization: Rounded}\label{C.WSRounded}
+
+\ona{This \chap{} and the next follow \citet{egger2021warm}, \emph{Warm-starting quantum optimization}. Classical solvers for integer programs employ relaxations, and under the Unique Games Conjecture these relaxations often provide the best performance ratios available in polynomial time (\Chap~\chref{C.Inapprox}). Here we warm-start QAOA from a \emph{rounded} solution of a relaxation, the Goemans--Williamson cut of \Chap~\chref{C.Motivation}, so that the quantum algorithm inherits the classical guarantee; the next \chap{} warm-starts from the continuous relaxation itself.}
+
+\section{Relaxations and roundings}
+
+\begin{frame}\ft{QUBO and two relaxations}
+\ona{Quadratic Unconstrained Binary Optimization is}
+\begin{equation}\label{eq:ch10:qubo}\tag{QUBO}
+    \min_{x \in \{0,1\}^n} x^\top\Sigma x + \mu^\top x, \qquad \Sigma \in \R^{n\times n}\text{ symmetric},\ \mu\in\R^n.
+\end{equation}
+\ona{It is \textbf{NP}-hard; even checking local optimality is \textbf{NP}-hard. Two continuous relaxations:}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item If $\Sigma \succeq 0$, drop integrality:
+    \begin{equation}\label{eq:ch10:qp}\tag{QP}
+        \min_{x\in[0,1]^n} x^\top\Sigma x + \mu^\top x,
+    \end{equation}
+    a convex quadratic program with optimum $c^\star \in [0,1]^n$, solvable by any QP solver.
+    \item In general, lift to matrices: with $z = 1-2x \in \{\pm1\}^n$ and $Y = zz^\top$, relax to
+    \begin{equation}\label{eq:ch10:sdp}\tag{SDP}
+        \max_{Y \in \mathbb S^n}\ \Tr(\Sigma' Y)\quad\text{s.t.}\quad \diag(Y) = e,\ Y \succeq 0,
+    \end{equation}
+    the semidefinite relaxation of \Chap~\chref{C.Motivation}, solvable to any fixed precision in polynomial time, even for $\Sigma$ with $10^{13}$ entries on a laptop.
+\end{itemize}
+\ona{MaxCut is the special case $\Sigma_{ij} = -w_{ij}$, and its \eqref{eq:ch10:sdp} is the Goemans--Williamson relaxation with its $\alpha_{\rm GW}\approx 0.878$ rounding, tight under the Unique Games Conjecture; with real-valued weights the hardness factor is $11/13$ \cite{charikar2004maximizing}.}
+\end{frame}
+
+\begin{frame}\ft{Encoding a cut as a product state}
+\ona{QAOA associates each binary variable $x_i$ with a qubit via $x_i = (1-z_i)/2$, and the final measurement is a randomized rounding: measuring the product state}
+\begin{equation}\label{eq:ch10:init}
+    \ket{\phi} = \bigotimes_{i=1}^n R_Y(\theta_i)\ket0, \qquad \theta_i = 2\arcsin\sqrt{c_i},\qquad c_i \in [0,1],
+\end{equation}
+\ona{returns $x_i = 1$ with probability $c_i$, independently. A cut $z \in \{\pm1\}^n$ is the special case $c_i \in \{0,1\}$, but then the qubit is frozen: $H_C$ contains only $Z_iZ_j$ terms, so a computational basis state is an eigenstate of $e^{-i\gamma H_C}$ and nothing moves. Hence one \emph{regularises} with $\varepsilon \in (0, 0.5)$:}
+\begin{equation}\label{eq:ch10:eps}
+    c_i = \begin{cases}1-\varepsilon & z_i = -1\ (x_i = 1),\\ \varepsilon & z_i = +1\ (x_i = 0),\end{cases}
+\end{equation}
+\ona{so that the state is biased towards the cut but can leave it. At $\varepsilon = 0.5$ we recover $\ket{+}^{\otimes n}$: $\varepsilon$ interpolates between warm and cold start.}
+\onp{Product state with $\mathrm{Pr}[x_i = 1] = c_i$; a cut has $c_i \in \{0,1\}$ and would be frozen; regularise to $c_i \in \{\varepsilon, 1-\varepsilon\}$; $\varepsilon = 0.5$ is the cold start.}
+\end{frame}
+
+\begin{frame}\ft{What can be gained, and what cannot}
+\begin{itemize}\setlength\itemsep{0.3em}
+    \item MaxCut with positive weights: GW's $\alpha_{\rm GW} \approx 0.878$ is optimal under the Unique Games Conjecture, and no polynomial-time algorithm beats $16/17$ unless $\mathbf P = \mathbf{NP}$ (\Chap~\chref{C.Inapprox}).
+    \item MaxCut with real weights, i.e., general QUBO: the guarantee of SDP rounding and the hardness factor become $11/13$ \cite{charikar2004maximizing}; the dashed lines in the plots below mark it.
+    \item Under the UGC, no warm-started variant can improve on the classical guarantee unless quantum computers solve \textbf{NP}-hard problems in polynomial time. If the UGC is false, both classical and quantum improvements may be possible, and then a quantum circuit that starts from the SDP solution is a natural candidate.
+    \item What a warm start \emph{does} deliver regardless: the classical ratio for any angles, and empirically better cuts on many instances.
+\end{itemize}
+\end{frame}
+
+\section{Warm-starting from a rounded solution}
+
+\begin{frame}\ft{Rounded warm start and the GW guarantee}
+\ona{For MaxCut, $\Sigma$ is not positive semidefinite and one warm-starts from a \emph{rounded} solution: a GW cut $z \in \{\pm1\}^n$, encoded as in \eqref{eq:ch10:init}--\eqref{eq:ch10:eps} with $\varepsilon \in (0,0.5)$ so the circuit can deviate from it. To retain the GW bound, the mixer is modified so its time evolution is $R_Y(-\theta_i)R_Z(-2\beta)R_Y(\theta_i)$, i.e., the off-diagonal elements of the continuous warm-start mixer of \Chap~\chref{C.WSContinuous} change sign. With $\varepsilon = 0.25$, the choice $\beta_1 = \pi/2$, $\gamma_1 = 0$ maps each qubit to}
+\begin{equation}
+    R_Y(-\theta_i)R_Z(-\pi)R_Y(2\theta_i)\ket0 = -i\ket1 \text{ or } -i\ket0 \quad\text{for } c_i^\star = \varepsilon \text{ or } 1-\varepsilon,
+\end{equation}
+\ona{which is the GW cut itself (up to the global flip $z \leftrightarrow -z$). Therefore:}
+\begin{propn}\label{prop:ch10:gw}
+Depth-one WS-QAOA warm-started from a GW cut with the modified mixer and $\varepsilon = 0.25$ can reproduce the GW cut for some angles, hence its optimised energy is at least the GW cut value, and the algorithm inherits the $\alpha_{\rm GW}$ guarantee in expectation over the rounding. Any quantum circuit that preserves or improves the ratio preserves or improves the overall guarantee.
+\end{propn}
+\ona{The price: the initial state is no longer an eigenstate of the mixer, so the adiabatic convergence argument no longer applies; convergence in $p$ is studied numerically below.}
+\end{frame}
+
+\begin{frame}\ft{Warm-start recursive QAOA}
+\ona{Rounding in the classical pre-processing combines naturally with recursive QAOA (RQAOA) \cite{Bravyi2020}: at each recursion, run several depth-one WS-QAOAs, each initialised with a different GW cut (the $M$ best of $N$), aggregate the resulting distributions, form the correlation matrix $\mathcal M_{ij} = \langle Z_iZ_j\rangle$, and eliminate the variable with the largest $|\mathcal M_{ij}|$ by $z_i \leftarrow \sgn(\mathcal M_{ij})z_j$; recurse until $n_{\rm stop}$ variables remain and solve those exactly. Depth-one correlators are classically computable from the two-qubit reduced density matrices, which is what makes the simulations below possible.}
+\figslide[height=0.4\textheight]{figures/warmstart/figure03.pdf}{Warm-start RQAOA for MaxCut \cite{egger2021warm}: several WS-QAOAs initialised from GW cuts are aggregated into the correlation matrix that RQAOA uses to eliminate one variable per round.}{fig:ch10:wsrqaoa}
+\end{frame}
+
+\begin{frame}\ft{A stochastic-analysis viewpoint on rounding}
+\ona{Many randomized roundings, including GW's, can be seen as follows: from unit vectors $u_1,\dots,u_n$ one runs a Brownian motion $B(t)$ in $\R^n$ and reads off the sign $\sigma_i = u_i^\top B(T_i)$ at the first time $T_i$ when $|u_i^\top B(t)|$ reaches $1$ (sticky Brownian motion). Slowing the motion down by a speed function $\varphi$ vanishing at $\pm1$, $dW_u = \varphi(W_u)\,u^\top dB$, gives a family of roundings, and for the Krivine-type speed $\varphi(s) = \sqrt{2/\pi}\,e^{-\Phi^{-1}((1-s)/2)^2/2}$ one recovers exactly}
+\begin{equation}
+    \mathbb E[\sigma_u\sigma_v] = \frac2\pi\arcsin(u^\top v),
+\end{equation}
+\ona{the GW correlation, since $\arccos t + \arcsin t = \pi/2$. Why this matters here: a quantum circuit acting on the warm product state and then measured is also a randomized rounding of the relaxation, and such tools let one analyse its guarantees. Any circuit that preserves or improves the correlation structure preserves or improves the ratio.}
+\onp{Roundings as sticky Brownian motions; the GW rounding is one speed function; measuring a warm-started circuit is another rounding, analysable with the same tools.}
+\end{frame}
+
+\section{Simulations}
+
+\begin{frame}\ft{Rounded warm start: MaxCut}
+\ona{Ten fully connected 30-node graphs with weights in $\{-10,\dots,10\}$, five GW cuts each, depth one, $(\beta_1,\gamma_1)$ from a grid scan in $\gamma_1$ with an analytic fit in $\beta_1$ followed by COBYLA. The median energy relative to the maximum cut is $0.907$ at $\varepsilon = 0$ (the GW cut itself) and rises to $0.929$ at $\varepsilon = 0.25$ (Fig.~\ref{fig:ch01:eps}): warm-started quantum optimization can outperform the rounding it started from. With the unmodified mixer of \Chap~\chref{C.WSContinuous} this does not happen.}
+\ona{WS-RQAOA on 100 graphs per family ($n = 20, 30$; sparse $\pm1$ weights or fully connected random weights), $N = 10$ GW cuts, $M = 5$ best, $\varepsilon = 0.25$, $n_{\rm stop} = n/2$: warm-start RQAOA finds the maximum cut more often than standard RQAOA, than the best GW cut, and than a classical recursion on GW correlations (Fig.~\ref{fig:ch01:maxcut}). The optimum $\beta_1^\star = \pi/2$, $\gamma_1^\star = 0$ is found systematically, so when RQAOA fails it is because depth one cannot capture the correlations of the maximum cut.}
+\figslide[height=0.4\textheight]{figures/warmstart/figure09.pdf}{(a) A six-node instance; energy landscape over $(\beta_1,\gamma_1)$ for depth-one (b) and depth-three (c) WS-QAOA from the cut 001111 of size 23 (maximum 27), $\varepsilon = 0.25$; (d) the ten most probable cuts of the optimised depth-three state \cite{egger2021warm}.}{fig:ch10:landscape}
+\end{frame}
+
+\begin{frame}\ft{Deeper circuits}
+\ona{Beyond depth one, on the six-node instance of Fig.~\ref{fig:ch10:landscape}, the optimal state is no longer the initial GW cut, the probability of the maximum cut grows and the energy decreases with $p$ (Fig.~\ref{fig:ch01:depthmc} in \Chap~\chref{C.Motivation}), as it must since depth $p+1$ contains depth $p$. The decrease is slow: the landscape is non-convex with many local minima, and even at depth one COBYLA from random starts does not always find $\beta_1 = \pi/2,\gamma_1 = 0$, which is why the grid scan matters.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item Warm starts help most at low depth, i.e., on the dense problems and noisy hardware where deep circuits are not an option.
+    \item $\varepsilon$ continuously connects WS-QAOA to standard QAOA and can be tuned.
+    \item Other warm starts: polynomially solvable special cases, low-rank approximations of $\Sigma$, time-limited runs of CPLEX or Gurobi, the particle-hole representation in VQE.
+    \item An implementation is available in Qiskit Optimization.
+\end{itemize}
+\end{frame}
+
+\section{The design space}
+
+\begin{frame}\ft{The design space: what, when, and how to round}
+\begin{description}\setlength\itemsep{0.2em}
+    \item[What to round?] the \eqref{eq:ch10:qp} relaxation; second-order cone strengthenings; the basic \eqref{eq:ch10:sdp}; entropy-penalised or moment/sum-of-squares hierarchies, increasingly strong and increasingly expensive.
+    \item[When to round?] in classical pre-processing (WS-RQAOA), or inside the quantum circuit, in the simplest case by the final measurement (WS-QAOA, \Chap~\chref{C.WSContinuous}).
+    \item[How to round?] coordinate-wise uniformly at random ($1/2$ for MaxCut); random hyperplane ($\alpha_{\rm GW}$); iterative ``sticky'' roundings analysable by Brownian motion, which match the SDP guarantees; or a measurement.
+\end{description}
+\ona{Representing the matrix-valued SDP solution $Y^\star$ directly in a quantum state would need $\Theta(n^2)$ qubits, too many for the near term, but would inherit the strongest guarantees. Under the Unique Games Conjecture no variant can improve on GW unless quantum computers solve \textbf{NP}-hard problems in polynomial time; if the conjecture is false, both classical and quantum improvements may be possible.}
+\end{frame}
+
+\begin{frame}[allowframebreaks]\ft{References}
+\biblio
+\end{frame}
+
+\end{document}

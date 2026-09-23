@@ -1,0 +1,105 @@
+%\documentclass[overheadsbeamer.tex]{subfiles}
+\documentclass[handoutsbeamer.tex]{subfiles}
+
+\begin{document}
+
+\thispagestyle{empty}
+
+\ona{ \setcounter{chapter}{12} } % ONE LESS
+\lecture{Applications: Variational Solvers for Markowitz Portfolio Management}{Lect13}
+\chapter{Applications: Variational Solvers for Markowitz Portfolio Management}\label{C.Portfolio}
+
+\ona{This \chap{} takes the portfolio problem of \citet{Markowitz1952}, the running example of \Chap~\chref{C.WSContinuous}, and treats it as an application: what the problem is, in increasing levels of realism following the survey \cite{abbas2024challenges}, how it is encoded for variational solvers, what warm-started QAOA delivers on it \cite{egger2021warm}, and how this compares with what the industry actually needs.}
+
+\section{Mean--variance portfolio selection}
+
+\begin{frame}\ft{Level 1: Markowitz}
+\onp{\footnotesize}
+\ona{Modern portfolio theory \cite{Markowitz1952} formalises diversification as a mean--variance trade-off. A risk-averse investor in a one-period frictionless market chooses fractions $x \in \R^N$ of a budget to invest in $N$ assets with estimated expected returns $\mu \in \R^N$ and positive semidefinite covariance $\Sigma \in \R^{N\times N}$. Three equivalent formulations:}
+\begin{align}
+    &\min_{x}\ \tfrac12x^\top\Sigma x \quad \text{s.t.}\ \mu^\top x \ge r_{\min},\ \boldsymbol1^\top x = 1,\ x \in \mathcal S;\\
+    &\max_x\ \mu^\top x - \tfrac\lambda2x^\top\Sigma x\quad \text{s.t.}\ \boldsymbol1^\top x = 1,\ x \in \mathcal S,
+\end{align}
+\ona{or maximise return subject to a risk bound $x^\top\Sigma x \le \gamma^2$. With $\mathcal S = \R^N$ or a polyhedron these are convex quadratic programs with closed-form or interior-point solutions in milliseconds for thousands of assets. Realism enters through $\mathcal S$: no short selling, cardinality limits, position and sector exposure limits, turnover bounds.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item \textbf{Cardinality and lot sizes make it combinatorial:} choosing $B$ of $N$ assets, or integer numbers of lots, gives a mixed-integer quadratic program, $\mathbf{NP}$-hard in general, and the entry point for QUBO formulations.
+    \item Level 1 is an excellent benchmark, and of limited practical value: it ignores estimation error.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{Levels 2 and 3: uncertainty and time}
+\ona{\textbf{Level 2.} Small changes in the estimates $\mu,\Sigma$ produce large changes in the optimal $x$; with $N$ assets and $T$ observations the ratio $q = N/T$ is rarely small (e.g., $N = 600$ stocks, $T = 2500$ trading days, $q = 0.24$), so sample covariances have spurious small eigenvalues and returns are badly estimated. Remedies: Black--Litterman blending of market and expert views for $\mu$; robust optimization over an ellipsoidal uncertainty set $\mathcal U_\mu$; random-matrix cleaning and factor models for $\Sigma$; $L_1/L_2$ regularisation; transaction costs $\mathcal C(x\mid x_0)$, often $\beta\|x - x_0\|_1$, which penalise turnover; bootstrap resampling and clustering of correlated assets.}
+\begin{equation}
+    \max_x\ \tilde\mu^\top x - \mathcal C(x\mid x_0) - \tfrac\lambda2x^\top\tilde\Sigma x\quad\text{s.t.}\quad \boldsymbol1^\top x + \mathcal C(x\mid x_0) = 1,\ x \in \mathcal S.
+\end{equation}
+\ona{\textbf{Level 3.} Markets are dynamic: correlations fluctuate and flip sign; multi-period optimization over $h$ periods with a coupling term $b_\tau(x_{\tau-1},x_\tau)$ for transaction costs and time-varying constraints is where classical solver suites struggle, and an interesting domain for new methods.}
+\onp{Level 2: estimation error dominates ($q = N/T$ not small); robustify $\mu$, clean $\Sigma$, penalise turnover. Level 3: multi-period, time-varying correlations; classically hard, practically needed.}
+\ona{Most quantum work to date is at Level 1 with fewer than 50 variables; the survey's recommendation is to move to Levels 2 and 3, where marginal improvements have real value.}
+\end{frame}
+
+\section{Encoding for variational solvers}
+
+\begin{frame}\ft{From Markowitz to QUBO}
+\ona{The standard encoding selects $B$ of $n$ assets with equal weights: $x \in \{0,1\}^n$,}
+\begin{equation}\label{eq:ch13:qubo}
+    \min_{x\in\{0,1\}^n}\ q\,x^\top\Sigma x - \mu^\top x\quad\text{s.t.}\quad \boldsymbol1^\top x = B
+    \quad\longrightarrow\quad
+    \min_{x\in\{0,1\}^n}\ q\,x^\top\Sigma x - \mu^\top x + \lambda(\boldsymbol1^\top x - B)^2,
+\end{equation}
+\ona{with a penalty weight $\lambda$ large compared with the entries of $\Sigma$ and $\mu$ (in \citet{egger2021warm}: $n = 6$, $B = 3$, $q = 2$, $\lambda = 3$). Then $x_i = (1 - Z_i)/2$ gives an Ising Hamiltonian $H_C$ with all-to-all $Z_iZ_j$ couplings, one qubit per asset.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item Integer lot sizes need $\lceil\log_2 K\rceil$ qubits per asset; the penalty makes $Q$ dense.
+    \item Alternatives to penalties: constraint-preserving mixers ($XY$ mixers for $\boldsymbol1^\top x = B$, \Chap~\chref{C.QAOA}), Zeno projections, recursive elimination.
+    \item Data: covariances and returns come from price series; in simulations, geometric Brownian motion with drifts in $[-5\%,5\%]$ and volatilities in $[-20\%,20\%]$ over 250 days.
+    \item The classical competitor is CPLEX or Gurobi on the mixed-integer program, which solves $n \le 100$ instances in seconds; the convex relaxation over $[0,1]^n$ is a QP solved in milliseconds and is what warm-starts the quantum solver.
+\end{itemize}
+\end{frame}
+
+\section{What variational solvers deliver}
+
+\begin{frame}\ft{Standard versus warm-started QAOA}
+\ona{Recall from \Chap~\chref{C.WSContinuous} the simulations of \citet{egger2021warm} on six-asset instances: the probability of sampling the optimal portfolio from the optimised trial state is more than five times higher with a warm start at every depth $p \le 5$, and the warm-started energy reaches $E_0$ at $p = 2$ (Fig.~\ref{fig:ch13:pevo}). Standard QAOA reaches $E_0$ at $p=3$ but still samples the optimum rarely: the low energy comes from satisfying the budget penalty, not from finding the best portfolio.}
+\figslide[height=0.5\textheight]{figures/warmstart/figure04.pdf}{(a) Probability of sampling the optimal portfolio and (b) energy of the optimised trial state versus depth, standard QAOA (orange), warm-start QAOA (green), warm initial state with standard mixer (blue) \cite{egger2021warm}.}{fig:ch13:pevo}
+\end{frame}
+
+\begin{frame}\ft{250 instances at depth one}
+\figslide[height=0.5\textheight]{figures/warmstart/figure05.pdf}{Depth-one QAOA on 250 random portfolio instances \cite{egger2021warm}. (a) Optimised energy relative to $E_0$ with (orange) and without (blue) warm start. (b) Remaining gap of the warm start relative to that of the cold start, against the overlap of the relaxed and binary optima.}{fig:ch13:depth1}
+\ona{At depth one the cold start is stuck at $0.74\,E_0$ on every instance, while the warm start reaches the optimum on a large fraction, the more so the closer the relaxed and binary optima are. On noisy hardware, depth one is what one can run, and dense all-to-all $H_C$ make depth expensive: this is the regime where the warm start matters most.}
+\end{frame}
+
+\begin{frame}\ft{Other variational approaches to portfolios}
+\begin{itemize}\setlength\itemsep{0.25em}
+    \item \textbf{Constrained ansätze:} the quantum alternating operator ansatz with $XY$ mixers preserves the budget exactly and compares favourably with penalty-based QAOA on trading and investment constraints \cite{Hodson2019}; Zeno-dynamics projections onto the feasible subspace \cite{herman23}.
+    \item \textbf{Alternative objectives:} the Conditional Value at Risk aggregates only the best $\alpha$-fraction of samples \cite{Barkoutsos2020}, which is natural for a risk-averse investor and robust to noise.
+    \item \textbf{Annealing and tensor networks:} dynamic portfolio optimization over 8 years of data for 52 assets compared quantum annealing, VQE and a tensor-network optimizer after dimensionality reduction \cite{mugel22}.
+    \item \textbf{Cardinality-constrained QAOA} on hardware \cite{Brandhofer2023}: solution quality as a function of qubit number and depth.
+\end{itemize}
+\ona{All of these operate at Level 1. The main limitation of current approaches is the neglect of uncertainty in the inputs, of time-dependent correlations, and of the instability of the optimization; the QUBO with penalties only approximately encodes the constraints and requires post-processing. Bridging to Levels 2 and 3 is the research direction.}
+\end{frame}
+
+\begin{frame}\ft{Exercise: a small Markowitz pipeline}
+\begin{exe}
+Using the code of \Chap~\chref{C.Motivation} as a template: (i) simulate 250 days of prices for $n = 6$ assets by geometric Brownian motion and compute $\mu$ and $\Sigma$; (ii) solve the cardinality-constrained problem \eqref{eq:ch13:qubo} exactly with Gurobi (binary variables, budget as a linear constraint) and its continuous relaxation over $[0,1]^n$ with cvxpy; (iii) build $H_C$ with the penalty encoding and run depth-one QAOA in Qiskit from a cold start and from the warm start $\theta_i = 2\arcsin\sqrt{c_i^\star}$ with the rotated mixer of \Chap~\chref{C.WSContinuous}; (iv) report the probability of sampling the optimal portfolio and the energy relative to $E_0$, and repeat over 50 random instances. Discuss how the results depend on $\lambda$ and on the overlap $d^{\star\top}c^\star/B$.
+\end{exe}
+\end{frame}
+
+\section{Closing the course}
+
+\begin{frame}\ft{The course in one picture}
+\onp{\footnotesize}
+\begin{itemize}\setlength\itemsep{0.4em}
+    \item \textbf{Variational methods} minimise an upper bound $\braket{\psi(\boldsymbol\theta)|H|\psi(\boldsymbol\theta)}$ over a circuit family (\Chaps~\chref{C.VQE}--\chref{C.QAOA}); they are heuristics whose training is \textbf{NP}-hard (\Chap~\chref{C.Inapprox}).
+    \item \textbf{They converge} as the depth grows, by discretising an adiabatic path whose mixer is irreducible and non-negative (\Chaps~\chref{C.Annealing} and~\chref{C.QAOA}), with no rate.
+    \item \textbf{Their optimizer converges} at the usual stochastic rate despite biased evaluations, up to a bias floor (\Chap~\chref{C.IterationComplexity}).
+    \item \textbf{At utility scale} the angles must be set offline, transferred angles are cheap and good, and everything must be validated on hardware (\Chap~\chref{C.PerIteration}).
+    \item \textbf{Warm starts} give the quantum algorithm the best classical solution for free and, with it, the classical guarantee; empirically, they turn a heuristic that loses to Goemans--Williamson into one that matches or beats it (\Chaps~\chref{C.Motivation}, \chref{C.WSRounded}).
+\end{itemize}
+\ona{Whether any of this yields a \emph{quantum advantage} in optimization is open (\Chaps~\chref{C.EQA}--\chref{C.Inapprox}); in chemistry, the variational state's job is to supply overlap for algorithms with guarantees (\Chaps~\chref{C.VQE}, \chref{C.VQLS}). What is not open is that ignoring the classical state of the art is the surest way not to get one.}
+\end{frame}
+
+
+\begin{frame}[allowframebreaks]\ft{References}
+\biblio
+\end{frame}
+
+\end{document}

@@ -1,0 +1,108 @@
+\documentclass[aspectratio=149,ignorenonframetext,xcolor={dvipsnames,table}]{beamer}
+
+% Slides master for the course "Variational Methods".
+% Adapted from the master of the course "Quantum Computing via Randomised Algorithms".
+% To compile the slides of a single lecture, change the first line of the chapter
+% file to \documentclass[overheadsbeamer.tex]{subfiles} and run pdflatex on it.
+
+% In a standalone chapter build, \biblio prints the references of that chapter; in the full build it is emptied below.
+\def\biblio{\tiny\bibliographystyle{plainnat}\bibliography{variational}}
+\newcommand{\chapter}{\section}
+\providecommand*{\numberbychaporsect}{section}
+
+\input{overheadmacrosbeamer}           % overhead specific preamble stuff
+
+\newcounter{myalgcounter}
+\setcounter{myalgcounter}{0}
+
+\usepackage{subfiles}
+
+\usepackage{courier}
+\usepackage{latexsym,eurosym}
+\usepackage{amsfonts,amsmath,amssymb} %,amsthm}
+\usepackage{stmaryrd}
+\usepackage{graphicx,epsfig,xspace}
+\usepackage{appendix}
+\usepackage{threeparttable}
+\usepackage{multirow}
+\usepackage{booktabs}
+\usepackage{natbib}
+\usepackage{url}
+\only<article>{\usepackage[algo2e,algochapter,noline,longend,boxruled,norelsize]{algorithm2e}\SetCommentSty{textsl}}
+\only<presentation>{\usepackage[algo2e,algosection,noline,longend,boxruled,norelsize]{algorithm2e}\SetCommentSty{textsl}\setlength{\algomargin}{1ex}}
+\usepackage[all]{xy}
+
+\parindent0pt
+\parskip\medskipamount
+
+\input{declarns}
+\input{algcodemacros}
+\input{beamermacros}
+\input{coursemacros}
+
+% Theorem-like environments with the names used in amsmacros.tex (article mode),
+% so that the same chapter source compiles in both modes.
+\ifcsname c@thm\endcsname\else\expandafter\let\csname thm\endcsname\relax\expandafter\let\csname endthm\endcsname\relax\newtheorem{thm}{Theorem}\fi
+\ifcsname c@lem\endcsname\else\expandafter\let\csname lem\endcsname\relax\expandafter\let\csname endlem\endcsname\relax\newtheorem{lem}{Lemma}\fi
+\ifcsname c@propn\endcsname\else\expandafter\let\csname propn\endcsname\relax\expandafter\let\csname endpropn\endcsname\relax\newtheorem{propn}{Proposition}\fi
+\ifcsname c@cor\endcsname\else\expandafter\let\csname cor\endcsname\relax\expandafter\let\csname endcor\endcsname\relax\newtheorem{cor}{Corollary}\fi
+\ifcsname c@conj\endcsname\else\expandafter\let\csname conj\endcsname\relax\expandafter\let\csname endconj\endcsname\relax\newtheorem{conj}{Conjecture}\fi
+\ifcsname c@defn\endcsname\else\expandafter\let\csname defn\endcsname\relax\expandafter\let\csname enddefn\endcsname\relax\newtheorem{defn}{Definition}\fi
+\ifcsname c@exm\endcsname\else\expandafter\let\csname exm\endcsname\relax\expandafter\let\csname endexm\endcsname\relax\newtheorem{exm}{Example}\fi
+\ifcsname c@exe\endcsname\else\expandafter\let\csname exe\endcsname\relax\expandafter\let\csname endexe\endcsname\relax\newtheorem{exe}{Exercise}\fi
+\ifcsname c@rmk\endcsname\else\expandafter\let\csname rmk\endcsname\relax\expandafter\let\csname endrmk\endcsname\relax\newtheorem{rmk}{Remark}\fi
+\ifcsname c@probl\endcsname\else\expandafter\let\csname probl\endcsname\relax\expandafter\let\csname endprobl\endcsname\relax\newtheorem{probl}{Problem}\fi
+\ifcsname c@fct\endcsname\else\expandafter\let\csname fct\endcsname\relax\expandafter\let\csname endfct\endcsname\relax\newtheorem{fct}{Fact}\fi
+
+\renewcommand*{\nl}[2][1]
+           {\ensuremath{ \mynonindexedtemplate[#1]{#2}{,}{\ldots}{,} }}
+
+\only<presentation>{
+\title[Variational Methods]{Variational Methods in Quantum Optimization}
+\author{Jakub Mare{\v c}ek}
+\institute{CTU}
+}
+
+\def\leftmark{Variational Methods}
+\def\rightmark{Variational Methods}
+
+\numberwithin{equation}{\numberbychaporsect}
+\numberwithin{figure}{\numberbychaporsect}
+\numberwithin{table}{\numberbychaporsect}
+
+\usetheme{Boadilla}
+\setbeamercovered{transparent}
+
+\only<presentation>{\AtBeginLecture{\frame{\Large Lecture Topic: \insertlecture}}}
+
+\begin{document}
+\def\biblio{See the references at the end of the deck.}
+
+\only<presentation>{\begin{frame}
+\titlepage
+\end{frame}}
+
+\mode<presentation>
+\subfile{ch01_perspectives}
+\subfile{ch02_eqa}
+\subfile{ch03_inapproximability}
+\subfile{ch04_annealing}
+\subfile{ch05_vqe}
+\subfile{ch06_qaoa}
+\subfile{ch07_psr}
+\subfile{ch08_iterationcomplexity}
+\subfile{ch09_periteration}
+\subfile{ch10_ws_rounded}
+\subfile{ch11_ws_continuous}
+\subfile{ch12_vqls}
+\subfile{ch13_portfolio}
+
+\providecommand{\bbletal}{et al.}
+
+\begin{frame}[allowframebreaks]\frametitle{References}
+\tiny
+\bibliographystyle{plainnat}
+\bibliography{variational}
+\end{frame}
+
+\end{document}

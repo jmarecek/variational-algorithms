@@ -216,3 +216,20 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# course build artefacts (added 2026-09-23)
+course/build/
+course/slides_ch*.tex
+course/*.pdf
+.DS_Store
+course/.DS_Store
+course/*.aux
+course/*.log
+course/*.out
+course/*.bbl
+course/*.blg
+course/*.toc
+course/*.nav
+course/*.snm
+course/*.synctex.gz
+course/*.synctex(busy)

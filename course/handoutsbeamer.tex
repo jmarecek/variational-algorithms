@@ -1,0 +1,106 @@
+\PassOptionsToPackage{dvipsnames,table}{xcolor}
+\documentclass[a4paper,10pt,reqno]{amsbook}
+
+% Handout (lecture notes) master for the course "Variational Methods".
+% Adapted from the master of the course "Quantum Computing via Randomised Algorithms".
+% Each chapter is a subfile; compile the whole set here, or a single chapter
+% by running pdflatex on the chapter file directly.
+
+\usepackage[noxcolor,noamsthm]{beamerarticle}
+\setjobnamebeamerversion{overheadsbeamer}
+
+\providecommand*{\numberbychaporsect}{chapter}
+
+\usepackage{natbib}
+\def\biblio{\bibliographystyle{plainnat}\bibliography{variational}}
+
+\input{handoutmacros}            % handout specific preamble stuff
+\newtheorem{fact}[thm]{Fact} % commented in amsmacros.tex because beamer has defined it
+
+\usepackage{subfiles}
+\usepackage{fullpage}
+
+\usepackage{courier}
+\usepackage{latexsym,eurosym}
+\usepackage{amsfonts,amsmath,amssymb} %,amsthm}
+\usepackage{stmaryrd}
+\usepackage{graphicx,epsfig,xspace}
+\usepackage{appendix}
+\usepackage{threeparttable}
+\usepackage{multirow}
+\usepackage{booktabs}
+\usepackage{natbib}
+\usepackage{url}
+\only<article>{\usepackage[algo2e,algochapter,longend,boxruled,norelsize,noline,linesnumbered]{algorithm2e}\SetCommentSty{textsl}}
+\only<presentation>{\usepackage[algo2e,algosection,noline,longend,boxruled,norelsize]{algorithm2e}\SetCommentSty{textsl}\setlength{\algomargin}{1ex}}
+\usepackage[all]{xy}
+
+\parindent0pt
+\parskip\medskipamount
+
+\input{declarns}
+\input{algcodemacros}
+\input{beamermacros}
+\input{coursemacros}             % macros shared by all chapters of this course
+
+\renewcommand*{\nl}[2][1]
+           {\ensuremath{ \mynonindexedtemplate[#1]{#2}{,}{\ldots}{,} }}
+
+\newcommand{\progs}{MSc (Open Informatics)}
+\newcommand{\courseCode}{}   % TODO: fill in the course code once assigned
+\newcommand{\courseName}{Variational Methods}
+
+\only<presentation>{
+\title{Variational Methods in Quantum Optimization}
+\author{Jakub Mare{\v c}ek}
+\institute{CTU}
+}
+
+\def\leftmark{\textsc{\courseCode}}
+\def\rightmark{\textsc{\courseName}}
+
+\numberwithin{equation}{\numberbychaporsect}
+\numberwithin{figure}{\numberbychaporsect}
+\numberwithin{table}{\numberbychaporsect}
+
+\usetheme{Boadilla}
+\setbeamercovered{transparent}
+
+\only<presentation>{\AtBeginLecture{\frame{\Large Lecture Topic: \insertlecture}}}
+
+\begin{document}
+
+\def\biblio{}
+
+\vfill
+\LARGE{Variational Methods in Quantum Optimization}
+\vskip 1cm
+\Large{Lecture Notes}
+\vskip 5cm
+\Large{Jakub Mare{\v c}ek}
+\vskip 1cm
+\normalsize{Czech Technical University in Prague}
+
+\tableofcontents
+
+\subfile{ch01_perspectives}
+\subfile{ch02_eqa}
+\subfile{ch03_inapproximability}
+\subfile{ch04_annealing}
+\subfile{ch05_vqe}
+\subfile{ch06_qaoa}
+\subfile{ch07_psr}
+\subfile{ch08_iterationcomplexity}
+\subfile{ch09_periteration}
+\subfile{ch10_ws_rounded}
+\subfile{ch11_ws_continuous}
+\subfile{ch12_vqls}
+\subfile{ch13_portfolio}
+
+\providecommand{\bbletal}{et al.}
+
+\clearpage
+\bibliographystyle{plainnat}
+\bibliography{variational}
+
+\end{document}

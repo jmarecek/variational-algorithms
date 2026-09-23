@@ -1,0 +1,119 @@
+%\documentclass[overheadsbeamer.tex]{subfiles}
+\documentclass[handoutsbeamer.tex]{subfiles}
+
+\begin{document}
+
+\thispagestyle{empty}
+
+\ona{ \setcounter{chapter}{4} } % ONE LESS
+\lecture{The Variational Quantum Eigensolver}{Lect05}
+\chapter{The Variational Quantum Eigensolver}\label{C.VQE}
+
+\ona{This \chap{} introduces variational quantum algorithms through their first instance, the variational quantum eigensolver (VQE) of \citet{peruzzo2014variational}, with the theory of \citet{mcclean2016theory} and the review of \citet{cerezo2021variational}. Parts are adapted from our course on quantum computing \cite{aspman2024quantum}.}
+
+\section{The variational principle}
+
+\begin{frame}\ft{What we need from quantum mechanics}
+\begin{itemize}\setlength\itemsep{0.3em}
+    \item A \emph{state} of $n$ qubits is a unit vector $\ket\psi \in \C^{2^n}$, written in the computational basis $\{\ket{x} : x \in \{0,1\}^n\}$ as $\ket\psi = \sum_x \psi_x \ket x$; measuring returns $x$ with probability $|\psi_x|^2$.
+    \item An \emph{observable} is a Hermitian matrix $O$; its expectation in $\ket\psi$ is $\braket{\psi|O|\psi}$. Every $O$ on $n$ qubits is a real combination of Pauli strings $P \in \{I,X,Y,Z\}^{\otimes n}$, and $\braket{P}$ is estimated by measuring each qubit in the corresponding basis and averaging $\pm1$ outcomes.
+    \item Evolution is by unitaries; a gate $e^{-i\theta H}$ with $H$ Hermitian is a parametrised unitary.
+\end{itemize}
+\begin{thm}[Variational principle]\label{thm:ch05:variational}
+Let $H \in \Herm(\C^d)$ have smallest eigenvalue $E_0$. For every non-zero $\ket\psi$, $\braket{\psi|H|\psi}/\braket{\psi|\psi} \ge E_0$, with equality iff $\ket\psi$ is a ground state.
+\end{thm}
+\ona{\emph{Proof.} Expand $\ket\psi = \sum_k C_k\ket{\phi_k}$ in an eigenbasis, $H\ket{\phi_k} = E_k\ket{\phi_k}$. Then $\braket{\psi|H|\psi} = \sum_k|C_k|^2E_k \ge E_0\sum_k|C_k|^2 = E_0\braket{\psi|\psi}$, with equality iff $C_k = 0$ whenever $E_k > E_0$. \qed}
+\end{frame}
+
+\section{Variational quantum algorithms}
+
+\begin{frame}\ft{The variational loop}
+\onp{\footnotesize}
+\ona{A \emph{variational quantum algorithm} (VQA) restricts $\ket\psi$ to states prepared by a parametrised circuit, $\ket{\Psi(\vartheta)} = U(\vartheta)\ket{\Psi_0}$, and minimises the upper bound $C(\vartheta) = \braket{\Psi(\vartheta)|H|\Psi(\vartheta)}$ with a classical optimizer, Fig.~\ref{fig:ch05:vqa}. Concretely, a VQA is specified by:}
+\begin{itemize}\setlength\itemsep{0.15em}
+    \item a dataset $\mathcal D$ and its quantum embedding, here the Hamiltonian $H = \sum_k h_k P_k$ in the Pauli basis;
+    \item a parametrised circuit $U(\vartheta) = U_L(\vartheta_L)\cdots U_1(\vartheta_1)$, $U_i = e^{-i\vartheta_iH_i}$, and an initial state $\ket{\Psi_0}$: the \emph{ansatz};
+    \item a cost $C(\vartheta) = \sum_k h_k\braket{\Psi(\vartheta)|P_k|\Psi(\vartheta)}$, estimated from repeated measurements up to an additive error $\epsilon \sim 1/\sqrt{\text{shots}}$;
+    \item a classical optimizer $\mathcal A$ for $\min_\vartheta C(\vartheta)$: derivative-free (COBYLA, SPSA) or gradient-based via the parameter-shift rule (\Chap~\chref{C.PSR}).
+\end{itemize}
+\figslide[height=0.22\textheight]{figures/vqa/vqa2024.pdf}{Schematic of the VQA loop: the quantum computer evaluates the cost of a parametrised circuit by sampling; a classical optimizer proposes new parameters.}{fig:ch05:vqa}
+\end{frame}
+
+\begin{frame}\ft{VQE for molecules}
+\ona{The variational quantum eigensolver \cite{peruzzo2014variational} is the VQA for the electronic-structure problem of \Chap~\chref{C.Motivation}: $H$ is the second-quantised molecular Hamiltonian mapped to qubits, with $\mathcal O(N^4)$ Pauli terms for $N$ orbitals, and the goal is the ground-state energy. Design choices:}
+\begin{description}\setlength\itemsep{0.2em}
+    \item[Initial state] the Hartree--Fock determinant $\ket{\Psi_0}$, a computational basis state, whose energy is already the mean-field energy; the variational circuit adds correlation.
+    \item[Chemically inspired ansatz] unitary coupled cluster with singles and doubles (UCCSD), $U(\vartheta) = e^{T(\vartheta) - T(\vartheta)^\dagger}$ with excitation operators $T$; exact in a limit, deep in practice.
+    \item[Hardware-efficient ansatz] layers of single-qubit rotations and native entangling gates \cite{kandala2017hardware}; shallow and expressive, but problem-agnostic.
+    \item[Measurement] group commuting Pauli terms; the shot count to reach precision $\epsilon$ scales as $(\sum_k|h_k|)^2/\epsilon^2$ in the worst case.
+\end{description}
+\ona{On hardware, VQE has produced ground-state energies of small molecules (H$_2$, LiH, BeH$_2$) to chemical accuracy after error mitigation \cite{kandala2017hardware}. Its scaling to larger molecules is the subject of \Chap~\chref{C.EQA}.}
+\end{frame}
+
+\begin{frame}\ft{VQE as state preparation for early fault-tolerant algorithms}
+\ona{VQE has no guarantee on the quality of its output state, and there is evidence that prepare-and-measure estimation as in VQE is not competitive for industrially relevant molecules: the shot counts to reach chemical accuracy are prohibitive. \citet{zhang2022computing} propose a division of labour that keeps what VQE is good at:}
+\begin{enumerate}\setlength\itemsep{0.2em}
+    \item run VQE (or Hartree--Fock, or a short adiabatic evolution) to prepare $\ket{\phi_0}$ with overlap $\eta = |\braket{\phi_0|\psi_0}|^2$;
+    \item hand $\ket{\phi_0}$ to a ground-state property estimation routine that uses Hadamard tests of $e^{-ijH}$ and $O$ with classical Fourier post-processing, and returns $\braket{\psi_0|O|\psi_0}$ to accuracy $\epsilon$ with maximal evolution time $\widetilde{\mathcal O}(\gamma^{-1})$, regardless of how good $\ket{\phi_0}$ is, at total cost $\widetilde{\mathcal O}(\gamma^{-1}\epsilon^{-2}\eta^{-2})$ (\Chap~\chref{C.Motivation}).
+\end{enumerate}
+\ona{The variational state need not be accurate; it needs overlap. This reframes the goal of VQE from ``find the ground state'' to ``find a state with non-negligible $\eta$'', which is a lower bar, and connects to the warm starts of \Chaps~\chref{C.WSRounded}--\chref{C.WSContinuous}, where the initial state likewise needs only a good overlap with the optimum. Example properties: entries $D_{pq} = \braket{\psi_0|a_p^\dagger a_q|\psi_0}$ of the one-particle reduced density matrix, hence charge densities and dipole moments, each a combination of four Pauli-string expectations.}
+\onp{VQE supplies overlap $\eta$; a Fourier-based post-processing of Hadamard tests supplies the guarantee \cite{zhang2022computing}. The variational state need not be accurate, only overlapping.}
+\end{frame}
+
+\begin{frame}\ft{Exercise}
+\begin{exe}
+Consider the problem of finding the lowest energy eigenstate of the spin-chain Hamiltonian
+\begin{align*}
+    H = J \sum_{i=1}^{n-1} Z_iZ_{i+1} + h \sum_{i=1}^n X_i,
+\end{align*}
+and let $J<0$. This is the \emph{transverse field Ising model}. Use the variational principle for the product ansatz state
+\begin{align}
+    \ket{\psi(\theta,\phi)} = \big(\cos(\theta)\ket{0} + e^{i \phi}\sin(\theta)\ket{1}\big)^{\otimes n}.
+\end{align}
+Then run a small experiment on (minimum) 3 qubits with small $h$. Compare and present the result. Should you be able to do this successfully, you will have computed your first VQA. The exact solution can be found using the Jordan--Wigner transform.
+\end{exe}
+\end{frame}
+
+\section{What kind of algorithm is a VQA?}
+
+\begin{frame}\ft{VQAs as local search algorithms}
+\ona{\textbf{VQAs as local search algorithms}.}
+VQAs may be argued to be local search algorithms. Recall how local search works. Having selected the stop criteria, local search generates an initial random solution $s^* = s_0$ and evaluates it, $f(s_0)=f(s^*)$. While the stop criteria are not achieved, local search perturbs $s_0$ by $\delta$, with $\delta$ small. If $f(s_{\rm upd.}) < f(s_{0})$ store $s^* = s_{\rm upd.}$. This iterates until the stop criteria are satisfied and returns the lastly stored $s^*$.
+
+Similarly, for VQAs after selecting stop criteria (usually number of iterations) the VQA begins with a randomized variational parameter $\vartheta^* = \vartheta_0$ and computes $C(\vartheta_0)$. While the stopping criteria are not satisfied it updates to $\vartheta_{\rm upd.}$ by a step of the classical optimizer. If $C(\vartheta_{\rm upd.}) < C(\vartheta^*)$ it stores $\vartheta^* = \vartheta_{\rm upd.}$ and iterates until the stopping criteria are satisfied and returns the lastly stored $\vartheta^*$.
+\end{frame}
+
+\begin{frame}\ft{VQAs are not approximation algorithms}
+\ona{\textbf{VQAs are not approximation algorithms}.}
+However, one may argue that VQAs cannot be viewed as \emph{approximation algorithms}. The reason is that an approximation algorithm for a problem $P$ is a polynomial-time algorithm that computes a solution within a guaranteed factor of the optimum for \emph{every} instance of the problem. For example, the Goemans--Williamson algorithm is an approximation algorithm which for Max-Cut provides an instance-independent performance ratio of $0.878$; such a result does not exist for VQAs in general.
+
+\ona{There are exceptions: for MaxCut on 3-regular graphs, depth-one QAOA achieves ratio at least $0.692$ \cite{farhi2014quantum}, and warm-started QAOA inherits the ratio of the relaxation it starts from \cite{egger2021warm}; see \Chaps~\chref{C.QAOA} and~\chref{C.WSRounded}.}
+\end{frame}
+
+\begin{frame}\ft{Barren plateaus}
+\ona{A second obstacle, besides local minima, is the \emph{barren plateau} \cite{Clean_2018_BarrenPlateaus}: for sufficiently random, deep, problem-agnostic circuits, the gradient of $C$ has zero mean and a variance that decays exponentially in the number of qubits,}
+\begin{equation}
+    \mathrm{Var}\Big[\frac{\partial C}{\partial\vartheta_i}\Big] \in \mathcal O(2^{-n}),
+\end{equation}
+\ona{so that exponentially many shots are needed to see any gradient at all. Causes identified since: circuits close to unitary 2-designs, too much entanglement with partial measurements, global cost functions, noise; unified by the dimension of the dynamical Lie algebra of the generators.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item Problem-inspired ansätze with few parameters (QAOA, UCC) are less affected than hardware-efficient ones.
+    \item A good initialisation that brings the state near the optimum avoids the plateau; how to find one is the question warm starts answer (\Chaps~\chref{C.WSRounded}--\chref{C.WSContinuous}).
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{Questions for the rest of the course}
+\begin{enumerate}\setlength\itemsep{0.3em}
+    \item Which problems can be encoded, and with what ansatz? Combinatorial optimization: \Chap~\chref{C.QAOA}. Linear systems: \Chap~\chref{C.VQLS}. Portfolios: \Chap~\chref{C.Portfolio}.
+    \item How does one compute gradients? \Chap~\chref{C.PSR}.
+    \item How many iterations, given noisy and biased measurements? \Chap~\chref{C.IterationComplexity}.
+    \item How expensive is one iteration? \Chap~\chref{C.PerIteration}.
+    \item Where should one start? \Chaps~\chref{C.WSRounded}--\chref{C.WSContinuous}.
+\end{enumerate}
+\end{frame}
+
+\begin{frame}[allowframebreaks]\ft{References}
+\biblio
+\end{frame}
+
+\end{document}

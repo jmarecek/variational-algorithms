@@ -1,0 +1,105 @@
+%\documentclass[overheadsbeamer.tex]{subfiles}
+\documentclass[handoutsbeamer.tex]{subfiles}
+
+\begin{document}
+
+\thispagestyle{empty}
+
+\ona{ \setcounter{chapter}{2} } % ONE LESS
+\lecture{Inapproximability and the Unique Games Conjecture}{Lect03}
+\chapter{Inapproximability and the Unique Games Conjecture}\label{C.Inapprox}
+
+\ona{This \chap{} collects the complexity-theoretic facts that bound what any polynomial-time algorithm, classical or quantum, can achieve on MaxCut and its relatives, and what any polynomial-time \emph{training} procedure can achieve for a variational circuit. Sources: the survey \cite{abbas2024challenges}, the appendices of \citet{egger2021warm} on the Unique Games Conjecture and Goemans--Williamson, \citet{bittel2021training} on the hardness of training, and the complexity section of \citet{marecek2026angles}.}
+
+\section{Complexity classes for optimization}
+
+\begin{frame}\ft{Decision, function, optimization, approximation}
+\ona{Decision problems are classified by $\mathbf{P}$ and $\mathbf{NP}$; relational (function) problems by $\mathbf{FP}$ and $\mathbf{FNP}$; optimization problems by $\mathbf{PO} \subset \mathbf{FP}$ and $\mathbf{NPO} \subset \mathbf{FNP}$. Approximability refines the picture, see Fig.~\ref{fig:ch03:classes}:}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item $\mathbf{APX}$: $\mathbf{NPO}$ problems with a polynomial-time constant-factor approximation (MaxCut, MAX-3-SAT, metric TSP).
+    \item $\mathbf{PTAS}$: a $(1+\epsilon)$-approximation in polynomial time for every fixed $\epsilon>0$ (Euclidean TSP).
+    \item $\mathbf{FPTAS}$: polynomial also in $1/\epsilon$ (Knapsack).
+\end{itemize}
+\figslide[height=0.4\textheight]{figures/survey/optimization_classes.pdf}{Complexity classes for optimization problems \cite{abbas2024challenges}.}{fig:ch03:classes}
+\end{frame}
+
+\begin{frame}\ft{MaxCut and QUBO}
+\begin{itemize}\setlength\itemsep{0.3em}
+    \item The decision version of MaxCut is $\mathbf{NP}$-complete \cite{Garey1976}; the optimization version is $\mathbf{APX}$-hard \cite{lee2021classifying}: it has a constant-factor approximation, but no PTAS unless $\mathbf P = \mathbf{NP}$.
+    \item QUBO, $\min_{x\in\{0,1\}^n}x^\top Qx$, contains MaxCut and every mixed-integer linear program; it is $\mathbf{NP}$-hard and $\mathbf{APX}$-hard, and even checking \emph{local} optimality is $\mathbf{NP}$-hard.
+    \item Reduction to a ground-state problem: $x_i \mapsto (1-Z_i)/2$ gives a diagonal Hamiltonian whose ground states are the optima. Hence the ground-state problem of two-local diagonal Hamiltonians is $\mathbf{NP}$-hard, and the general local-Hamiltonian problem is $\mathbf{QMA}$-hard (\Chap~\chref{C.EQA}).
+\end{itemize}
+\ona{So no quantum algorithm is expected to solve MaxCut exactly in polynomial time. The interesting question is approximation.}
+\end{frame}
+
+\section{Inapproximability}
+
+\begin{frame}\ft{The PCP theorem and hardness of approximation}
+\ona{Inapproximability results say that finding an approximate solution of a certain ratio is no easier than finding the optimum. The PCP theorem shows that in a constraint satisfaction problem (CSP) the fraction of satisfiable constraints is $\mathbf{NP}$-hard to approximate within \emph{some} constant factor: for a CSP with at most $k$ variables per constraint there is a constant $0 < \alpha < 1$ such that it is $\mathbf{NP}$-hard to decide whether all constraints are simultaneously satisfiable or every assignment satisfies fewer than an $\alpha$ fraction. Sharpening the constants for specific problems is the subject of a large literature; for MaxCut:}
+\begin{thm}[\citet{Hstad2001}]
+For every $\epsilon > 0$, it is $\mathbf{NP}$-hard to approximate MaxCut with non-negative weights within $16/17 + \epsilon \approx 0.941$.
+\end{thm}
+\ona{Between the Goemans--Williamson guarantee $0.878$ (\Chap~\chref{C.Motivation}) and $0.941$ there is a gap. The Unique Games Conjecture closes it.}
+\end{frame}
+
+\begin{frame}\ft{Unique label cover}
+\ona{In a \emph{unique label cover} problem there is a bipartite graph $G = (V,W,E)$, an alphabet $M$, and a bijection $\pi_e : M \to M$ for every edge. Given assignments $\mathcal A_V : V\to M$ and $\mathcal A_W : W \to M$, edge $e = (v,w)$ is satisfied iff $\pi_e(\mathcal A_W(w)) = \mathcal A_V(v)$; $\opt(\mathcal L)$ is the maximum fraction of satisfied edges. ULC$(\delta)$ asks to decide whether $\opt(\mathcal L) \ge 1-\delta$ or $\opt(\mathcal L) \le \delta$.}
+\figslide[height=0.38\textheight]{figures/warmstart/figure11.pdf}{Unique label cover \cite{egger2021warm}. (a),(c) two instances with four nodes, four edges and a two-colour alphabet; (b) an assignment satisfying all edges of the first, $\opt = 1$; (d) an assignment for the second leaving one edge unsatisfied, $\opt = 3/4$.}{fig:ch03:ulc}
+\end{frame}
+
+\begin{frame}\ft{The Unique Games Conjecture}
+\begin{conj}[Unique Games Conjecture, \citet{khot2002power}]
+For arbitrarily small constants $\zeta,\delta>0$, there exists $k = k(\zeta,\delta)$ such that it is $\mathbf{NP}$-hard to determine whether a unique label cover instance with alphabet size $k$ has optimum at least $1-\zeta$ or at most $\delta$.
+\end{conj}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item Under the UGC, a canonical semidefinite relaxation of \emph{any} CSP provides the best possible approximation ratio \cite{khot2007optimal}; for MaxCut this is Goemans--Williamson, so $\alpha_{\rm GW}$ is optimal.
+    \item The UGC is neither proven nor disproven. The 2-to-2 games conjecture, a specialisation, has essentially been proven \cite{Khot2018}; and there are subexponential-time algorithms for unique games via LP and SDP hierarchies, which is consistent with the UGC being true but not a proof.
+    \item Quantum twist: unique games \emph{with entangled provers} are tractable, by rounding an SDP, so that version of the conjecture is false; the constraint-satisfaction quantum PCP conjecture remains open.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{Beyond positive weights: QUBO}
+\ona{The GW ratio is a statement about MaxCut with non-negative weights. With real weights, which is general QUBO, the natural ratio changes:}
+\begin{propn}[\citet{charikar2004maximizing}]
+Let it be $\mathbf{NP}$-hard to decide whether the maximum cut of a MaxCut instance with total weight $w$ is at least $k$ or less than $\alpha k$. Then for every $\epsilon > 0$ it is $\mathbf{NP}$-hard to distinguish QUBO instances with optimum at least $2k - w$ from those with optimum at most $2\alpha k - w$, a ratio $\alpha + w(\alpha-1)/(2k-w)$; the corresponding hardness factor for MaxCut with real weights is $11/13 \approx 0.846$, and it is achieved by randomized rounding of an SDP relaxation.
+\end{propn}
+\ona{This is why the histograms of \Chap~\chref{C.WSRounded} mark $11/13$: on weighted instances that is the yardstick, not $0.878$.}
+\end{frame}
+
+\section{Hardness of training variational circuits}
+
+\begin{frame}\ft{Training a VQA is \textbf{NP}-hard}
+\ona{The results so far bound the \emph{quality} any polynomial-time algorithm can guarantee. \citet{bittel2021training} show that the classical optimization inside a VQA is itself hard, independently of the quantum part: even with oracle access to exact expectation values, and even when the Hilbert space has only polynomial dimension so that everything is classically simulable, finding the optimal parameters is $\mathbf{NP}$-hard.}
+\begin{thm}[\citet{bittel2021training}, informal]\label{thm:ch03:bittel}
+Minimising $\braket{\Psi(\boldsymbol\phi)|O|\Psi(\boldsymbol\phi)}$ over the parameters of a variational circuit is $\mathbf{NP}$-hard: with oracle access to the expectation values; on $\mathcal O(\log d)$ qubits; with a single layer; for QAOA with one layer and Hamiltonians of norm at most $3$; and for free-fermionic circuits. Moreover, unless $\mathbf P = \mathbf{NP}$, no polynomial-time algorithm guarantees an optimization error below $(1-\alpha_{\max})/2$ for QAOA, and none guarantees any error below $1$ in the oracular setting.
+\end{thm}
+\ona{The proof reduces MaxCut to a continuous trigonometric optimization whose local minima are the local optima of greedy local search; it is given, with a one-page sketch, in \Chap~\chref{C.PerIteration}, where it explains why no per-iteration budget can rescue a worst-case instance. Since then: deciding the depth needed to reach a target energy is $\mathbf{QCMA}$-hard \cite{bittelQCMA}, in an idealised digitised setting the training problem is even undecidable \cite{korpas2025undecidable}, and tractable regimes exist for a constant number of angles \cite{sakos2026global}.}
+\onp{Reduction from MaxCut via a trigonometric objective; full proof sketch in \Chap~\chref{C.PerIteration}. Since then: $\mathbf{QCMA}$-hardness of depth selection \cite{bittelQCMA}, undecidability \cite{korpas2025undecidable}, tractable constant-angle regimes \cite{sakos2026global}.}
+\end{frame}
+
+\section{Structural obstructions and average-case hardness}
+
+\begin{frame}\ft{Even the best angles do not help at constant depth}
+\begin{itemize}\setlength\itemsep{0.3em}
+    \item \textbf{Symmetry.} Cold-start QAOA inherits the $\mathbb{Z}_2$ spin-flip symmetry of $H_C$ and $H_M$, so $\langle Z_i\rangle = 0$; on bipartite $D$-regular graphs, GW provably beats QAOA at any constant $p$ \cite{Bravyi2020}.
+    \item \textbf{Locality.} A depth-$p$ circuit sees only $p$-neighbourhoods; on high-girth graphs QAOA is a local algorithm and fails on MAX-$k$-CUT \cite{BravyiKlieschKoenigTang2022,BarakMarwaha2022}.
+    \item \textbf{Overlap gap.} Sparse random CSPs have the overlap gap property: near-optimal solutions are either close or far apart. Every circuit of depth $p < \varepsilon\log n$ then falls short of the optimum with high probability \cite{ChouLoveSandhuShi2021,ChenHuangMarwaha2023}. This is average-case hardness for classical local algorithms and low-depth quantum algorithms alike; whether deeper quantum algorithms escape is open, and would be a convincing route to advantage.
+\end{itemize}
+\ona{Recursive QAOA \cite{Bravyi2020} and warm starts \cite{egger2021warm} break the symmetry and the locality; they are the subject of \Chaps~\chref{C.WSRounded}--\chref{C.WSContinuous}.}
+\end{frame}
+
+\begin{frame}\ft{Positive results, for balance}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item MaxCut on 3-regular graphs: ratio $\ge 0.692$ at $p=1$ \cite{farhi2014quantum}, $0.7559$ at $p=2$, and (under assumptions) $0.7924$ at $p=3$.
+    \item On large-girth $d$-regular graphs, QAOA numerically outperforms SDP-based relaxations from $p \ge 11$.
+    \item Warm starts inherit classical guarantees \cite{egger2021warm}; recursive QAOA reduces the instance one variable at a time using measured correlations \cite{Bravyi2020}.
+    \item TSP as a reminder of nuance: $\mathbf{APX}$-hard in general, a PTAS for the Euclidean case, millions of nodes solved heuristically; while some problems with under 100 variables (low-autocorrelation binary sequences) remain hard.
+\end{itemize}
+\ona{The take-away for the course: the yardsticks are $0.878$ for MaxCut, $11/13$ for QUBO, and, more importantly, the empirical performance of GW and local search on the instance family at hand.}
+\end{frame}
+
+\begin{frame}[allowframebreaks]\ft{References}
+\biblio
+\end{frame}
+
+\end{document}

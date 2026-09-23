@@ -1,0 +1,129 @@
+%\documentclass[overheadsbeamer.tex]{subfiles}
+\documentclass[handoutsbeamer.tex]{subfiles}
+
+\begin{document}
+
+\thispagestyle{empty}
+
+\ona{ \setcounter{chapter}{6} } % ONE LESS
+\lecture{The Parameter-Shift Rule}{Lect07}
+\chapter{The Parameter-Shift Rule}\label{C.PSR}
+
+\ona{This \chap{} treats the question of how the classical optimizer of a variational algorithm obtains gradients. It follows the background sections of \citet{kungurtsev2022iteration}: the parameter-shift rule (PSR), its history and generalisations, and the derivative-free alternatives SPSA and the two-point approximation, which are compared analytically in \Chap~\chref{C.IterationComplexity}.}
+
+\section{Why not finite differences?}
+
+\begin{frame}\ft{The optimizer's problem}
+\ona{The classical optimizer sees the cost}
+\begin{equation}\label{eq:ch07:cost}
+    C(\boldsymbol\theta) = \braket{\psi_0|U^\dagger(\boldsymbol\theta)\,O\,U(\boldsymbol\theta)|\psi_0},\qquad U(\boldsymbol\theta) = U_L(\theta_L)\cdots U_1(\theta_1),\quad U_i(\theta_i) = W_ie^{-i\theta_iH_i},
+\end{equation}
+\ona{only through noisy estimates from a finite number of shots. A finite difference $[C(\theta + h) - C(\theta - h)]/2h$ with $h \sim 10^{-7}$ is hopeless: the two evaluations differ by less than the shot noise. Two ways out:}
+\begin{itemize}\setlength\itemsep{0.3em}
+    \item \textbf{Exact gradients from shifted evaluations}, exploiting the trigonometric structure of \eqref{eq:ch07:cost}: the parameter-shift rule, with shifts of order one.
+    \item \textbf{Derivative-free methods} that never form a gradient, or form a crude random one: COBYLA, Nelder--Mead, SPSA, two-point approximations.
+\end{itemize}
+\end{frame}
+
+\section{The parameter-shift rule}
+
+\begin{frame}\ft{Derivation}
+\ona{Assume the generators are rotation-like, $H_i^2 = \one$, as for Pauli strings; general generators are decomposed into Pauli strings. Then}
+\begin{equation}
+    U_i(\theta_i) = e^{-i\theta_iH_i} = \cos(\theta_i)\one - i\sin(\theta_i)H_i,
+\end{equation}
+\ona{so the conjugated observable $O(\theta_i) \coloneqq U_i^\dagger(\theta_i)OU_i(\theta_i)$ has the form $A + B\cos\theta_i + C\sin\theta_i$ with $\theta_i$-independent operators $A,B,C$ (in fact $A + B\cos 2\theta_i + C\sin 2\theta_i$ with the conventions of some authors; the argument is the same). Using the exact identities}
+\begin{equation}
+    \frac{d\cos x}{dx} = \frac{\cos(x+s) - \cos(x-s)}{2\sin s},\qquad \frac{d\sin x}{dx} = \frac{\sin(x+s)-\sin(x-s)}{2\sin s}, \qquad s \notin \pi\mathbb Z,
+\end{equation}
+\ona{we obtain, for any such $s$,}
+\begin{equation}\label{eq:ch07:psr}
+    \frac{dO(\theta_i)}{d\theta_i} = \frac{O(\theta_i + s) - O(\theta_i - s)}{2\sin s}.
+\end{equation}
+\ona{This is \emph{exact}, not an approximation, and the shift $s$ can be as large as $\pi/2$, where the denominator is $2$: the derivative of an expectation is the difference of two expectations at well-separated points.}
+\onp{Exact for rotation-like generators; $s = \pi/2$ gives $\tfrac12[O(\theta_i+\pi/2) - O(\theta_i - \pi/2)]$.}
+\end{frame}
+
+\begin{frame}\ft{Assembling the gradient}
+\ona{To differentiate with respect to $\theta_j$ in a circuit of $L$ layers, absorb the later layers into the observable and the earlier ones into the state,}
+\begin{equation}
+    \tilde O_j \coloneqq U_{j+1}^\dagger\cdots U_L^\dagger\,O\,U_L\cdots U_{j+1},\qquad \ket{\tilde\psi_j} \coloneqq U_{j-1}\cdots U_1\ket{\psi_0},
+\end{equation}
+\ona{so that $C(\boldsymbol\theta) = \braket{\tilde\psi_j|U_j^\dagger(\theta_j)\tilde O_jU_j(\theta_j)|\tilde\psi_j}$ and \eqref{eq:ch07:psr} applies:}
+\begin{equation}\label{eq:ch07:grad}
+    \frac{\partial C}{\partial\theta_j} = \frac{C(\boldsymbol\theta + s\,e_j) - C(\boldsymbol\theta - s\,e_j)}{2\sin s},\qquad j = 1,\dots,L.
+\end{equation}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item Each partial derivative costs two circuit evaluations of the \emph{same} circuit with shifted parameters: $2L$ evaluations per gradient, each with its own shots.
+    \item Higher derivatives follow by iterating the rule; the Hessian costs $\mathcal O(L^2)$ evaluations.
+    \item For QAOA, $\theta = (\boldsymbol\beta,\boldsymbol\gamma)$ and $H_C = \sum_e w_eZ_iZ_j$ is not rotation-like as a whole; one differentiates each $ZZ$ rotation separately, or uses the generalised rules below.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{A short history}
+\ona{The rule has several origins and many refinements; \citet{kungurtsev2022iteration} trace them as follows.}
+\begin{description}\setlength\itemsep{0.15em}
+    \item[2005, 2017] gradients of expectation values in quantum optimal control (Khaneja et al.; Li et al.), as first-order approximations.
+    \item[2018] the ``original'' PSR with two shifted evaluations, for quantum machine learning (Mitarai et al.; Schuld et al.), exact for Pauli generators.
+    \item[2019] generic gates via decomposition into simpler gates (Crooks).
+    \item[2021] generators with general eigenspectra (Mari et al.); higher-order derivatives (Izmaylov et al.); a \emph{stochastic} PSR for generators that do not commute with the rest of the layer (Banchi and Crooks); a general PSR via Fourier analysis with fewer evaluations for gates with many eigenvalues (Wierichs et al.); four-term rules for fermionic Hamiltonians (Kottmann et al.).
+    \item[2022] classical computation of quantum gradients from evaluations at nearby points (Koczor and Benjamin).
+\end{description}
+\ona{Whichever variant is used, the ingredients are the same: finitely many shifted evaluations combined linearly, all of them exact in the absence of noise.}
+\end{frame}
+
+\begin{frame}\ft{Noise}
+\ona{Exactness is a statement about expectations. In practice each shifted evaluation is a sample mean over shots, so the PSR gradient is a \emph{stochastic} gradient with variance $\sigma^2/\text{shots}$, exactly as in stochastic gradient descent; and if the device is biased, e.g., by asymmetric read-out (\Chap~\chref{C.IterationComplexity}), the gradient is biased by at most}
+\begin{equation}\label{eq:ch07:bias}
+    b = L\,\max_i\sup_\xi\big|O_i(\theta_i \pm \tfrac\pi2,\xi) - O_i(\theta_i \pm \tfrac\pi2)\big|,
+\end{equation}
+\ona{the number of layers times the worst per-evaluation bias. The large shift is what keeps the PSR usable under noise where finite differences fail: the two evaluations are far apart compared with the noise.}
+\onp{PSR under noise: an unbiased stochastic gradient with shot-noise variance; device bias enters linearly in the number of layers.}
+\end{frame}
+
+\section{Derivative-free alternatives}
+
+\begin{frame}\ft{Zero-order optimization}
+\ona{Methods that use only function values fall into two classes: mesh-based methods that compare evaluations along predefined directions, and model-based methods that approximate derivatives from evaluations and then run a gradient-type iteration. Two model-based classics, each using a random direction $\boldsymbol\Delta_k$ and a perturbation $c_k \to 0$:}
+\begin{align}
+    \text{SPSA \cite{spall1992multivariate}:}\quad & [\boldsymbol g_k]_i \sim \frac{F(\boldsymbol\theta_k + c_k\boldsymbol\Delta_k,\xi_k^1) - F(\boldsymbol\theta_k - c_k\boldsymbol\Delta_k,\xi_k^2)}{2c_k[\boldsymbol\Delta_k]_i}, \label{eq:ch07:spsa}\\
+    \text{Two-point (2PFA) \cite{duchi2015optimal}:}\quad & \boldsymbol g_k \sim \frac{F(\boldsymbol\theta_k + c_k\boldsymbol\Delta_k,\xi_k^1) - F(\boldsymbol\theta_k,\xi_k^2)}{c_k}\,\boldsymbol\Delta_k, \label{eq:ch07:2pfa}
+\end{align}
+\ona{followed by $\boldsymbol\theta_{k+1} = \boldsymbol\theta_k - \alpha_k\boldsymbol g_k$. Two evaluations per iteration regardless of the dimension, versus $2L$ for the PSR, which is why SPSA is popular for VQAs.}
+\end{frame}
+
+\begin{frame}\ft{The two-point estimator is a smoothed gradient}
+\ona{The two-point estimator \eqref{eq:ch07:2pfa} is an unbiased estimate of the gradient of the Gaussian smoothing}
+\begin{equation}\label{eq:ch07:smooth}
+    f_c(\boldsymbol\theta) = \mathbb E_{\boldsymbol\Delta\sim\mathcal N(0,\one)}\,f(\boldsymbol\theta + c\boldsymbol\Delta),
+\end{equation}
+\ona{which for $L$-smooth $f$ in dimension $p$ satisfies}
+\begin{equation}
+    |f_c - f| \le \tfrac{c^2}{2}Lp,\qquad \|\nabla f_c - \nabla f\| \le \tfrac c2 L(p+3)^{3/2}.
+\end{equation}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item Smoothing introduces a bias of order $c$ in the gradient and $c^2$ in the value, growing with the dimension.
+    \item Smaller $c$ reduces that bias but amplifies the shot noise by $1/c$: a trade-off analysed in \Chap~\chref{C.IterationComplexity}.
+    \item Existing guarantees for SPSA and 2PFA assume unbiased function evaluations, or strong convexity; neither holds for VQAs.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{Summary}
+\begin{center}\ona{\small}\onp{\scriptsize}
+\begin{tabular}{lccc}\toprule
+ & evaluations/iteration & exact w/o noise & tunable knobs \\\midrule
+finite differences & $2L$ & no & $h$ (fails under noise) \\
+parameter-shift rule & $2L$ & yes & shift $s$ \\
+SPSA & $2$ & no & $c_k$, law of $\boldsymbol\Delta_k$ \\
+two-point approximation & $2$ & no & $c_k$ \\
+COBYLA & $1$ & --- & trust radius \\\bottomrule
+\end{tabular}
+\end{center}
+\ona{The next \chap{} quantifies how these choices interact with biased noise: all achieve the same rate of convergence to stationarity, but the PSR has the smallest bias floor, SPSA is the most tunable, and the two-point approximation is the option of last resort.}
+\end{frame}
+
+\begin{frame}[allowframebreaks]\ft{References}
+\biblio
+\end{frame}
+
+\end{document}
