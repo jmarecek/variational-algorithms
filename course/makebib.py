@@ -3,13 +3,13 @@
 
 Collects every \\cite key used in ch*.tex, looks it up (in order) in
 ../template/jakubs.bib, ../numerics/refs.bib, ../iterationcomplexity/refs.bib,
-../survey/references.bib, adds a few hand-written entries for papers that have no
+../survey/references.bib, ../chemistry/ref.bib, ../eqa/ref.bib, adds a few hand-written entries for papers that have no
 .bib file (only .bbl), and reports keys that are still missing.
 """
 import re, glob, sys
 
 SOURCES = ["../template/jakubs.bib", "../numerics/refs.bib",
-           "../iterationcomplexity/refs.bib", "../survey/references.bib", "../chemistry/ref.bib"]
+           "../iterationcomplexity/refs.bib", "../survey/references.bib", "../chemistry/ref.bib", "../eqa/ref.bib"]
 
 def parse_bib(path):
     txt = open(path, encoding="utf-8", errors="replace").read()
@@ -32,6 +32,10 @@ def numerics_authors():
     return " and ".join(names)
 
 HAND = {
+"eriksen2020ground": "@article{eriksen2020ground,\n  title={The ground state electronic energy of benzene},\n  author={Eriksen, Janus J. and Anderson, Tyler A. and Deustua, J. Emiliano and Ghanem, Khaldoon and Hait, Diptarka and Hoffmann, Mark R. and Lee, Seunghoon and Levine, Daniel S. and Magoulas, Ilias and Shen, Jun and Tubman, Norman M. and Whaley, K. Birgitta and Xu, Enhua and Yao, Yuan and Zhang, Ning and Alavi, Ali and Chan, Garnet Kin-Lic and Head-Gordon, Martin and Liu, Wenjian and Piecuch, Piotr and Sharma, Sandeep and Ten-no, Seiichiro L. and Umrigar, C. J. and Gauss, J{\\\"u}rgen},\n  journal={The Journal of Physical Chemistry Letters},\n  volume={11},\n  pages={8922},\n  year={2020},\n  note={arXiv:2008.02678}\n}",
+"feynman1982simulating": "@article{feynman1982simulating,\n  title={Simulating physics with computers},\n  author={Feynman, Richard P.},\n  journal={International Journal of Theoretical Physics},\n  volume={21},\n  number={6--7},\n  pages={467--488},\n  year={1982}\n}",
+"lloyd1996universal": "@article{lloyd1996universal,\n  title={Universal quantum simulators},\n  author={Lloyd, Seth},\n  journal={Science},\n  volume={273},\n  number={5278},\n  pages={1073--1078},\n  year={1996}\n}",
+"ogorman2022intractability": "@article{ogorman2022intractability,\n  title={Intractability of electronic structure in a fixed basis},\n  author={O'Gorman, Bryan and Irani, Sandy and Whitfield, James and Fefferman, Bill},\n  journal={PRX Quantum},\n  volume={3},\n  number={2},\n  pages={020322},\n  year={2022}\n}",
 "omalley2016scalable": "@article{omalley2016scalable,\n  title={Scalable quantum simulation of molecular energies},\n  author={O'Malley, Peter J. J. and Babbush, Ryan and Kivlichan, Ian D. and Romero, Jonathan and McClean, Jarrod R. and Barends, Rami and Kelly, Julian and Roushan, Pedram and Tranter, Andrew and Ding, Nan and others},\n  journal={Physical Review X},\n  volume={6},\n  number={3},\n  pages={031007},\n  year={2016}\n}",
 "zhang2022computing": "@article{zhang2022computing,\n  title={Computing ground state properties with early fault-tolerant quantum computers},\n  author={Zhang, Ruizhe and Wang, Guoming and Johnson, Peter},\n  journal={Quantum},\n  volume={6},\n  pages={761},\n  year={2022},\n  doi={10.22331/q-2022-07-11-761}\n}",
 "lee2023evaluating": "@article{lee2023evaluating,\n  title={Evaluating the evidence for exponential quantum advantage in ground-state quantum chemistry},\n  author={Lee, Seunghoon and Lee, Joonho and Zhai, Huanchen and Tong, Yu and Dalzell, Alexander M. and Kumar, Ashutosh and Helms, Phillip and Gray, Johnnie and Cui, Zhi-Hao and Liu, Wenyuan and Kastoryano, Michael and Babbush, Ryan and Preskill, John and Reichman, David R. and Campbell, Earl T. and Valeev, Edward F. and Lin, Lin and Chan, Garnet Kin-Lic},\n  journal={Nature Communications},\n  volume={14},\n  pages={1952},\n  year={2023}\n}",
