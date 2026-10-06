@@ -9,93 +9,664 @@
 \lecture{Inapproximability and the Unique Games Conjecture}{Lect03}
 \chapter{Inapproximability and the Unique Games Conjecture}\label{C.Inapprox}
 
-\ona{This \chap{} collects the complexity-theoretic facts that bound what any polynomial-time algorithm, classical or quantum, can achieve on MaxCut and its relatives, and what any polynomial-time \emph{training} procedure can achieve for a variational circuit. Sources: the survey \cite{abbas2024challenges}, the appendices of \citet{egger2021warm} on the Unique Games Conjecture and Goemans--Williamson, \citet{bittel2021training} on the hardness of training, and the complexity section of \citet{marecek2026angles}.}
+\ona{In \Chap~\chref{C.Motivation} we saw that the Goemans--Williamson algorithm cuts, in expectation, at least $\alpha_{\rm GW} \approx 0.878$ of the edges that an optimal cut would. In this \chap{} we ask whether one can do better in polynomial time, by any algorithm, classical or quantum. The answer depends on a conjecture, the Unique Games Conjecture of \citet{khot2002power}, which we state in several equivalent forms, and on a delicate piece of analysis showing that, if it holds, the constant $\alpha_{\rm GW}$ cannot be improved. We then turn from the quality of solutions to the training of variational circuits, and give a sketch of the proof of \citet{bittel2021training} that finding the optimal parameters of a variational quantum algorithm is $\mathbf{NP}$-hard, even when the quantum part is trivial. Our sources are the survey \citep{abbas2024challenges}, the appendices of \citet{egger2021warm}, the survey of \citet{KhotSurvey}, and \citet{bittel2021training}.}
 
 \section{Complexity classes for optimization}
 
 \begin{frame}\ft{Decision, function, optimization, approximation}
-\ona{Decision problems are classified by $\mathbf{P}$ and $\mathbf{NP}$; relational (function) problems by $\mathbf{FP}$ and $\mathbf{FNP}$; optimization problems by $\mathbf{PO} \subset \mathbf{FP}$ and $\mathbf{NPO} \subset \mathbf{FNP}$. Approximability refines the picture, see Fig.~\ref{fig:ch03:classes}:}
+\ona{Decision problems are classified by $\mathbf{P}$ and $\mathbf{NP}$; relational (function) problems by $\mathbf{FP}$ and $\mathbf{FNP}$; optimization problems by $\mathbf{PO} \subset \mathbf{FP}$ and $\mathbf{NPO} \subset \mathbf{FNP}$. For a maximisation problem, an algorithm has \emph{approximation ratio} $\alpha \le 1$ if on every instance it returns a solution of value at least $\alpha\cdot\mathrm{OPT}$; for randomised algorithms one asks this in expectation. The classes of approximable problems refine the picture, as in Fig.~\ref{fig:ch03:classes}:}
 \begin{itemize}\setlength\itemsep{0.2em}
     \item $\mathbf{APX}$: $\mathbf{NPO}$ problems with a polynomial-time constant-factor approximation (MaxCut, MAX-3-SAT, metric TSP).
     \item $\mathbf{PTAS}$: a $(1+\epsilon)$-approximation in polynomial time for every fixed $\epsilon>0$ (Euclidean TSP).
-    \item $\mathbf{FPTAS}$: polynomial also in $1/\epsilon$ (Knapsack).
+    \item $\mathbf{FPTAS}$: the running time is polynomial in $1/\epsilon$ as well (Knapsack).
 \end{itemize}
-\figslide[height=0.4\textheight]{figures/survey/optimization_classes.pdf}{Complexity classes for optimization problems \cite{abbas2024challenges}.}{fig:ch03:classes}
+\onp{\begin{center}\includegraphics[height=0.4\textheight]{figures/survey/optimization_classes.pdf}\end{center}\vspace{-0.6em}{\tiny Complexity classes for optimization problems \citep{abbas2024challenges}.}}
+\ona{\begin{figure}[htb]\centering\includegraphics[width=0.644\linewidth,height=0.294\textheight,keepaspectratio]{figures/survey/optimization_classes.pdf}\caption{Complexity classes for optimization problems \citep{abbas2024challenges}.}\label{fig:ch03:classes}\end{figure}}
 \end{frame}
 
 \begin{frame}\ft{MaxCut and QUBO}
 \begin{itemize}\setlength\itemsep{0.3em}
-    \item The decision version of MaxCut is $\mathbf{NP}$-complete \cite{Garey1976}; the optimization version is $\mathbf{APX}$-hard \cite{lee2021classifying}: it has a constant-factor approximation, but no PTAS unless $\mathbf P = \mathbf{NP}$.
-    \item QUBO, $\min_{x\in\{0,1\}^n}x^\top Qx$, contains MaxCut and every mixed-integer linear program; it is $\mathbf{NP}$-hard and $\mathbf{APX}$-hard, and even checking \emph{local} optimality is $\mathbf{NP}$-hard.
-    \item Reduction to a ground-state problem: $x_i \mapsto (1-Z_i)/2$ gives a diagonal Hamiltonian whose ground states are the optima. Hence the ground-state problem of two-local diagonal Hamiltonians is $\mathbf{NP}$-hard, and the general local-Hamiltonian problem is $\mathbf{QMA}$-hard (\Chap~\chref{C.EQA}).
+    \item The decision version of MaxCut is $\mathbf{NP}$-complete \citep{Garey1976}; the optimization version is $\mathbf{APX}$-hard \citep{lee2021classifying}. It has a constant-factor approximation, but no PTAS unless $\mathbf P = \mathbf{NP}$.
+    \item QUBO, $\min_{x\in\{0,1\}^n}x^\top Qx$, contains MaxCut as a special case; it is $\mathbf{NP}$-hard and $\mathbf{APX}$-hard. For its continuous relaxation over the box $[0,1]^n$, even deciding whether a given point is a local minimum is $\mathbf{NP}$-hard \citep{murty1987some}.
+    \item The substitution $x_i \mapsto (1-Z_i)/2$ turns QUBO into a diagonal Hamiltonian whose ground states are the optima. The ground-state problem for diagonal two-local Hamiltonians is therefore $\mathbf{NP}$-hard, and that for general local Hamiltonians is $\mathbf{QMA}$-hard (\Chap~\chref{C.EQA}).
 \end{itemize}
-\ona{So no quantum algorithm is expected to solve MaxCut exactly in polynomial time. The interesting question is approximation.}
+\ona{No quantum algorithm is expected to solve MaxCut exactly in polynomial time, then, and the interesting question is how well it can be approximated.}
 \end{frame}
 
-\section{Inapproximability}
+\begin{frame}\ft{The landscape for MaxCut}
+\ona{Figure~\ref{fig:ch03:line} collects the constants that will occupy us. Assigning each vertex to a side at random cuts half the edges in expectation, so $1/2$ is trivial. Goemans--Williamson achieves $\alpha_{\rm GW} \approx 0.8786$. It is $\mathbf{NP}$-hard to do better than $16/17 \approx 0.9412$ \citep{Hstad2001}, and, under the Unique Games Conjecture, already to do better than $\alpha_{\rm GW}$ \citep{khot2007optimal}. When negative weights are allowed the relevant constant is $11/13 \approx 0.846$, as we discuss below; and on 3-regular graphs the picture is different again (Fig.~\ref{fig:ch03:cubic}).}
+\ona{\begin{figure}[htb]}\begin{center}
+\begin{tikzpicture}[x=20cm,every node/.style={font=\scriptsize}]
+  \fill[green!25] (0.5,0) rectangle (0.8786,0.35);
+  \fill[orange!35] (0.8786,0) rectangle (0.9412,0.35);
+  \fill[red!30] (0.9412,0) rectangle (1,0.35);
+  \draw[thick] (0.5,0) -- (1,0);
+  \foreach \v in {0.5,0.6,0.7,0.8,0.9,1.0} {\draw (\v,0) -- (\v,-0.08) node[below] {\v};}
+  \draw[very thick] (0.5,0) -- (0.5,0.5) node[above,align=center] {random\\$1/2$};
+  \draw[very thick,dashed,gray] (0.8462,0) -- (0.8462,-0.55) node[below,align=center] {$11/13$\\(real weights)};
+  \draw[very thick,green!40!black] (0.8786,0) -- (0.8786,0.5) node[above,align=center] {GW\\$0.878$};
+  \draw[very thick,red!70!black] (0.9412,0) -- (0.9412,0.5) node[above,align=center] {H\accent23 astad\\$16/17$};
+  \node[align=center,font=\tiny] at (0.595,0.175) {achievable in\\polynomial time};
+  \node at (0.91,0.17) {UG-hard};
+  \node at (0.9706,0.17) {$\mathbf{NP}$-hard};
+\end{tikzpicture}
+\end{center}
+\ona{\caption{Approximation ratios for MaxCut with non-negative weights. Green: achieved in polynomial time by Goemans--Williamson. Orange: $\mathbf{NP}$-hard if the Unique Games Conjecture holds. Red: $\mathbf{NP}$-hard unconditionally. $11/13$ is the corresponding threshold for real weights.}\label{fig:ch03:line}\end{figure}}
+\onp{\footnotesize Without the UGC, the status of ratios in $(0.878, 0.941]$ is unknown.}
+\end{frame}
 
-\begin{frame}\ft{The PCP theorem and hardness of approximation}
-\ona{Inapproximability results say that finding an approximate solution of a certain ratio is no easier than finding the optimum. The PCP theorem shows that in a constraint satisfaction problem (CSP) the fraction of satisfiable constraints is $\mathbf{NP}$-hard to approximate within \emph{some} constant factor: for a CSP with at most $k$ variables per constraint there is a constant $0 < \alpha < 1$ such that it is $\mathbf{NP}$-hard to decide whether all constraints are simultaneously satisfiable or every assignment satisfies fewer than an $\alpha$ fraction. Sharpening the constants for specific problems is the subject of a large literature; for MaxCut:}
+\begin{frame}\ft{MaxCut on 3-regular graphs}
+\ona{Restricting the input does not make MaxCut easy. Deleting the fewest edges so that the remaining graph is bipartite is the same as keeping the most edges in a cut, and \citet{yannakakis1978node} studied this ``edge-deletion bipartite'' problem among many edge-deletion problems, determining ``the best possible bounds on the node-degrees for which the problems remain NP-complete''. For MaxCut the bound is three. With maximum degree two the graph is a disjoint union of paths and cycles, and a maximum cut keeps every edge except one on each odd cycle; with degree three the problem is already hard:}
+\begin{thm}[\citet{yannakakis1978node}]\label{thm:ch03:cubic}
+The decision version of MaxCut is $\mathbf{NP}$-complete on 3-regular (cubic) graphs.
+\end{thm}
+\ona{On these graphs the constants are different from those of Fig.~\ref{fig:ch03:line}, see Fig.~\ref{fig:ch03:cubic}. Semidefinite programming does better than in general: \citet{halperin2004max} achieve $0.9326$ for graphs of maximum degree three. It is $\mathbf{NP}$-hard to approximate MaxCut on 3-regular graphs within $0.997$ \citep{berman1999some}, so a small gap remains. The QAOA guarantees are on this class of graphs: $0.6924$ at depth one \citep{farhi2014quantum}, $0.7559$ at depth two and, under assumptions, $0.7924$ at depth three \citep{PhysRevA.103.042612}. All lie below the Goemans--Williamson guarantee, which holds for every graph.}
+\ona{\begin{figure}[htb]}\begin{center}
+\begin{tikzpicture}[x=20cm,every node/.style={font=\scriptsize}]
+  \fill[green!25] (0.5,0) rectangle (0.9326,0.35);
+  \fill[gray!25] (0.9326,0) rectangle (0.997,0.35);
+  \fill[red!30] (0.997,0) rectangle (1,0.35);
+  \draw[thick] (0.5,0) -- (1,0);
+  \foreach \v in {0.5,0.6,0.7,0.8,0.9,1.0} {\draw (\v,0) -- (\v,-0.08) node[below] {\v};}
+  \draw[very thick] (0.5,0) -- (0.5,0.5) node[above,align=center] {random\\$1/2$};
+  \draw[very thick,blue!70!black] (0.6924,0) -- (0.6924,0.5) node[above,align=center] {QAOA $p=1$\\$0.692$};
+  \draw[very thick,blue!70!black,dashed] (0.7559,0) -- (0.7559,-0.55) node[below,align=center] {QAOA $p=2$\\$0.756$};
+  \draw[very thick,blue!70!black,dotted] (0.7924,0) -- (0.7924,0.5) node[above,align=center] {QAOA $p=3$\\$0.792^\ast$};
+  \draw[very thick,green!40!black,dashed] (0.8786,0) -- (0.8786,-0.55) node[below,align=center] {GW\\$0.878$};
+  \draw[very thick,green!40!black] (0.9326,0) -- (0.9326,0.5) node[above,align=center] {SDP for degree $3$\\$0.9326$};
+  \draw[very thick,red!70!black] (0.997,0) -- (0.997,-0.55) node[below,align=center] {$\mathbf{NP}$-hard\\$0.997$};
+  \node[align=center,font=\tiny] at (0.595,0.175) {achievable in\\polynomial time};
+\end{tikzpicture}
+\end{center}
+\ona{\caption{Approximation ratios for MaxCut on 3-regular graphs. Green: achieved in polynomial time, by the semidefinite-programming algorithm of \citet{halperin2004max}. Grey: unknown. Red: $\mathbf{NP}$-hard \citep{berman1999some}. Blue: worst-case guarantees of QAOA at depths $1$, $2$ and $3$ \citep{farhi2014quantum,PhysRevA.103.042612}; the asterisk marks a bound that rests on assumptions.}\label{fig:ch03:cubic}\end{figure}}
+\onp{\footnotesize NP-complete on cubic graphs \citep{yannakakis1978node}; $0.9326$ achievable \citep{halperin2004max}; $0.997$ NP-hard \citep{berman1999some}. QAOA at $p\le3$ is below GW.}
+\end{frame}
+
+\begin{frame}\ft{Where the hardness on cubic graphs comes from}
+\onp{\footnotesize}
+\ona{MaxCut itself was shown $\mathbf{NP}$-complete by \citet{Garey1976}, who left open its status on graphs of bounded degree; the weighted version goes back to \citet{karp1972reducibility}. \citet{yannakakis1978node} settles the question for cubic graphs in his Theorem~13, whose proof in the paper consists of one sentence: it ``uses Lemmas 2 and 5 (rather the transformations employed there)''. The two lemmas concern 3-SAT, the satisfiability of formulae in which each clause is a disjunction of three literals:}
+\begin{itemize}\setlength\itemsep{0.3em}
+    \item \textbf{Lemma 5.} 3-SAT remains $\mathbf{NP}$-complete when each variable appears three times. This is best possible: if each variable appears at most twice, and each clause has at least two literals, the formula is always satisfiable.
+    \item \textbf{Lemma 2.} A 3-SAT formula $S$ can be transformed in polynomial time into a formula $S'$, with linearly many clauses of at most three literals, such that: $S'$ is satisfiable if and only if $S$ is; every variable whose complement occurs in $S'$ occurs as often as its complement; if $S$ is satisfiable, every satisfying assignment of $S'$ makes at most two literals true in each clause, and some satisfying assignment sets all uncomplemented variables true; and if $S$ is not satisfiable, every assignment setting all uncomplemented variables true makes all three literals true in some clause.
+\end{itemize}
+\ona{The paper gives no more detail, but the role of the two lemmas can be explained. A cut is a $\pm1$ assignment to the vertices, as a truth assignment is to the variables, and a triangle is the natural test of a clause: a cut separates at most two of its three edges, and exactly two unless all three vertices lie on the same side. A clause gadget built from triangles therefore rewards assignments that do not make all literals of a clause equal, and Lemma~2 puts satisfiability in a form, ``at most two literals true in each clause'', that such gadgets can detect. Lemma~5 bounds the number of clauses in which each variable occurs, so that each vertex of the graph needs only a bounded number of edges; at most three are allowed in the end. Three is also the best possible bound, since with maximum degree two the problem is easy.}
+\onp{\scriptsize Proof in the paper: ``uses Lemmas 2 and 5''. Idea: a triangle has at most 2 of 3 edges cut, exactly 2 unless all its vertices lie on one side; Lemma 2 makes satisfiability a condition of this kind; Lemma 5 keeps the degrees bounded.}
+\end{frame}
+
+\section{Constraint satisfaction problems}
+
+\begin{frame}\ft{Constraint satisfaction problems}
+\ona{Most of the problems in this \chap{} share a common form. A \emph{constraint satisfaction problem} (CSP) consists of}
+\begin{itemize}\setlength\itemsep{0.25em}
+    \item variables $x_1,\dots,x_n$ taking values in a finite \emph{alphabet} $\Sigma$, say $\Sigma = \{0,1,\dots,k-1\}$;
+    \item constraints $C_1,\dots,C_m$, each involving a few of the variables, its \emph{arity} being their number, and each specifying which combinations of their values are allowed.
+\end{itemize}
+\ona{The \emph{value} of an assignment $x \in \Sigma^n$ is the fraction of constraints it satisfies, and the value of the instance is the largest value of any assignment. Max-CSP asks for an assignment of largest value, and the approximation ratio compares the value found with the largest. Examples:}
+\begin{center}\ona{\small}\onp{\scriptsize}
+\begin{tabular}{llll}\toprule
+problem & alphabet & arity & a constraint \\\midrule
+Max-3-SAT & $\{0,1\}$ & $3$ & $x_1 \vee \bar x_2 \vee x_5$ \\
+MaxCut & $\{0,1\}$ & $2$ & $x_u \ne x_v$, one for each edge $uv$ \\
+Max-$k$-colouring & $\{0,\dots,k-1\}$ & $2$ & $x_u \ne x_v$ \\
+Max-2-Lin$(q)$ & $\mathbb Z_q$ & $2$ & $x_u - x_v = c_{uv} \pmod q$ \\\bottomrule
+\end{tabular}
+\end{center}
+\ona{The PCP theorem is a statement about CSPs: for Max-3-SAT it is $\mathbf{NP}$-hard to distinguish satisfiable instances from those of value at most some $s<1$.}
+\onp{\footnotesize Value of an assignment $=$ fraction of constraints satisfied.}
+\end{frame}
+
+\begin{frame}\ft{Binary CSPs as labelled graphs}
+\onp{\footnotesize}
+\ona{When every constraint involves two variables (arity two), a CSP can be drawn as a graph: one vertex for each variable, one edge for each constraint. Following the terminology of PCPs, the values are called \emph{labels} and an assignment a \emph{labelling}. The constraint on an edge $uv$ is a relation $R_{uv} \subseteq \Sigma\times\Sigma$, the set of allowed pairs of labels, which we draw as lines between two columns of labels (Fig.~\ref{fig:ch03:constraints}). Three kinds of relation matter:}
+\ona{\begin{figure}[htb]}\begin{center}
+\begin{tikzpicture}[x=1.1cm,y=0.42cm,every node/.style={font=\scriptsize}]
+  \begin{scope}
+    \foreach \a in {0,1,2} {\fill[gray!70] (0,2-\a) circle (2.2pt); \fill[gray!70] (1,2-\a) circle (2.2pt); \node[left=3pt] at (0,2-\a) {\a}; \node[right=3pt] at (1,2-\a) {\a};}
+    \foreach \a/\b in {0/0,0/2,1/1,2/0,2/1} {\draw[thick,blue!70!black] (0,2-\a) -- (1,2-\b);}
+    \node at (0,2.9) {$u$}; \node at (1,2.9) {$v$};
+    \node at (0.5,-1.1) {general relation};
+  \end{scope}
+  \begin{scope}[xshift=3.6cm]
+    \foreach \a in {0,1} {\fill[gray!70] (0,2.5-1.67*\a) circle (2.2pt); \node[left=3pt] at (0,2.5-1.67*\a) {\a};}
+    \foreach \b in {0,1,2,3} {\fill[gray!70] (1,3-\b) circle (2.2pt); \node[right=3pt] at (1,3-\b) {\b};}
+    \foreach \a/\b in {0/0,0/1,1/2,1/3} {\draw[thick,blue!70!black] (0,2.5-1.67*\a) -- (1,3-\b);}
+    \node at (0,3.9) {$v$}; \node at (1,3.9) {$w$};
+    \node at (0.5,-1.1) {projection};
+  \end{scope}
+  \begin{scope}[xshift=7.2cm]
+    \foreach \a in {0,1,2} {\fill[gray!70] (0,2-\a) circle (2.2pt); \fill[gray!70] (1,2-\a) circle (2.2pt); \node[left=3pt] at (0,2-\a) {\a}; \node[right=3pt] at (1,2-\a) {\a};}
+    \foreach \a/\b in {0/2,1/0,2/1} {\draw[thick,blue!70!black] (0,2-\a) -- (1,2-\b);}
+    \node at (0,2.9) {$v$}; \node at (1,2.9) {$w$};
+    \node at (0.5,-1.1) {bijection (unique)};
+  \end{scope}
+\end{tikzpicture}
+\end{center}
+\ona{\caption{Binary constraints drawn as allowed pairs of labels. Left: a general relation. Middle: a projection, in which each label of $w$ allows exactly one label of $v$. Right: a bijection, in which each label of either endpoint allows exactly one label of the other.}\label{fig:ch03:constraints}\end{figure}}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item \textbf{Label cover:} a bipartite graph with \emph{projection} constraints, $x_v = \pi_e(x_w)$ for a map $\pi_e$. By the PCP theorem and parallel repetition, for every $\delta>0$ there is an alphabet size for which it is $\mathbf{NP}$-hard to distinguish label cover instances of value $1$ from those of value at most $\delta$; most strong inapproximability results start from this.
+    \item \textbf{Unique label cover:} the same, but each $\pi_e$ is a \emph{bijection}. MaxCut, with the single bijection ``swap'' on $\{0,1\}$, and Max-2-Lin$(q)$, with rotations, are examples.
+\end{itemize}
+\onp{\footnotesize Label cover: projections; unique label cover: bijections.}
+\end{frame}
+
+\section{Hardness of approximation}
+
+\begin{frame}\ft{Gap problems and the PCP theorem}
+\ona{Statements of inapproximability are best phrased as \emph{gap problems}. For a constraint satisfaction problem (CSP) and numbers $0 < s < c \le 1$, the problem $\mathrm{Gap}_{c,s}$ asks us to decide, given an instance promised to have value either at least $c$ (the \emph{completeness}) or at most $s$ (the \emph{soundness}), which of the two holds. If $\mathrm{Gap}_{c,s}$ is $\mathbf{NP}$-hard, then no polynomial-time algorithm has approximation ratio better than $s/c$, unless $\mathbf P = \mathbf{NP}$: such an algorithm would separate the two cases.}
+\begin{thm}[PCP theorem, gap form]
+There is a constant $s<1$ such that $\mathrm{Gap}_{1,s}$ for MAX-3-SAT is $\mathbf{NP}$-hard.
+\end{thm}
+\ona{The PCP theorem thus says that the fraction of satisfiable constraints is hard to approximate within \emph{some} constant. Sharpening the constant for particular problems has occupied a large literature. For MaxCut the best unconditional result is:}
 \begin{thm}[\citet{Hstad2001}]
 For every $\epsilon > 0$, it is $\mathbf{NP}$-hard to approximate MaxCut with non-negative weights within $16/17 + \epsilon \approx 0.941$.
 \end{thm}
-\ona{Between the Goemans--Williamson guarantee $0.878$ (\Chap~\chref{C.Motivation}) and $0.941$ there is a gap. The Unique Games Conjecture closes it.}
+\ona{Between $\alpha_{\rm GW} \approx 0.878$ and $0.941$ there remains a gap. The Unique Games Conjecture would close it.}
+\onp{\footnotesize $\mathrm{Gap}_{c,s}$ $\mathbf{NP}$-hard $\Rightarrow$ no ratio better than $s/c$ unless $\mathbf P = \mathbf{NP}$.}
 \end{frame}
 
+\section{Unique games}
+
 \begin{frame}\ft{Unique label cover}
-\ona{In a \emph{unique label cover} problem there is a bipartite graph $G = (V,W,E)$, an alphabet $M$, and a bijection $\pi_e : M \to M$ for every edge. Given assignments $\mathcal A_V : V\to M$ and $\mathcal A_W : W \to M$, edge $e = (v,w)$ is satisfied iff $\pi_e(\mathcal A_W(w)) = \mathcal A_V(v)$; $\opt(\mathcal L)$ is the maximum fraction of satisfied edges. ULC$(\delta)$ asks to decide whether $\opt(\mathcal L) \ge 1-\delta$ or $\opt(\mathcal L) \le \delta$.}
-\figslide[height=0.38\textheight]{figures/warmstart/figure11.pdf}{Unique label cover \cite{egger2021warm}. (a),(c) two instances with four nodes, four edges and a two-colour alphabet; (b) an assignment satisfying all edges of the first, $\opt = 1$; (d) an assignment for the second leaving one edge unsatisfied, $\opt = 3/4$.}{fig:ch03:ulc}
+\ona{Formally, in a \emph{unique label cover} problem there is a bipartite graph $G = (V,W,E)$, an alphabet $M$ of $k$ labels, and for each edge $e$ a bijection $\pi_e : M \to M$. Given labellings $\mathcal A_V : V\to M$ and $\mathcal A_W : W \to M$, the edge $e = (v,w)$ is satisfied if $\pi_e(\mathcal A_W(w)) = \mathcal A_V(v)$, and $\opt(\mathcal L)$ is the largest fraction of edges that can be satisfied simultaneously. The word \emph{unique} refers to the bijections: the label of one endpoint determines the label of the other. ULC$(\delta)$ asks us to decide whether $\opt(\mathcal L) \ge 1-\delta$ or $\opt(\mathcal L) \le \delta$.}
+\figslide[height=0.38\textheight]{figures/warmstart/figure11.pdf}{Unique label cover \citep{egger2021warm}. (a),(c) Two instances with four nodes, four edges and a two-colour alphabet; (b) an assignment satisfying all edges of the first, $\opt = 1$; (d) an assignment for the second leaving one edge unsatisfied, $\opt = 3/4$.}{fig:ch03:ulc}
+\end{frame}
+
+\begin{frame}\ft{Why the gap must be imperfect: label propagation}
+\ona{Suppose an instance is \emph{fully} satisfiable. Then a satisfying labelling can be found in polynomial time: choose a vertex, try each of the $k$ labels for it, and propagate along a spanning tree, since each edge determines the label at its other end (Fig.~\ref{fig:ch03:prop}). For each starting label this takes time linear in the number of edges, and one checks whether the result satisfies all edges. Uniqueness thus makes perfect completeness easy, which is why the conjecture concerns instances of value $1-\zeta$ rather than $1$.}
+\ona{\begin{figure}[htb]}\begin{center}
+\begin{tikzpicture}[x=1.7cm,y=0.55cm,every node/.style={font=\scriptsize}]
+  % columns v1..v5, labels 0 (top) .. 2 (bottom)
+  \foreach \i in {1,...,5} {\node at (\i,3.1) {$v_{\i}$}; \foreach \a in {0,1,2} {\fill[gray!60] (\i,2-\a) circle (2.2pt);}}
+  \foreach \a in {0,1,2} {\node[left=4pt] at (1,2-\a) {\a};}
+  % e1: 0->2, 1->0, 2->1
+  \foreach \a/\b in {0/2,1/0,2/1} {\draw[gray] (1,2-\a) -- (2,2-\b);}
+  % e2: identity on 0, swap 1,2
+  \foreach \a/\b in {0/0,1/2,2/1} {\draw[gray] (2,2-\a) -- (3,2-\b);}
+  % e3: swap 0,1
+  \foreach \a/\b in {0/1,1/0,2/2} {\draw[gray] (3,2-\a) -- (4,2-\b);}
+  % e4: swap 0,2
+  \foreach \a/\b in {0/2,1/1,2/0} {\draw[gray] (4,2-\a) -- (5,2-\b);}
+  % forced path from label 1 at v1: 1 -> 0 -> 0 -> 1 -> 1
+  \draw[very thick,blue!70!black] (1,1) -- (2,2) -- (3,2) -- (4,1) -- (5,1);
+  \foreach \i/\a in {1/1,2/0,3/0,4/1,5/1} {\fill[blue!70!black] (\i,2-\a) circle (3.2pt);}
+  \node[blue!70!black,below] at (1,-0.3) {choose};
+  \foreach \i in {2,...,5} {\node[blue!70!black,below] at (\i,-0.3) {forced};}
+\end{tikzpicture}
+\end{center}
+\ona{\caption{Label propagation on a path, with $k = 3$ labels drawn as dots in each column and each constraint $\pi_e$ drawn as a perfect matching between neighbouring columns. Choosing label $1$ at $v_1$ forces the labels of all other vertices. On a tree every choice at the root extends to a labelling satisfying all edges; on a cycle the labels are consistent only if the composition of the permutations around the cycle has a fixed point.}\label{fig:ch03:prop}\end{figure}}
+\onp{\footnotesize If $\opt = 1$: guess one label, propagate, check. Hence the conjecture is about $\opt \ge 1-\zeta$.}
 \end{frame}
 
 \begin{frame}\ft{The Unique Games Conjecture}
-\begin{conj}[Unique Games Conjecture, \citet{khot2002power}]
-For arbitrarily small constants $\zeta,\delta>0$, there exists $k = k(\zeta,\delta)$ such that it is $\mathbf{NP}$-hard to determine whether a unique label cover instance with alphabet size $k$ has optimum at least $1-\zeta$ or at most $\delta$.
+\begin{conj}[Unique Games Conjecture, \citet{khot2002power}]\label{conj:ch03:ugc}
+For every pair of constants $\zeta,\delta>0$ there is an alphabet size $k = k(\zeta,\delta)$ such that it is $\mathbf{NP}$-hard to decide whether a unique label cover instance with $k$ labels has optimum at least $1-\zeta$ or at most $\delta$.
 \end{conj}
-\begin{itemize}\setlength\itemsep{0.2em}
-    \item Under the UGC, a canonical semidefinite relaxation of \emph{any} CSP provides the best possible approximation ratio \cite{khot2007optimal}; for MaxCut this is Goemans--Williamson, so $\alpha_{\rm GW}$ is optimal.
-    \item The UGC is neither proven nor disproven. The 2-to-2 games conjecture, a specialisation, has essentially been proven \cite{Khot2018}; and there are subexponential-time algorithms for unique games via LP and SDP hierarchies, which is consistent with the UGC being true but not a proof.
-    \item Quantum twist: unique games \emph{with entangled provers} are tractable, by rounding an SDP, so that version of the conjecture is false; the constraint-satisfaction quantum PCP conjecture remains open.
+\ona{Three remarks help in reading it. The completeness $1-\zeta$ cannot be raised to $1$, by label propagation. The alphabet must be allowed to grow as $\zeta,\delta\to0$: with $k$ labels a random labelling already satisfies a $1/k$ fraction of the edges in expectation, so one needs $k > 1/\delta$. And with $k = 2$ the problem is the familiar one of deciding, for constraints $x_u = x_v$ or $x_u \ne x_v$, how many can be satisfied, which Goemans--Williamson approximates well; the conjecture concerns large alphabets.}
+\onp{\begin{itemize}\item Completeness $1-\zeta$, not $1$ (propagation). \item $k > 1/\delta$ needed: random labels satisfy $1/k$. \item $k=2$ is MaxCut-like and approximable.\end{itemize}}
+\end{frame}
+
+\section{Equivalent and related forms of the conjecture}
+
+\begin{frame}\ft{Reformulation 1: a game with two provers}
+\ona{The name comes from \emph{two-prover one-round games}. A verifier holds a unique label cover instance. She picks an edge $e = (v,w)$ at random, sends $v$ to the first prover and $w$ to the second, receives labels $a$ and $b$, and accepts if $\pi_e(b) = a$. The provers may agree on a strategy beforehand but cannot communicate once the game begins. A deterministic strategy is a pair of labellings, so the largest acceptance probability, the \emph{value} of the game, equals $\opt(\mathcal L)$, and Conjecture~\ref{conj:ch03:ugc} says that the value of a unique game is hard to approximate.}
+\ona{\begin{figure}[htb]}\begin{center}
+\begin{tikzpicture}[every node/.style={font=\scriptsize},box/.style={draw,rounded corners,minimum width=2.1cm,minimum height=0.8cm,align=center}]
+  \node[box,fill=blue!8] (V) at (0,0) {Verifier\\random edge $e=(v,w)$};
+  \node[box,fill=gray!10] (P1) at (-3.2,-1.9) {Prover 1};
+  \node[box,fill=gray!10] (P2) at (3.2,-1.9) {Prover 2};
+  \draw[-{Latex},thick] (V.west) to[bend right=15] node[above left] {$v$} (P1.north);
+  \draw[-{Latex},thick] (P1.east) to[bend right=10] node[below right,pos=0.3] {label $a$} (V.south west);
+  \draw[-{Latex},thick] (V.east) to[bend left=15] node[above right] {$w$} (P2.north);
+  \draw[-{Latex},thick] (P2.west) to[bend left=10] node[below left,pos=0.3] {label $b$} (V.south east);
+  \draw[very thick,red!60!black,dash pattern=on 4pt off 2pt] (0,-1.3) -- (0,-2.6) node[below] {no communication};
+  \node[align=center] at (0,0.95) {accept iff $\pi_e(b) = a$};
+\end{tikzpicture}
+\end{center}
+\ona{\caption{A unique game as a two-prover one-round game. The verifier accepts if the answers are related by the bijection $\pi_e$; the value of the game is $\opt(\mathcal L)$. If the provers share an entangled quantum state, the value can be approximated in polynomial time by semidefinite programming \citep{kempe2010unique}.}\label{fig:ch03:game}\end{figure}}
+\ona{There is a quantum twist. If the provers share entanglement, the value of a unique game can be approximated in polynomial time by rounding a semidefinite programme \citep{kempe2010unique}: the entangled analogue of the conjecture is false.}
+\onp{\footnotesize With entangled provers, unique games are easy \citep{kempe2010unique}.}
+\end{frame}
+
+\begin{frame}\ft{Reformulations 2 and 3: any graph, and the strong form}
+\begin{itemize}\setlength\itemsep{0.35em}
+    \item \textbf{Non-bipartite constraint graphs.} One may drop the bipartition: a unique game is a graph $G=(V,E)$, labels in $[k]$, and a bijection $\pi_{uv}$ on each edge with $\pi_{vu} = \pi_{uv}^{-1}$; an edge is satisfied if $x_v = \pi_{uv}(x_u)$. The conjecture for general graphs is equivalent to that for bipartite ones \citep{KhotSurvey}, and one may also assume the graph regular.
+    \item \textbf{The strong form} \citep{khot2008vertex}. For non-bipartite instances, the ``yes'' case asks for a labelling and a set $X_0$ of at least $(1-\zeta)|X|$ \emph{vertices} such that all constraints between vertices of $X_0$ are satisfied. The ``no'' case asks that for every assignment of at most $t$ labels to each vertex, and every set of $\gamma|X|$ vertices, some constraint among them is violated. Khot and Regev showed that the original conjecture implies this apparently stronger one, and used it to show that vertex cover is hard to approximate within $2-\epsilon$.
+\end{itemize}
+\ona{Such relations are typical. Each formulation is shown to imply another by a reduction that preserves the gap, perhaps with a change of $\zeta$, $\delta$ and $k$, and one is then free to use whichever is most convenient.}
+\end{frame}
+
+\begin{frame}\ft{Reformulation 4: linear equations, or rotations on a clock}
+\ona{The most concrete form is a system of linear equations. In $\Gamma$-Max-2Lin$(q)$ one is given equations $x_u - x_v = c_{uv} \pmod q$, each involving two variables, and asked to satisfy as many as possible. Each equation is a unique constraint, the bijection being a rotation by $c_{uv}$. \citet{khot2007optimal} showed that the Unique Games Conjecture is equivalent to its special case for such equations:}
+\begin{center}
+\emph{For all $\zeta,\delta>0$ there is $q$ such that it is $\mathbf{NP}$-hard to decide whether $1-\zeta$ or at most $\delta$ of a system of equations $x_u - x_v = c_{uv} \pmod q$ can be satisfied.}
+\end{center}
+\ona{\begin{figure}[htb]}\begin{center}
+\begin{tikzpicture}[every node/.style={font=\scriptsize}]
+  \begin{scope}
+    \draw[gray] (0,0) circle (1.1);
+    \foreach \a in {0,...,5} {\fill[gray!70] ({90-60*\a}:1.1) circle (2pt); \node at ({90-60*\a}:1.38) {\a};}
+    \fill[blue!70!black] ({90-60*1}:1.1) circle (3.5pt); \node[blue!70!black] at ({90-60*1}:0.75) {$x_v$};
+    \fill[red!70!black] ({90-60*4}:1.1) circle (3.5pt); \node[red!70!black] at ({90-60*4}:0.75) {$x_u$};
+    \draw[-{Latex},thick,orange!80!black] ({90-60*1}:0.45) arc ({90-60*1}:{90-60*4}:0.45);
+    \node[orange!80!black] at (0,-1.75) {$x_u - x_v = 3 \pmod 6$};
+    \node at (0,1.85) {$q = 6$};
+  \end{scope}
+  \begin{scope}[xshift=4cm]
+    \draw[gray] (0,0) circle (1.1);
+    \fill[gray!70] (90:1.1) circle (2pt); \node at (90:1.38) {0};
+    \fill[gray!70] (270:1.1) circle (2pt); \node at (270:1.38) {1};
+    \draw[-{Latex},thick,orange!80!black] (90:0.45) arc (90:270:0.45);
+    \node[orange!80!black] at (0,-1.75) {$x_u \ne x_v$: a MaxCut edge};
+    \node at (0,1.85) {$q = 2$};
+  \end{scope}
+  \begin{scope}[xshift=8cm]
+    \draw[gray] (0,0) circle (1.1);
+    \fill[blue!70!black] (40:1.1) circle (3.5pt); \node[blue!70!black] at (40:1.45) {$\theta_v$};
+    \fill[red!70!black] (160:1.1) circle (3.5pt); \node[red!70!black] at (160:1.45) {$\theta_u$};
+    \draw[-{Latex},thick,orange!80!black] (40:0.45) arc (40:160:0.45);
+    \node[orange!80!black] at (0,-1.75) {$\theta_u - \theta_v \approx c_{uv}$};
+    \node at (0,1.85) {continuous};
+  \end{scope}
+\end{tikzpicture}
+\end{center}
+\ona{\caption{Unique games as rotations. Left: labels in $\mathbb Z_6$ as hours on a clock, with the constraint $x_u - x_v = 3$ a rotation by three hours. Middle: with $q=2$ the only non-trivial rotation is the swap, and the constraints are those of MaxCut. Right: letting the labels range over the whole circle gives \emph{angular synchronisation}, which is solved well by eigenvectors and semidefinite programming \citep{singer2011angular}.}\label{fig:ch03:clock}\end{figure}}
+\ona{This form explains the connection with MaxCut: with $q = 2$ every equation reads $x_u = x_v$ or $x_u \ne x_v$. It also shows the problem as one of \emph{synchronisation}: recovering elements of a group, here $\mathbb Z_q$, from noisy measurements of their pairwise differences. The continuous version over the circle is approximated well by spectral and semidefinite methods \citep{singer2011angular}; the conjecture asserts that the discrete version with large $q$ is not.}
+\onp{\footnotesize UGC $\Leftrightarrow$ hardness of $x_u - x_v = c_{uv} \pmod q$ \citep{khot2007optimal}. $q = 2$: MaxCut. Continuous: angular synchronisation, easy by SDP.}
+\end{frame}
+
+\begin{frame}\ft{Interlude: expansion and expanders}
+\ona{The last two reformulations are phrased in terms of how well sets of vertices in a graph are connected to the rest, so we pause to introduce the notions. Let $G = (V,E)$ be a $d$-regular graph on $n$ vertices; each vertex has $d$ edges. For a set $S \subseteq V$, write $E(S,\overline S)$ for the set of edges with one endpoint in $S$ and the other outside, and define the \emph{expansion} of $S$ as}
+\begin{equation}\label{eq:ch03:phi}
+    \Phi(S) \;=\; \frac{|E(S,\overline S)|}{d\,|S|} \;\in\; [0,1].
+\end{equation}
+\ona{The denominator counts all edge ends at vertices of $S$, so $\Phi(S)$ is the probability that a random edge leaving a random vertex of $S$ ends outside $S$. A set with $\Phi(S)$ near $0$ is almost closed off, like a community in a social network; a set with $\Phi(S)$ near $1$ sends almost all its edges out. The \emph{expansion of the graph} is that of its worst set of at most half the vertices,}
+\begin{equation*}
+    \Phi_G \;=\; \min_{0<|S|\le n/2}\Phi(S),
+\end{equation*}
+\ona{and a family of $d$-regular graphs, $d$ fixed and $n\to\infty$, is a family of \emph{expanders} if $\Phi_G \ge \varepsilon$ for some constant $\varepsilon>0$ and all members. Expanders are sparse, with $dn/2$ edges, and yet every set of at most half the vertices sends a constant fraction of its edges out.}
+\ona{\begin{figure}[htb]}\begin{center}
+\begin{tikzpicture}[every node/.style={font=\scriptsize}]
+  \begin{scope}
+    \foreach \i in {0,...,11} {\coordinate (c\i) at ({90-30*\i}:1.25);}
+    \foreach \i in {0,...,11} {\pgfmathtruncatemacro{\j}{mod(\i+1,12)} \draw[gray] (c\i) -- (c\j);}
+    \draw[red!70!black,very thick] (c11) -- (c0); \draw[red!70!black,very thick] (c5) -- (c6);
+    \foreach \i in {0,...,5} {\fill[blue!70!black] (c\i) circle (3pt);}
+    \foreach \i in {6,...,11} {\fill[gray!70] (c\i) circle (2.5pt);}
+    \node at (0,-1.85) {cycle $C_{12}$: $\Phi(S) = 2/12$};
+  \end{scope}
+  \begin{scope}[xshift=4.5cm]
+    \foreach \i in {0,...,4} {\coordinate (o\i) at ({90+72*\i}:1.3); \coordinate (n\i) at ({90+72*\i}:0.6);}
+    \foreach \i in {0,...,4} {\pgfmathtruncatemacro{\j}{mod(\i+1,5)} \pgfmathtruncatemacro{\k}{mod(\i+2,5)} \draw[blue!70!black,thick] (o\i) -- (o\j); \draw[gray] (n\i) -- (n\k); \draw[red!70!black,very thick] (o\i) -- (n\i);}
+    \foreach \i in {0,...,4} {\fill[blue!70!black] (o\i) circle (3pt); \fill[gray!70] (n\i) circle (2.5pt);}
+    \node at (0,-1.85) {Petersen graph: $\Phi(S) = 5/15$};
+  \end{scope}
+\end{tikzpicture}
+\end{center}
+\ona{\caption{Expansion of a set $S$ (blue vertices) of half the vertices. Left: in the cycle $C_{12}$, which is $2$-regular, an arc of six vertices has two leaving edges (red), so $\Phi(S) = 2/(2\cdot6) = 1/6$; for the cycle $C_n$ an arc of $n/2$ vertices has $\Phi(S) = 2/n \to 0$, and cycles are not expanders. Right: in the $3$-regular Petersen graph, the outer five vertices have five leaving edges, $\Phi(S) = 5/(3\cdot5) = 1/3$.}\label{fig:ch03:expanders}\end{figure}}
+\onp{\footnotesize $\Phi(S) = $ fraction of edge ends at $S$ that leave $S$. Expanders: sparse ($d$ fixed) and $\Phi(S)\ge\varepsilon$ for all $|S|\le n/2$.}
+\end{frame}
+
+\begin{frame}\ft{Interlude, continued: examples, eigenvalues, and small sets}
+\onp{\scriptsize}
+\begin{itemize}\setlength\itemsep{0.3em}
+    \item \textbf{Examples.} The cycle has $\Phi_G = 2/n$ and a $\sqrt n\times\sqrt n$ grid about $1/\sqrt n$: graphs with geometry are poor expanders, since a ball has a small boundary. The hypercube $\{0,1\}^m$, with $n = 2^m$ and $d = m$, has $\Phi_G = 1/m = 1/\log_2 n$, attained by a half-cube $\{x : x_1 = 0\}$. Random $d$-regular graphs with $d\ge3$ are expanders with high probability, and explicit constructions exist.
+    \item \textbf{Eigenvalues.} Let $1 = \lambda_1 \ge \lambda_2 \ge \dots \ge \lambda_n$ be the eigenvalues of the normalised adjacency matrix $A/d$. \emph{Cheeger's inequality} states that
+    \begin{equation*}
+        \tfrac12(1-\lambda_2) \;\le\; \Phi_G \;\le\; \sqrt{2(1-\lambda_2)}.
+    \end{equation*}
+    The \emph{spectral gap} $1-\lambda_2$ can be computed in polynomial time, so whether a graph is an expander can be decided, up to the square root, efficiently; and the eigenvector of $\lambda_2$ yields a set $S$ with $\Phi(S) \le \sqrt{2(1-\lambda_2)}$. On expanders, random walks forget their starting point after $\mathcal O(\log n)$ steps.
+    \item \textbf{Small sets.} The square-root loss in Cheeger's inequality is unavoidable for spectral methods, and they give no control on the \emph{size} of the set found. The \emph{small-set expansion} of $G$ at size $\mu$ is $\min\{\Phi(S) : |S| = \mu n\}$. A graph can expand well on large sets and badly on small ones, or the reverse: in the hypercube, a subcube fixing $t$ of the $m$ coordinates has $n/2^t$ vertices and $\Phi(S) = t/m$.
+\end{itemize}
+\ona{The connection with unique games is now visible. By \eqref{eq:ch03:expansion} below, a good labelling is a small set, of relative size $1/k$, in the label-extended graph, which does not expand. If the constraint graph $G$ itself is an expander, such sets are rare and can be found: unique games on expanding constraint graphs are easy \citep{arora2008unique}. The hard instances, if any, must have constraint graphs with many small non-expanding sets, and the small-set expansion hypothesis asserts that finding such sets is hard.}
+\end{frame}
+
+\begin{frame}\ft{Reformulation 5: sets in the label-extended graph}
+\ona{Replace each vertex $u$ of $G$ by $k$ copies $(u,1),\dots,(u,k)$, one per label, and each edge $uv$ by the perfect matching $(u,a)\sim(v,\pi_{uv}(a))$. The result is the \emph{label-extended graph} $G_{\mathcal L}$, a $k$-fold cover of $G$. A labelling $x$ is the same thing as a set $S_x = \{(u,x_u)\}$ containing exactly one copy of each vertex, and the edge $uv$ is satisfied precisely when its lifted edge from $(u,x_u)$ stays inside $S_x$. If $G$ is $d$-regular, so is $G_{\mathcal L}$, the set $S_x$ has a $1/k$ fraction of its vertices, and}
+\begin{equation}\label{eq:ch03:expansion}
+    \Phi(S_x) \;=\; \frac{|E(S_x, \overline{S_x})|}{d\,|S_x|} \;=\; 1 - \mathrm{val}(x).
+\end{equation}
+\ona{In the language of \eqref{eq:ch03:phi}, a labelling of value $1-\zeta$ is a set of relative size $1/k$, of a special shape, with expansion only $\zeta$: few of its edges leave it.}
+\ona{\begin{figure}[htb]}\begin{center}
+\begin{tikzpicture}[x=1.7cm,y=0.55cm,every node/.style={font=\scriptsize}]
+  \foreach \i/\n in {1/v_1,2/v_2,3/v_3,4/v_4} {\node at (\i,3.1) {$\n$}; \foreach \a in {0,1,2} {\fill[gray!60] (\i,2-\a) circle (2.2pt);}}
+  \node at (5,3.1) {$v_1$ again};
+  \foreach \a in {0,1,2} {\fill[gray!60] (5,2-\a) circle (2.2pt); \node[left=4pt] at (1,2-\a) {\a};}
+  \draw[gray,dashed,rounded corners] (4.8,-0.4) rectangle (5.2,2.4);
+  \foreach \i in {1,2,3} {\foreach \a in {0,1,2} {\draw[gray] (\i,2-\a) -- (\i+1,2-\a);}}
+  \foreach \a/\b in {0/1,1/2,2/0} {\draw[gray] (4,2-\a) -- (5,2-\b);}
+  \draw[very thick,blue!70!black] (1,2) -- (2,2) -- (3,2) -- (4,2);
+  \draw[very thick,red!70!black,dashed] (4,2) -- (5,1);
+  \foreach \i in {1,...,4} {\fill[blue!70!black] (\i,2) circle (3.2pt);}
+  \fill[blue!70!black] (5,2) circle (3.2pt);
+  \node[red!70!black,right] at (5.1,1) {leaves $S_x$};
+\end{tikzpicture}
+\end{center}
+\ona{\caption{The label-extended graph of a unique game on the 4-cycle $v_1v_2v_3v_4$ with $q=3$, drawn with $v_1$ repeated at the right. Three edges carry the identity, and the edge $v_4v_1$ the rotation $x_1 - x_4 = 1 \pmod 3$; the rotations around the cycle add up to $1 \ne 0$, so no labelling satisfies all four edges. The labelling $x \equiv 0$ (blue) is a set with one copy of each vertex; three of its four edges stay inside, and one leaves (red), so its value is $3/4$.}\label{fig:ch03:lift}\end{figure}}
+\onp{\footnotesize Labelling $=$ set with one copy per vertex; value $= 1 - $ expansion.}
+\end{frame}
+
+\begin{frame}\ft{Reformulation 6: small-set expansion}
+\ona{Equation~\eqref{eq:ch03:expansion} suggests forgetting the special shape of $S_x$ and asking only for \emph{small} sets that do not expand, with $\Phi(S)$ as in \eqref{eq:ch03:phi}.}
+\ona{\begin{figure}[htb]}\begin{center}
+\ona{\gdef\sseScale{0.9}}\onp{\gdef\sseScale{0.62}}
+\begin{tikzpicture}[every node/.style={font=\scriptsize},scale=\sseScale]
+  \fill[blue!12,rounded corners] (0.6,0.6) rectangle (3.4,2.4);
+  \foreach \x in {0,...,6} {\foreach \y in {0,...,3} {\fill[gray!70] (\x,\y) circle (3pt);}}
+  \foreach \x in {0,...,5} {\foreach \y in {0,...,3} {\draw[gray] (\x,\y) -- (\x+1,\y);}}
+  \foreach \x in {0,...,6} {\foreach \y in {0,...,2} {\draw[gray] (\x,\y) -- (\x,\y+1);}}
+  \foreach \x in {1,2,3} {\foreach \y in {1,2} {\fill[blue!70!black] (\x,\y) circle (4pt);}}
+  \foreach \x in {1,2} {\foreach \y in {1,2} {\draw[blue!70!black,very thick] (\x,\y) -- (\x+1,\y);}}
+  \foreach \x in {1,2,3} {\draw[blue!70!black,very thick] (\x,1) -- (\x,2);}
+  \foreach \y in {1,2} {\draw[red!70!black,very thick] (0,\y) -- (1,\y); \draw[red!70!black,very thick] (3,\y) -- (4,\y);}
+  \foreach \x in {1,2,3} {\draw[red!70!black,very thick] (\x,0) -- (\x,1); \draw[red!70!black,very thick] (\x,2) -- (\x,3);}
+  \node[blue!70!black] at (2,1.5) {$S$};
+\end{tikzpicture}
+\end{center}
+\ona{\caption{A small set $S$ (blue) in a grid graph. Seven edges lie inside $S$ and ten (red) leave it. In a grid, as in any graph with good geometry, small sets with few leaving edges are easy to find; the small-set expansion problem asks how hard this is in general.}\label{fig:ch03:sse}\end{figure}}
+\begin{conj}[Small-set expansion hypothesis, \citet{raghavendra2010graph}]
+For every $\eta > 0$ there is $\mu > 0$ such that it is $\mathbf{NP}$-hard to decide whether some set of $\mu n$ vertices has $\Phi(S) \le \eta$, or every set of $\mu n$ vertices has $\Phi(S) \ge 1-\eta$.
+\end{conj}
+\ona{\citet{raghavendra2010graph} showed that the small-set expansion hypothesis implies the Unique Games Conjecture, and \citet{raghavendra2012reductions} that it is \emph{equivalent} to the Unique Games Conjecture restricted to instances satisfying a fairly mild condition on the expansion of small sets. Whether the Unique Games Conjecture implies the small-set expansion hypothesis is open. In this form the conjecture is a statement about graphs alone, without labels.}
+\onp{\footnotesize SSE $\Rightarrow$ UGC \citep{raghavendra2010graph}; SSE $\Leftrightarrow$ UGC on instances with a mild small-set expansion condition \citep{raghavendra2012reductions}.}
+\end{frame}
+
+\begin{frame}\ft{The formulations at a glance, and the evidence}
+\begin{center}\ona{\small}\onp{\scriptsize}
+\begin{tabular}{lll}\toprule
+form & objects & relation to Conjecture~\ref{conj:ch03:ugc} \\\midrule
+unique label cover & bipartite graph, bijections & definition \\
+two-prover game & verifier, two provers & equivalent \\
+general constraint graph & graph, bijections & equivalent \\
+strong form & vertex sets fully satisfied & implied by it \citep{khot2008vertex} \\
+$\Gamma$-Max-2Lin$(q)$ & equations mod $q$ & equivalent \citep{khot2007optimal} \\
+label-extended graph & sets of one copy per vertex & restatement \\
+small-set expansion & graphs only & implies it \citep{raghavendra2010graph} \\\bottomrule
+\end{tabular}
+\end{center}
+\ona{The conjecture is neither proved nor refuted. On the side of truth: \citet{Khot2018}, completing a programme with Dinur, Kindler and Minzer, proved the 2-to-2 games conjecture, a close relative, from which it follows that, for every $\epsilon>0$, it is $\mathbf{NP}$-hard to distinguish unique games of value at least $1/2-\epsilon$ from those of value at most $\epsilon$: completeness $1/2-\epsilon$ instead of $1-\zeta$. On the other side: \citet{arora2015subexponential} gave an algorithm running in time $\exp(n^{\mathrm{poly}(\zeta)})$, so that, if the conjecture holds, any reduction from an $\mathbf{NP}$-complete problem must enlarge instances by a polynomial whose degree grows as $\zeta \to 0$; and unique games whose constraint graphs are good expanders are easy \citep{arora2008unique}. Neither excludes the conjecture.}
+\onp{\footnotesize\begin{itemize}\item For: the 2-to-2 theorem, completeness $\approx 1/2$ \citep{Khot2018}. \item Against: a subexponential algorithm \citep{arora2015subexponential}; easy on expanders. \item Open.\end{itemize}}
+\end{frame}
+
+\section{Boolean functions: dictators, long codes and noise stability}
+
+\begin{frame}\ft{A vocabulary for the hardness proof}
+\onp{\scriptsize}
+\ona{The hardness proof of the next section uses a few notions from the analysis of Boolean functions, for which \citet{odonnell2014analysis} is the standard reference; we follow his notation. A \emph{Boolean function} is a map $f:\{-1,1\}^k\to\{-1,1\}$, which one may think of as a voting rule: $k$ voters each vote $\pm1$, and $f$ declares the outcome.}
+\begin{itemize}\setlength\itemsep{0.25em}
+    \item \textbf{Fourier expansion.} Every such $f$ is a multilinear polynomial, $f(x) = \sum_{S\subseteq[k]}\hat f(S)\prod_{i\in S}x_i$, and by Parseval $\sum_S\hat f(S)^2 = \mathbb E[f^2] = 1$. The weights $\hat f(S)^2$ thus form a probability distribution over sets of voters.
+    \item \textbf{Dictators and the long code.} The \emph{dictator} $f(x) = x_i$ lets voter $i$ decide alone. The \emph{long code} encodes a label $i\in[k]$ by the dictator $x\mapsto x_i$, that is, by its table of $2^k$ values. This is a hugely redundant code, $k$ labels written with $2^k$ bits, but its redundancy is what allows a verifier to check, by reading only two or three bits, whether a table is close to a codeword.
+    \item \textbf{Influence.} The influence of voter $i$ is the probability that flipping the $i$-th vote changes the outcome, $\mathrm{Inf}_i[f] = \mathrm{Pr}_x[f(x)\ne f(x^{\oplus i})] = \sum_{S\ni i}\hat f(S)^2$. A dictator has $\mathrm{Inf}_i = 1$ for its dictator and $0$ for everyone else; the majority of $k$ votes, $k$ odd, gives each voter influence of order $1/\sqrt k$. A function has \emph{no notable coordinates} if every influence is at most a small $\tau$.
+    \item \textbf{Noise stability.} Call $y$ \emph{$\rho$-correlated} with $x$ if each $y_i$ equals $x_i$ with probability $(1+\rho)/2$ and $-x_i$ otherwise, independently, so that $\mathbb E[x_iy_i] = \rho$. The \emph{noise stability} is $\mathrm{Stab}_\rho[f] = \mathbb E[f(x)f(y)] = \sum_S\rho^{|S|}\hat f(S)^2$, and $\mathrm{Pr}[f(x)\ne f(y)] = \tfrac12 - \tfrac12\mathrm{Stab}_\rho[f]$. For a dictator $\mathrm{Stab}_\rho = \rho$; for the majority, $\mathrm{Stab}_\rho[\mathrm{Maj}_k] \to 1 - \tfrac2\pi\arccos\rho$ as $k\to\infty$ (Sheppard's formula), the probability that two $\rho$-correlated Gaussian vectors fall on the same side of a random hyperplane.
 \end{itemize}
 \end{frame}
 
-\begin{frame}\ft{Beyond positive weights: QUBO}
-\ona{The GW ratio is a statement about MaxCut with non-negative weights. With real weights, which is general QUBO, the natural ratio changes:}
-\begin{propn}[\citet{charikar2004maximizing}]
-Let it be $\mathbf{NP}$-hard to decide whether the maximum cut of a MaxCut instance with total weight $w$ is at least $k$ or less than $\alpha k$. Then for every $\epsilon > 0$ it is $\mathbf{NP}$-hard to distinguish QUBO instances with optimum at least $2k - w$ from those with optimum at most $2\alpha k - w$, a ratio $\alpha + w(\alpha-1)/(2k-w)$; the corresponding hardness factor for MaxCut with real weights is $11/13 \approx 0.846$, and it is achieved by randomized rounding of an SDP relaxation.
-\end{propn}
-\ona{This is why the histograms of \Chap~\chref{C.WSRounded} mark $11/13$: on weighted instances that is the yardstick, not $0.878$.}
+\begin{frame}\ft{\emph{Majority is Stablest}, and dictator tests}
+\begin{thm}[Majority is Stablest; \citet{mossel2010noise}, see \citet{odonnell2014analysis}]\label{thm:ch03:mis}
+For every $\rho\in(-1,1)$ and $\epsilon>0$ there is $\tau>0$ such that every $f:\{-1,1\}^k\to[-1,1]$ with $\mathrm{Inf}_i[f]\le\tau$ for all $i$ satisfies: if $0\le\rho<1$ and $\mathbb E[f]=0$, then $\mathrm{Stab}_\rho[f] \le 1-\tfrac2\pi\arccos\rho + \epsilon$; and if $-1<\rho\le0$, then $\mathrm{Stab}_\rho[f] \ge 1-\tfrac2\pi\arccos\rho - \epsilon$.
+\end{thm}
+\ona{Among all voting rules in which no single voter matters much, the majority is, asymptotically, the one whose outcome is least changed by noise. For negative $\rho$, which is the case we need, the statement reads: a function with no notable coordinates disagrees on $\rho$-correlated inputs with probability at most $\arccos(\rho)/\pi + \epsilon/2$, whereas a dictator disagrees with probability $(1-\rho)/2$.}
+\ona{This difference is exploited by a \emph{dictator test}, or more precisely a \emph{Dictator-vs.-No-Notables test} \citep{odonnell2014analysis}: a randomised procedure that reads a few values of a function $f$ and accepts or rejects, such that}
+\begin{itemize}\setlength\itemsep{0.25em}
+    \item \textbf{completeness} $c$: every dictator is accepted with probability at least $c$;
+    \item \textbf{soundness} $s$: every function with no notable coordinates is accepted with probability at most $s + o(1)$.
+\end{itemize}
+\ona{If the test checks a constraint of some CSP on the values it reads, then the CSP is UG-hard to approximate beyond $s/c$: composing the test with a unique game, by writing each label in the long code and checking edges through the bijections, turns the gap between dictators and functions with no notable coordinates into the gap between good and bad labellings \citep{khot2007optimal,odonnell2014analysis}. Proving hardness of approximation under the conjecture thus reduces to designing a test, and analysing it with Fourier analysis.}
+\onp{\scriptsize Dictators accepted with probability $\ge c$; functions with no notable coordinates with $\le s+o(1)$ $\Rightarrow$ UG-hard beyond $s/c$.}
 \end{frame}
 
-\section{Hardness of training variational circuits}
+\section{Why Goemans--Williamson would be optimal}
 
-\begin{frame}\ft{Training a VQA is \textbf{NP}-hard}
-\ona{The results so far bound the \emph{quality} any polynomial-time algorithm can guarantee. \citet{bittel2021training} show that the classical optimization inside a VQA is itself hard, independently of the quantum part: even with oracle access to exact expectation values, and even when the Hilbert space has only polynomial dimension so that everything is classically simulable, finding the optimal parameters is $\mathbf{NP}$-hard.}
-\begin{thm}[\citet{bittel2021training}, informal]\label{thm:ch03:bittel}
-Minimising $\braket{\Psi(\boldsymbol\phi)|O|\Psi(\boldsymbol\phi)}$ over the parameters of a variational circuit is $\mathbf{NP}$-hard: with oracle access to the expectation values; on $\mathcal O(\log d)$ qubits; with a single layer; for QAOA with one layer and Hamiltonians of norm at most $3$; and for free-fermionic circuits. Moreover, unless $\mathbf P = \mathbf{NP}$, no polynomial-time algorithm guarantees an optimization error below $(1-\alpha_{\max})/2$ for QAOA, and none guarantees any error below $1$ in the oracular setting.
+\begin{frame}\ft{The curve behind $\alpha_{\rm GW}$}
+\ona{Recall from \Chap~\chref{C.Motivation} that random-hyperplane rounding separates two unit vectors at angle $\theta$ with probability $\theta/\pi$, while the relaxation counts the edge as $(1-\cos\theta)/2$. Writing $\rho = \cos\theta$ for the correlation of the two vectors,}
+\begin{equation}\label{eq:ch03:alpha}
+    \alpha_{\rm GW} \;=\; \min_{-1\le\rho<1}\frac{\arccos(\rho)/\pi}{(1-\rho)/2} \;\approx\; 0.8786, \qquad \text{attained at } \rho^\ast \approx -0.689.
+\end{equation}
+\ona{\begin{figure}[htb]}\begin{center}
+\begin{tikzpicture}
+\begin{axis}[name=left,width=0.46\linewidth,height=0.36\linewidth,xlabel={$\rho$},xmin=-1,xmax=1,ymin=0,ymax=1.05,domain=-1:1,samples=200,no markers,thick,legend style={font=\tiny,draw=none,at={(0.97,0.97)},anchor=north east},title={\scriptsize the two probabilities}]
+  \addplot[blue!70!black] {rad(acos(x))/pi};
+  \addplot[green!40!black,dashed] {(1-x)/2};
+  \legend{$\arccos(\rho)/\pi$ (rounding),$(1-\rho)/2$ (relaxation)}
+\end{axis}
+\begin{axis}[at={(left.east)},anchor=west,xshift=1.4cm,width=0.46\linewidth,height=0.36\linewidth,xlabel={$\rho$},xmin=-1,xmax=0.6,ymin=0.85,ymax=1.35,domain=-0.999:0.6,samples=200,no markers,thick,title={\scriptsize their ratio}]
+  \addplot[red!70!black] {(rad(acos(x))/pi)/((1-x)/2)};
+  \draw[dashed,gray] (axis cs:-1,0.8786) -- (axis cs:0.6,0.8786);
+  \fill (axis cs:-0.689,0.8786) circle (2pt);
+  \node[font=\tiny,above right] at (axis cs:-0.689,0.8786) {$(\rho^\ast,\alpha_{\rm GW})$};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\ona{\caption{Left: the probability $\arccos(\rho)/\pi$ that a random hyperplane separates two unit vectors with inner product $\rho$, and the value $(1-\rho)/2$ that the relaxation assigns to the edge. Right: their ratio, whose minimum is $\alpha_{\rm GW}$. The same two functions reappear in the hardness proof as the completeness and soundness of a test (Fig.~\ref{fig:ch03:gap}).}\label{fig:ch03:noise}\end{figure}}
+\onp{\footnotesize The worst edges are those at correlation $\rho^\ast \approx -0.689$, i.e., angle $\approx 133.6^\circ$.}
+\end{frame}
+
+\begin{frame}\ft{The dictatorship test and \emph{Majority is Stablest}}
+\ona{The hardness proof of \citet{khot2007optimal} turns this curve into a Dictator-vs.-No-Notables test in the sense of the previous section. For a fixed $\rho \in (-1,0)$, test a function $f:\{\pm1\}^k\to\{\pm1\}$ as follows:}
+\begin{itemize}\setlength\itemsep{0.25em}
+    \item pick $x \in \{\pm1\}^k$ uniformly, and $y$ by setting $y_i = x_i$ with probability $(1+\rho)/2$ and $y_i = -x_i$ otherwise, independently;
+    \item accept if $f(x) \ne f(y)$. This is a MaxCut edge between the points $x$ and $y$ of the cube.
+\end{itemize}
+\ona{A dictator passes with probability $(1-\rho)/2$, which is the completeness. A function with no notable coordinates passes with probability $\tfrac12-\tfrac12\mathrm{Stab}_\rho[f] \le \arccos(\rho)/\pi + o(1)$ by Theorem~\ref{thm:ch03:mis}, which is the soundness; the majority comes close to it. So the test distinguishes functions that encode a label from functions that encode none, with completeness and soundness given by the two curves of Fig.~\ref{fig:ch03:noise}.}
+\onp{\footnotesize Dictators pass with probability $(1-\rho)/2$; functions with small influences with at most $\arccos(\rho)/\pi + \epsilon$ \citep{mossel2010noise}.}
+\end{frame}
+
+\begin{frame}\ft{From unique games to MaxCut}
+\ona{Composing the dictatorship test with a unique game, by placing a long code at each vertex and checking edges through the bijections, gives a gap-preserving reduction:}
+\begin{thm}[\citet{khot2007optimal}, with \citet{mossel2010noise}]\label{thm:ch03:kkmo}
+Assume the Unique Games Conjecture. For every $\rho\in(-1,0)$ and $\epsilon>0$, it is $\mathbf{NP}$-hard to decide whether a MaxCut instance has value at least $(1-\rho)/2 - \epsilon$ or at most $\arccos(\rho)/\pi + \epsilon$. Taking $\rho = \rho^\ast$, it is $\mathbf{NP}$-hard to approximate MaxCut within $\alpha_{\rm GW} + \epsilon$.
 \end{thm}
-\ona{The proof reduces MaxCut to a continuous trigonometric optimization whose local minima are the local optima of greedy local search; it is given, with a one-page sketch, in \Chap~\chref{C.PerIteration}, where it explains why no per-iteration budget can rescue a worst-case instance. Since then: deciding the depth needed to reach a target energy is $\mathbf{QCMA}$-hard \cite{bittelQCMA}, in an idealised digitised setting the training problem is even undecidable \cite{korpas2025undecidable}, and tractable regimes exist for a constant number of angles \cite{sakos2026global}.}
-\onp{Reduction from MaxCut via a trigonometric objective; full proof sketch in \Chap~\chref{C.PerIteration}. Since then: $\mathbf{QCMA}$-hardness of depth selection \cite{bittelQCMA}, undecidability \cite{korpas2025undecidable}, tractable constant-angle regimes \cite{sakos2026global}.}
+\ona{\begin{figure}[htb]}\begin{center}
+\begin{tikzpicture}[every node/.style={font=\scriptsize},y=3.2cm]
+  \draw[thick] (0,0) -- (0,1); \draw[thick] (5,0) -- (5,1);
+  \foreach \v in {0,0.5,1} {\draw (-0.08,\v) -- (0.08,\v) node[left=4pt] {\v}; \draw (4.92,\v) -- (5.08,\v) node[right=4pt] {\v};}
+  \node at (0,1.15) {unique game value}; \node at (5,1.15) {MaxCut value};
+  \fill[green!35] (-0.15,0.9) rectangle (0.15,1);
+  \fill[red!30] (-0.15,0) rectangle (0.15,0.1);
+  \node[left,green!40!black] at (-0.3,0.95) {YES: $\ge 1-\zeta$};
+  \node[left,red!60!black] at (-0.3,0.05) {NO: $\le \delta$};
+  \fill[green!35] (4.85,0.8445) rectangle (5.15,1);
+  \fill[red!30] (4.85,0) rectangle (5.15,0.742);
+  \node[right,green!40!black] at (5.3,0.92) {$\ge (1-\rho)/2 - \epsilon \approx 0.845$};
+  \node[right,red!60!black] at (5.3,0.37) {$\le \arccos(\rho)/\pi + \epsilon \approx 0.742$};
+  \draw[-{Latex},thick,green!40!black] (0.2,0.95) -- (4.8,0.92);
+  \draw[-{Latex},thick,red!60!black] (0.2,0.05) -- (4.8,0.37);
+  \node[align=center] at (2.5,0.62) {long code at each vertex,\\dictatorship test on each edge};
+  \draw[decorate,decoration={brace,amplitude=4pt},thick] (4.6,0.742) -- (4.6,0.8445) node[midway,left=5pt] {ratio $\alpha_{\rm GW}$};
+\end{tikzpicture}
+\end{center}
+\ona{\caption{The reduction of Theorem~\ref{thm:ch03:kkmo} at $\rho = \rho^\ast \approx -0.689$. Instances of a unique game with value at least $1-\zeta$ become MaxCut instances with value at least about $0.845$; instances with value at most $\delta$ become MaxCut instances with value at most about $0.742$. The ratio of the two thresholds is $\alpha_{\rm GW}$.}\label{fig:ch03:gap}\end{figure}}
+\end{frame}
+
+\begin{frame}\ft{Every constraint satisfaction problem}
+\onp{\footnotesize}
+\ona{The argument for MaxCut is one case of a general principle. For any CSP there is a canonical semidefinite relaxation, of which the Goemans--Williamson programme is the instance for MaxCut, and a canonical way of rounding it.}
+\begin{thm}[\citet{raghavendra2008optimal}, informal]
+Assume the Unique Games Conjecture. For every CSP, the largest ratio between the integral optimum and the value of the canonical semidefinite relaxation, over all instances, is also the best ratio achievable in polynomial time; and a generic rounding algorithm achieves it.
+\end{thm}
+\begin{itemize}\setlength\itemsep{0.25em}
+    \item Under the UGC, semidefinite programming is thus the last word on approximating CSPs in polynomial time. The approximation ratio of an algorithm and the hardness threshold are two faces of the same integrality gap.
+    \item Other consequences include the hardness of approximating vertex cover within $2-\epsilon$ \citep{khot2008vertex}, and of approximating non-uniform sparsest cut within any constant \citep{khot2015unique}.
+    \item For quantum algorithms the conjecture sets the bar. If it holds, a polynomial-time quantum algorithm beating $\alpha_{\rm GW}$ on every instance would solve $\mathbf{NP}$-hard problems, which is not expected.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{A table of thresholds}
+\ona{Table~\ref{tab:ch03:thresholds} collects, for some prominent problems, the best ratio known to be achievable in polynomial time and the ratios beyond which approximation is $\mathbf{NP}$-hard, either unconditionally or assuming the Unique Games Conjecture. For maximisation problems the ratio is the fraction of the optimum guaranteed, and for minimisation problems the factor by which the optimum may be exceeded; for maximum clique it is the factor by which the clique found may be smaller. Where the last two columns agree with the first, the problem is settled, unconditionally or under the conjecture.}
+\gdef\threshtab{\begin{tabular}{llll}\toprule
+problem & achievable & $\mathbf{NP}$-hard beyond & UG-hard beyond \\\midrule
+MaxCut & $0.878$ & $16/17 \approx 0.941$ & $0.878$, tight \\
+Max-2-SAT & $\approx 0.940^1$ & $21/22 \approx 0.955$ & $\approx 0.940$, tight \\
+Max-E3-SAT & $7/8$ (random) & $7/8$, tight & \\
+Max-E3-Lin$(2)$ & $1/2$ (random) & $1/2$, tight & \\
+every CSP & SDP gap & & SDP gap, tight \\\midrule
+vertex cover & $2$ & $\sqrt2$ & $2$, tight \\
+set cover & $\ln n$ (greedy) & $(1-\epsilon)\ln n$, tight & \\
+maximum clique & $n/\mathrm{polylog}\,n$ & $n^{1-\epsilon}$ & \\
+metric TSP & $3/2 - 10^{-36}$ & $123/122$ & \\
+non-uniform sparsest cut & $\mathcal O(\sqrt{\log n}\,\log\log n)$ & & every constant \\\bottomrule
+\end{tabular}}
+\onp{\begin{center}\scriptsize\threshtab\end{center}}
+\ona{\begin{table}[htb]\centering\caption{Approximation thresholds. ``Tight'' means that the hardness matches the best algorithm, up to an arbitrarily small $\epsilon$. An empty entry in the last column means that the conjecture adds nothing to the unconditional result, or, for metric TSP, that no stronger conditional result is known; an empty entry in the middle column means that no constant-factor hardness is known unconditionally. The vertex-cover bound $\sqrt2$ follows from the 2-to-2 theorem. ${}^1$The ratio $\approx 0.9401$ of \citet{lewin2002improved} was computed numerically; \citet{austrin2007balanced} showed it UG-hard assuming a further ``simplicity'' conjecture, which \citet{brakensiek2024tight} proved, so that the result now rests on the Unique Games Conjecture alone. Sources, by row: MaxCut \citep{goemans1995improved,Hstad2001,khot2007optimal}; Max-2-SAT \citep{lewin2002improved,Hstad2001,austrin2007balanced,brakensiek2024tight}; Max-E3-SAT and Max-E3-Lin$(2)$ \citep{Hstad2001}; every CSP \citep{raghavendra2008optimal}; vertex cover \citep{Khot2018,khot2008vertex}; set cover \citep{dinur2014analytical}; maximum clique \citep{zuckerman2007linear}; metric TSP \citep{christofides1976worst,karlin2021slightly,karpinski2015new}; non-uniform sparsest cut \citep{arora2008euclidean,khot2015unique}.}\label{tab:ch03:thresholds}\small\threshtab\end{table}}
+\onp{\scriptsize Maximisation: fraction of the optimum. Minimisation: factor above it. ``Tight'': hardness matches the algorithm.}
+\end{frame}
+
+\begin{frame}\ft{Beyond positive weights: QUBO}
+\ona{The ratio $\alpha_{\rm GW}$ concerns MaxCut with non-negative weights. With real weights, that is, for general QUBO, the natural ratio changes:}
+\begin{propn}[\citet{charikar2004maximizing}]
+Let it be $\mathbf{NP}$-hard to decide whether the maximum cut of a MaxCut instance with total weight $w$ is at least $k$ or less than $\alpha k$. Then for every $\epsilon > 0$ it is $\mathbf{NP}$-hard to distinguish QUBO instances with optimum at least $2k - w$ from those with optimum at most $2\alpha k - w$, a ratio of $\alpha + w(\alpha-1)/(2k-w)$; the corresponding hardness factor for MaxCut with real weights is $11/13 \approx 0.846$, and it is achieved by randomised rounding of a semidefinite relaxation.
+\end{propn}
+\ona{This is why the histograms of \Chap~\chref{C.WSRounded} mark $11/13$: on weighted instances that, and not $0.878$, is the yardstick.}
+\end{frame}
+
+\section{Hardness of training: Bittel and Kliesch}
+
+\begin{frame}\ft{Training a variational algorithm is $\mathbf{NP}$-hard}
+\ona{So far we have bounded the quality of the solutions that any polynomial-time algorithm can guarantee. \citet{bittel2021training} show that the classical optimization inside a variational algorithm is itself hard, quite apart from the quantum part: even with exact expectation values supplied by an oracle, and even when the Hilbert space has polynomial dimension so that everything can be simulated classically, finding the optimal parameters is $\mathbf{NP}$-hard.}
+\begin{thm}[\citet{bittel2021training}]\label{thm:ch03:bittel}
+Minimising $\braket{O(\boldsymbol\phi)} = \braket{\Psi(\boldsymbol\phi)|O|\Psi(\boldsymbol\phi)}$ over the parameters of a variational circuit is $\mathbf{NP}$-hard: (a) with oracle access to the expectation values; (b) on $\mathcal O(\log d)$ qubits; (c) with a single layer; (d) for QAOA with one layer and Hamiltonians of norm at most $3$; (e) for free-fermionic circuits. Unless $\mathbf P = \mathbf{NP}$, no polynomial-time algorithm guarantees an optimization error, relative to the spectral width of $O$, below $(1-\alpha_{\max})/2$ for QAOA, where $\alpha_{\max}$ is the best achievable ratio for MaxCut, and none guarantees any error below $1$ in the oracle setting.
+\end{thm}
+\ona{The proof is a chain of reductions, all starting from MaxCut (Fig.~\ref{fig:ch03:chain}). We sketch the first two links in full and indicate the rest; all details are in \Chap~\chref{C.PerIteration}.}
+\end{frame}
+
+\begin{frame}\ft{The chain of reductions}
+\ona{\begin{figure}[htb]}\begin{center}
+\begin{tikzpicture}[every node/.style={font=\scriptsize},box/.style={draw,rounded corners,fill=blue!6,minimum width=2.6cm,minimum height=0.95cm,align=center},lab/.style={font=\tiny,align=center,inner sep=1pt}]
+  \node[box,fill=gray!12] (mc) at (0,0) {MaxCut\\$\max_v \mathrm{cut}(v)$};
+  \node[box] (cmc) at (4.6,0) {continuous\\MaxCut, $\min_{\boldsymbol\phi}\mu$};
+  \node[box] (orc) at (9.2,0) {oracle VQA\\$d$ qubits, $d$ layers};
+  \node[box] (log) at (9.2,-2.3) {$\mathcal O(\log d)$ qubits\\$d$ layers};
+  \node[box] (one) at (4.6,-2.3) {one layer};
+  \node[box] (qaoa) at (0,-2.3) {QAOA, $p = 1$\\$\|H_b\|,\|H_c\|\le3$};
+  \draw[-{Latex},thick] (mc) -- node[lab,above=2pt] {$v_i = \cos\phi_i$;\\rounding is free} (cmc);
+  \draw[-{Latex},thick] (cmc) -- node[lab,above=2pt] {$R_Y(\phi_i)$ on qubit $i$;\\$\braket{Z_i} = \cos\phi_i$} (orc);
+  \draw[-{Latex},thick] (orc) -- node[lab,right=3pt] {phases $e^{\pm i\phi_j}$\\on $\C^{2d}$} (log);
+  \draw[-{Latex},thick] (log) -- node[lab,above=2pt] {energies $2\pi/m^j$:\\one time $t$ suffices} (one);
+  \draw[-{Latex},thick] (one) -- node[lab,above=2pt] {extra level,\\weak coupling $\tau$} (qaoa);
+\end{tikzpicture}
+\end{center}
+\ona{\caption{The reductions of \citet{bittel2021training}. Each arrow is a polynomial-time reduction that preserves the objective value exactly or to arbitrary precision; the labels name the device used at each step.}\label{fig:ch03:chain}\end{figure}}
+\onp{\footnotesize Each step preserves the objective exactly or to arbitrary precision.}
+\end{frame}
+
+\begin{frame}\ft{Proof sketch, step 1: from MaxCut to cosines}
+\ona{Let $A \in\{0,1\}^{d\times d}$ be the adjacency matrix of a graph. \emph{Continuous MaxCut} asks for $\boldsymbol\phi \in [0,2\pi)^d$ minimising}
+\begin{equation}\label{eq:ch03:mu}
+    \mu(\boldsymbol\phi) \;=\; \tfrac14\sum_{i,j}A_{ij}\,\big(\cos\phi_i\cos\phi_j - 1\big).
+\end{equation}
+\ona{\textbf{Claim.} $\min_{\boldsymbol\phi}\mu = -\mathrm{MaxCut}(A)$, and from any $\boldsymbol\phi$ one obtains in polynomial time a cut of value at least $-\mu(\boldsymbol\phi)$.}
+\ona{\emph{Proof.} Fix all coordinates but $\phi_i$. Since $A$ is symmetric with zero diagonal,}
+\begin{equation}
+    \mu(\boldsymbol\phi) \;=\; \cos\phi_i\,\Big[\tfrac12\sum_{j\ne i}A_{ij}\cos\phi_j\Big] \;+\; C_i,
+\end{equation}
+\ona{with $C_i$ independent of $\phi_i$. As a function of $\phi_i$, then, $\mu$ is affine in $\cos\phi_i \in [-1,1]$, and is smallest at $\phi_i = 0$ or $\phi_i = \pi$. Moving the coordinates one at a time to whichever of $0, \pi$ is better never increases $\mu$, and after $d$ steps $\boldsymbol\phi \in \{0,\pi\}^d$. There, $v_i = \cos\phi_i \in \{\pm1\}$ and}
+\begin{equation}
+    \mu \;=\; \tfrac14\sum_{i,j}A_{ij}(v_iv_j - 1) \;=\; -\tfrac12\sum_{i,j}A_{ij}\,\mathbb 1[v_i \ne v_j] \;=\; -\,\mathrm{cut}(v). \qquad\square
+\end{equation}
+\ona{The reduction preserves values exactly, so continuous MaxCut is $\mathbf{NP}$-hard, and no polynomial-time algorithm approximates it better than MaxCut itself. Note also that at the points of $\{0,\pi\}^d$ the gradient of $\mu$ vanishes: its local minima there are the cuts that cannot be improved by moving one vertex, and gradient methods guarantee no more than single-vertex local search, a ratio of $1/2$.}
+\onp{\footnotesize $\mu$ is affine in each $\cos\phi_i$ $\Rightarrow$ round coordinates to $\{0,\pi\}$ one at a time without loss; on $\{0,\pi\}^d$, $\mu = -\mathrm{cut}$.}
+\end{frame}
+
+\begin{frame}\ft{The landscape of continuous MaxCut}
+\ona{Figure~\ref{fig:ch03:landscape} shows $\mu$ for the 4-cycle $v_1v_2v_3v_4$ with $\phi_3 = 0$ and $\phi_4 = \pi$ held fixed, where
+\begin{equation*}
+    \mu(\phi_1,\phi_2) = \tfrac12\big(\cos\phi_1\cos\phi_2 + \cos\phi_2 - \cos\phi_1 - 5\big).
+\end{equation*}}
+\ona{\gdef\lsH{0.48\linewidth}}\onp{\gdef\lsH{0.36\linewidth}}
+\ona{\begin{figure}[htb]}\begin{center}
+\begin{tikzpicture}
+\begin{axis}[width=0.52\linewidth,height=\lsH,view={0}{90},xmin=0,xmax=360,ymin=0,ymax=360,xtick={0,90,180,270,360},xticklabels={$0$,$\frac\pi2$,$\pi$,$\frac{3\pi}2$,$2\pi$},ytick={0,90,180,270,360},yticklabels={$0$,$\frac\pi2$,$\pi$,$\frac{3\pi}2$,$2\pi$},xlabel={$\phi_1$},ylabel={$\phi_2$},colorbar,colorbar style={width=0.25cm,font=\tiny},colormap/viridis,point meta min=-4,point meta max=-2,enlargelimits=false,axis on top]
+  \addplot3[surf,shader=interp,domain=0:360,y domain=0:360,samples=41] {0.5*(cos(x)*cos(y)+cos(y)-cos(x)-5)};
+  \draw[-{Latex},very thick,white] (axis cs:120,240,0) -- (axis cs:4,240,0);
+  \draw[-{Latex},very thick,white] (axis cs:4,240,0) -- (axis cs:4,184,0);
+  \fill[white] (axis cs:120,240,0) circle (2.5pt);
+  \node[white,font=\tiny,above] at (axis cs:120,240,0) {start};
+  \fill[red] (axis cs:0,180,0) circle (3pt);
+  \fill[red] (axis cs:360,180,0) circle (3pt);
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\ona{\caption{Continuous MaxCut on the 4-cycle with $\phi_3 = 0$, $\phi_4 = \pi$ fixed. The minimum $-4$ (red) is at $(\phi_1,\phi_2) = (0,\pi)$, the maximum cut of the 4-cycle. The white arrows show the rounding of the proof: first $\phi_1$ is moved to the better of $0$ and $\pi$ with $\phi_2$ fixed, then $\phi_2$; neither move increases $\mu$.}\label{fig:ch03:landscape}\end{figure}}
+\onp{\footnotesize Minimum $-4 = -\mathrm{MaxCut}(C_4)$ at $(0,\pi)$; arrows: coordinate-wise rounding.}
+\end{frame}
+
+\begin{frame}\ft{Proof sketch, step 2: a circuit that computes $\mu$}
+\ona{Take $d$ qubits in $\ket0^{\otimes d}$, apply $R_Y(\phi_i) = e^{-i\phi_iY_i/2}$ to qubit $i$, and measure}
+\begin{equation}
+    O \;=\; \tfrac14\sum_{i,j}A_{ij}\big(Z_iZ_j - \one\big).
+\end{equation}
+\ona{The state is a product, $\bigotimes_i\big(\cos\tfrac{\phi_i}2\ket0 + \sin\tfrac{\phi_i}2\ket1\big)$, with $\braket{Z_i} = \cos\phi_i$ and $\braket{Z_iZ_j} = \cos\phi_i\cos\phi_j$ for $i\ne j$, so $\braket{O(\boldsymbol\phi)} = \mu(\boldsymbol\phi)$ exactly. An algorithm that minimises $\braket{O(\boldsymbol\phi)}$, given an oracle for its values, therefore solves MaxCut. This circuit has no entanglement at all: the hardness lies wholly in the classical optimization.}
+\begin{itemize}\setlength\itemsep{0.25em}
+    \item \textbf{No error below $1$.} Replace $O$ by $(-1)^{k-1}O^{\otimes k}$ on $k$ copies of the circuit. Its expectation is $-|\mu|^k$ and its spectral width $\mathrm{MaxCut}^k$, so an algorithm of ratio $\alpha$ incurs relative error $1-\alpha^k \to 1$.
+    \item \textbf{Logarithmically many qubits.} On $\C^{2d}$, the state $(2d)^{-1/2}\sum_j\big(e^{-i\phi_j}\ket{2j-1} + e^{i\phi_j}\ket{2j}\big)$ and a suitable $O$ again give $\mu(\boldsymbol\phi)$, now on $\mathcal O(\log d)$ qubits; the problem is then classically simulable, and its decision version $\mathbf{NP}$-complete.
+    \item \textbf{One layer, and QAOA.} With energies $E_j = 2\pi/m^j$, a single time $t$ makes all the phases $E_jt$ approximate any $\boldsymbol\phi$, so one parameter suffices; an extra level weakly coupled to the rest turns this into a QAOA circuit of depth one (\Chap~\chref{C.PerIteration}).
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{Inapproximability of training}
+\onp{\scriptsize}
+\ona{\citet{bittel2021training} do not stop at $\mathbf{NP}$-hardness of finding the optimum; they also bound how close to it a polynomial-time algorithm can be guaranteed to come. The yardstick is the \emph{optimization error}: the smallest $\rho \in [0,1]$ such that}
+\begin{equation}\label{eq:ch03:rho}
+    \frac{\braket{O}_{\rm alg} - \braket{O}_{\min}}{\lambda_{\max}(O) - \lambda_{\min}(O)} \;\le\; \rho \qquad\text{on all instances,}
+\end{equation}
+\ona{where $\braket{O}_{\rm alg}$ is the value at the parameters returned and the denominator, the spectral width, makes $\rho$ independent of the scale of $O$. Unless $\mathbf P = \mathbf{NP}$:}
+\begin{itemize}\setlength\itemsep{0.25em}
+    \item \textbf{With oracle access, no $\rho < 1$.} Take $k$ copies of the circuit of step 2 and the observable $(-1)^{k-1}O^{\otimes k}$, whose eigenvalues lie in $[-\mathrm{MC}^k,0]$, with $\mathrm{MC}$ the maximum cut. The expectation is $-|\mu(\boldsymbol\phi)|^k$. An algorithm with error $\rho<1$ would return $\boldsymbol\phi$ with $|\mu(\boldsymbol\phi)| \ge (1-\rho)^{1/k}\,\mathrm{MC}$, and rounding as in step 1 would give a cut within a factor $(1-\rho)^{1/k} \to 1$ of the optimum, for any $k$: an approximation scheme for MaxCut, which is $\mathbf{APX}$-hard.
+    \item \textbf{For QAOA of depth one, $\rho \ge (1-\alpha_{\max})/2$}, where $\alpha_{\max}$ is the best ratio achievable for MaxCut in polynomial time. In their construction $\braket{H_c}_{\min} = 1 - 2\mathrm{MC}/|E|$ with spectral width $2$, so a cut of ratio $\alpha$ gives error $\tfrac12(1-\alpha)\,2\mathrm{MC}/|E| \ge (1-\alpha)/2$, as $\mathrm{MC}\ge|E|/2$. With H\accent23 astad's bound $\alpha_{\max} \le 16/17$ this is $\rho \ge 1/34 \approx 0.029$; under the Unique Games Conjecture, $\alpha_{\max} = \alpha_{\rm GW}$ and $\rho \ge 0.061$. Gradient methods, whose fixed points are the local optima of single-vertex moves, have $\alpha = 1/2$ and hence $\rho \ge 1/4$.
+    \item \textbf{The depth, too.} For every $\epsilon>0$ it is $\mathbf{QCMA}$-hard to approximate the smallest depth of an ansatz that reaches a target energy within a factor $N^{1-\epsilon}$, where $N$ is the size of the instance \citep{bittelQCMA}.
+\end{itemize}
+\onp{\footnotesize Error $\rho$ relative to the spectral width. Oracle: no $\rho<1$; QAOA: $\rho\ge(1-\alpha_{\max})/2$, i.e., $\ge 1/34$, or $\ge 0.061$ under UGC; depth: $\mathbf{QCMA}$-hard within $N^{1-\epsilon}$.}
+\end{frame}
+
+\begin{frame}\ft{What the theorem says, and what it does not}
+\begin{itemize}\setlength\itemsep{0.3em}
+    \item It says that in the worst case no polynomial-time training procedure finds the optimal parameters, nor even parameters within a fixed fraction of the spectral width of the optimum, unless $\mathbf P = \mathbf{NP}$. The difficulty lies in the classical optimization, not in the quantum hardware or in estimating expectation values.
+    \item It does not say that good parameters are hard to find for typical instances; \Chap~\chref{C.PerIteration} finds that they often are not.
+    \item Nor does it say that local minima are useless: a warm start which inherits a classical guarantee keeps it whatever the optimizer does (\Chaps~\chref{C.WSRounded}--\chref{C.WSContinuous}).
+\end{itemize}
+\ona{Later work has extended the picture. Besides the hardness of approximating the depth \citep{bittelQCMA}, in an idealised digitised setting the training problem is even undecidable \citep{korpas2025undecidable}; and for a constant number of angles there are tractable regimes \citep{sakos2026global}.}
+\onp{\footnotesize Later: undecidability \citep{korpas2025undecidable}; tractable constant-angle regimes \citep{sakos2026global}.}
 \end{frame}
 
 \section{Structural obstructions and average-case hardness}
 
 \begin{frame}\ft{Even the best angles do not help at constant depth}
 \begin{itemize}\setlength\itemsep{0.3em}
-    \item \textbf{Symmetry.} Cold-start QAOA inherits the $\mathbb{Z}_2$ spin-flip symmetry of $H_C$ and $H_M$, so $\langle Z_i\rangle = 0$; on bipartite $D$-regular graphs, GW provably beats QAOA at any constant $p$ \cite{Bravyi2020}.
-    \item \textbf{Locality.} A depth-$p$ circuit sees only $p$-neighbourhoods; on high-girth graphs QAOA is a local algorithm and fails on MAX-$k$-CUT \cite{BravyiKlieschKoenigTang2022,BarakMarwaha2022}.
-    \item \textbf{Overlap gap.} Sparse random CSPs have the overlap gap property: near-optimal solutions are either close or far apart. Every circuit of depth $p < \varepsilon\log n$ then falls short of the optimum with high probability \cite{ChouLoveSandhuShi2021,ChenHuangMarwaha2023}. This is average-case hardness for classical local algorithms and low-depth quantum algorithms alike; whether deeper quantum algorithms escape is open, and would be a convincing route to advantage.
+    \item \textbf{Symmetry.} QAOA started from the uniform superposition inherits the $\mathbb{Z}_2$ spin-flip symmetry of $H_C$ and $H_M$, so $\langle Z_i\rangle = 0$; on bipartite $D$-regular graphs, GW provably beats QAOA at every constant depth $p$ \citep{Bravyi2020}.
+    \item \textbf{Locality.} A circuit of depth $p$ sees only neighbourhoods of radius $p$; on graphs of high girth QAOA is a local algorithm, and fails on MAX-$k$-CUT \citep{BravyiKlieschKoenigTang2022,BarakMarwaha2022}.
+    \item \textbf{Overlap gap.} Sparse random CSPs have the overlap gap property: any two near-optimal solutions are either close together or far apart. Every circuit of depth $p < \varepsilon\log n$ then falls short of the optimum with high probability \citep{ChouLoveSandhuShi2021,ChenHuangMarwaha2023}. This is average-case hardness for classical local algorithms and low-depth quantum algorithms alike; whether deeper quantum algorithms escape it is not known, and if they did, that would be a convincing route to an advantage.
 \end{itemize}
-\ona{Recursive QAOA \cite{Bravyi2020} and warm starts \cite{egger2021warm} break the symmetry and the locality; they are the subject of \Chaps~\chref{C.WSRounded}--\chref{C.WSContinuous}.}
+\ona{Recursive QAOA \citep{Bravyi2020} and warm starts \citep{egger2021warm} break the symmetry and the locality; they are the subject of \Chaps~\chref{C.WSRounded}--\chref{C.WSContinuous}.}
 \end{frame}
 
 \begin{frame}\ft{Positive results, for balance}
 \begin{itemize}\setlength\itemsep{0.2em}
-    \item MaxCut on 3-regular graphs: ratio $\ge 0.692$ at $p=1$ \cite{farhi2014quantum}, $0.7559$ at $p=2$, and (under assumptions) $0.7924$ at $p=3$.
-    \item On large-girth $d$-regular graphs, QAOA numerically outperforms SDP-based relaxations from $p \ge 11$.
-    \item Warm starts inherit classical guarantees \cite{egger2021warm}; recursive QAOA reduces the instance one variable at a time using measured correlations \cite{Bravyi2020}.
-    \item TSP as a reminder of nuance: $\mathbf{APX}$-hard in general, a PTAS for the Euclidean case, millions of nodes solved heuristically; while some problems with under 100 variables (low-autocorrelation binary sequences) remain hard.
+    \item MaxCut on 3-regular graphs: ratio at least $0.692$ at $p=1$ \citep{farhi2014quantum}, $0.7559$ at $p=2$, and, under assumptions, $0.7924$ at $p=3$.
+    \item On $d$-regular graphs of large girth, QAOA numerically outperforms semidefinite relaxations from $p \ge 11$.
+    \item Warm starts inherit classical guarantees \citep{egger2021warm}; recursive QAOA reduces the instance one variable at a time using measured correlations \citep{Bravyi2020}.
+    \item The travelling salesman problem as a reminder of nuance: $\mathbf{APX}$-hard in general, but with a PTAS in the Euclidean case and millions of nodes solved heuristically; while some problems with fewer than 100 variables, such as low-autocorrelation binary sequences, remain hard.
 \end{itemize}
-\ona{The take-away for the course: the yardsticks are $0.878$ for MaxCut, $11/13$ for QUBO, and, more importantly, the empirical performance of GW and local search on the instance family at hand.}
+\ona{For the rest of the course the yardsticks are $0.878$ for MaxCut and $11/13$ for QUBO and, more important in practice, the performance of Goemans--Williamson and of the best classical solvers on the family of instances at hand: Gurobi, and the semidefinite branch-and-bound solvers BiqMac \citep{rendl2010solving}, BiqCrunch \citep{krislock2017biqcrunch}, BiqBin \citep{gusmeroli2022biqbin} and MADAM \citep{hrga2021madam}.}
+\end{frame}
+
+\begin{frame}\ft{Exercises}
+\begin{exe}[Label propagation]
+Write down the algorithm that decides in polynomial time whether a unique game is fully satisfiable, and prove its correctness. Where does it use that the constraints are bijections? Show that for the 4-cycle used to illustrate the label-extended graph, with rotations $0,0,0,1 \pmod 3$, the optimum is $3/4$.
+\end{exe}
+\begin{exe}[Triangles]
+Show that every cut of a triangle separates at most two of its three edges, and exactly two unless all three vertices lie on the same side. Deduce that the maximum cut of a graph made of $m$ edge-disjoint triangles is $2m$, and explain why triangles suit clauses whose literals must not all be equal.
+\end{exe}
+\end{frame}
+
+\begin{frame}\ft{Exercises, continued}
+\begin{exe}[The constant]
+Show that the minimum in \eqref{eq:ch03:alpha} is attained where $\tan(\theta/2) = \theta$ for $\theta = \arccos\rho$, and compute $\theta^\ast$ and $\alpha_{\rm GW}$ to four digits.
+\end{exe}
+\begin{exe}[Continuous MaxCut]
+For the triangle, write out $\mu(\phi_1,\phi_2,\phi_3)$ from \eqref{eq:ch03:mu}, find its minimum, and show that the set of minimisers is not finite. Does the rounding of the proof still reach a maximum cut?
+\end{exe}
+\begin{exe}[Dictators]
+Show that a dictator passes the test with probability $(1-\rho)/2$, and compute the pass probability of the majority function on three bits as a function of $\rho$.
+\end{exe}
 \end{frame}
 
 \begin{frame}[allowframebreaks]\ft{References}
