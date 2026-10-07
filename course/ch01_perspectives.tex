@@ -51,7 +51,7 @@
 \onp{\begin{itemize}
     \item Useful background: linear algebra (spectral theorem, tensor products), basic probability. \emph{No} quantum mechanics assumed; \Chap~\chref{C.VQE} recaps what is needed.
     \item Useful background in optimization: gradient descent and convex relaxations; both are introduced when needed.
-    \item Optional reading: \citet{kristaly2010variational}, \emph{Variational Principles in Mathematical Physics, Geometry, and Economics}; the survey \cite{abbas2024challenges}; and the papers the individual lectures are based on.
+    \item Optional reading: \citet{kristaly2010variational}, \emph{Variational Principles in Mathematical Physics, Geometry, and Economics}; the survey \citep{abbas2024challenges}; and the papers the individual lectures are based on.
 \end{itemize}}
 \ona{Optional reading material: for the mathematics of variational principles in general, \citet{kristaly2010variational}, \emph{Variational Principles in Mathematical Physics, Geometry, and Economics}, Encyclopedia of Mathematics and its Applications 136, Cambridge University Press, 2010; for quantum optimization, the survey of \citet{abbas2024challenges}, \emph{Challenges and Opportunities in Quantum Optimization}, from which \Chaps~\chref{C.EQA}--\chref{C.Inapprox} draw. None of it is required.}
 \end{frame}
@@ -149,12 +149,12 @@ hardness & $\mathbf{QMA}$-hard in general & $\mathbf{NP}$-hard; $\mathbf{APX}$-h
     \item \textbf{Encode configurations as bit strings.} Each electron also has a spin (up or down), so there are $2M$ ``slots''. A configuration of $N$ electrons is a bit string of length $2M$ with $N$ ones: slot occupied or not. These strings form the basis of the state space, and a bit string is a computational basis state of $2M$ qubits.
     \item \textbf{Compute the matrix.} In this basis the Hamiltonian is a Hermitian $2^{2M}\times2^{2M}$ matrix $H$ whose entries are integrals over the orbitals, computed classically in polynomial time. It is highly structured: a sum of $\mathcal O(M^4)$ Pauli strings (\Chap~\chref{C.VQE}).
 \end{enumerate}
-\ona{For H$_2$ in the minimal basis, $M = 2$ and $N = 2$, so four qubits; using two symmetries (spin and mirror symmetry of the molecule), this reduces to two qubits and a $4\times4$ matrix \cite{omalley2016scalable}:}
+\ona{For H$_2$ in the minimal basis, $M = 2$ and $N = 2$, so four qubits; using two symmetries (spin and mirror symmetry of the molecule), this reduces to two qubits and a $4\times4$ matrix \citep{omalley2016scalable}:}
 \begin{equation}\label{eq:ch01:h2qubit}
     H(R) = g_0\,\one + g_1 Z_0 + g_2 Z_1 + g_3 Z_0Z_1 + g_4 X_0X_1 + g_5 Y_0Y_1,
 \end{equation}
 \ona{six real numbers $g_k(R)$ for every bond length $R$. All numbers below come from exact diagonalisation in this basis, computed with PySCF by \texttt{code/ch01\_h2.py}.}
-\onp{H$_2$, minimal basis: $M = 2$ orbitals, $N = 2$ electrons, four qubits, two after symmetries: a $4\times4$ matrix with six coefficients $g_k(R)$ \cite{omalley2016scalable}.}
+\onp{H$_2$, minimal basis: $M = 2$ orbitals, $N = 2$ electrons, four qubits, two after symmetries: a $4\times4$ matrix with six coefficients $g_k(R)$ \citep{omalley2016scalable}.}
 \end{frame}
 
 \begin{frame}\ft{The lowest eigenvector: the wave function}
@@ -164,7 +164,7 @@ hardness & $\mathbf{QMA}$-hard in general & $\mathbf{NP}$-hard; $\mathbf{APX}$-h
 \begin{equation}\label{eq:ch01:h2gs}
     \ket{\psi_0} = \cos\tfrac\theta2\,\ket{10} - \sin\tfrac\theta2\,\ket{01},\qquad \theta = 0.23,\ 0.73,\ 1.50 \text{ at } R = 0.75,\ 1.5,\ 3.0\,\angstrom.
 \end{equation}
-\ona{A single rotation angle $\theta$ describes it exactly: this one-parameter circuit was the first variational quantum eigensolver run on hardware \cite{omalley2016scalable}. As the protons are pulled apart, $\theta \to \pi/2$ and the single-basis-state guess becomes badly wrong.}
+\ona{A single rotation angle $\theta$ describes it exactly: this one-parameter circuit was the first variational quantum eigensolver run on hardware \citep{omalley2016scalable}. As the protons are pulled apart, $\theta \to \pi/2$ and the single-basis-state guess becomes badly wrong.}
 \onp{Cheapest guess: one basis state $\ket{10}$ (Hartree--Fock), energy $-1.116$. Truth: $\cos\tfrac\theta2\ket{10} - \sin\tfrac\theta2\ket{01}$, energy $-1.137$; $\theta$ grows from $0.23$ to $1.50$ as the atoms separate.}
 \begin{center}
 \begin{tikzpicture}
@@ -223,14 +223,14 @@ hardness & $\mathbf{QMA}$-hard in general & $\mathbf{NP}$-hard; $\mathbf{APX}$-h
     \mathrm{poly}(1/S)\,\big[\mathrm{poly}(L)\,\mathrm{poly}(1/\epsilon) + C\big], \qquad S = |\braket{\Phi|\Psi_0}|,
 \end{equation}
 \ona{where $C$ is the cost of preparing a starting guess $\Phi$, the bracket is the quantum circuit, and the prefactor, $1/S^2$ for plain phase estimation, is the number of repetitions needed: the algorithm returns the lowest eigenvalue only with probability $S^2$, the overlap of the guess with the true eigenvector, so one repeats until it does. The $\mathrm{poly}(L)$ in the middle is what is usually quoted. EQA requires, in addition, that the overlap $S$ does not shrink exponentially with $L$, \emph{and} that every classical program costs $\exp(L)$ on the same molecules.}
-\onp{\scriptsize EQA hypothesis \cite{lee2023evaluating}: for generic chemistry, quantum polynomial \emph{and} classical exponential in $L$. In the QPE cost, the overlap $S$ of the trial state is the crux.}
+\onp{\scriptsize EQA hypothesis \citep{lee2023evaluating}: for generic chemistry, quantum polynomial \emph{and} classical exponential in $L$. In the QPE cost, the overlap $S$ of the trial state is the crux.}
 \figslide[height=0.36\textheight]{figures/eqa/fig1.pdf}{Ansatz state preparation for iron--sulphur clusters, from \citet{lee2023evaluating}. (A) [2Fe-2S], [4Fe-4S], the P-cluster and the FeMo cofactor of nitrogenase, up to 154 qubits. (B) Overlap $S^2$ of the best cheap starting guess (a single basis state, purple; a symmetry-adapted combination, orange) with the exact lowest eigenvector, against the number of metal atoms: an exponential decrease, down to $10^{-7}$ for FeMo-co.}{fig:ch01:eqa1}
 \end{frame}
 
 \begin{frame}\ft{And the classical competition does not scale exponentially}
 \ona{The second requirement of EQA fails empirically too: for the molecules usually cited as motivation, classical heuristics reach chemical accuracy in polynomial time. The workhorse method of quantum chemistry (\emph{coupled cluster}, a clever low-parameter approximation of the eigenvector) has an empirical cost polynomial in $1/\epsilon$ and, because interactions are local, linear in the molecule size for ordinary molecules such as alkane chains, with constant error per atom; it runs routinely on thousands of electrons. For the hardest, strongly correlated model systems, tensor-network methods (the same matrix product states we meet in \Chap~\chref{C.PerIteration}) show near-linear cost in size and error decreasing polynomially in their expressiveness parameter $D$. \citet{lee2023evaluating} conclude that evidence for a \emph{generic} exponential advantage has yet to be found, while polynomial speedups remain possible and would still be valuable.}
 \figslide[height=0.45\textheight]{figures/eqa/fig3.pdf}{Computational complexity of classical heuristics for molecules, from \citet{lee2023evaluating}. (A) Error of the coupled-cluster hierarchy on the nitrogen molecule against running time: polynomial in $1/\epsilon$. (B) Running time of a locality-exploiting coupled-cluster code on alkane chains C$_m$H$_{2m+2}$ with up to $m = 120$ carbons: nearly linear in size, with constant error per carbon. (C) A protein fragment with thousands of electrons, treated on a few processor cores.}{fig:ch01:eqa3}
-\onp{\scriptsize Classical heuristics: $\mathrm{poly}(1/\epsilon)$ and near-linear in $L$ where they apply. Verdict \cite{lee2023evaluating}: no evidence yet of generic EQA; polynomial speedups still possible. Details in \Chap~\chref{C.EQA}.}
+\onp{\scriptsize Classical heuristics: $\mathrm{poly}(1/\epsilon)$ and near-linear in $L$ where they apply. Verdict \citep{lee2023evaluating}: no evidence yet of generic EQA; polynomial speedups still possible. Details in \Chap~\chref{C.EQA}.}
 \end{frame}
 
 \begin{frame}\ft{The general recipe, and where quantum algorithms enter}
@@ -248,17 +248,17 @@ hardness & $\mathbf{QMA}$-hard in general & $\mathbf{NP}$-hard; $\mathbf{APX}$-h
 \ona{Applications often need more than $E_0$: where the electric charge sits (dipole moments), how electrons move through a material, the forces on the nuclei. Each is an expectation value $\braket{\psi_0|O|\psi_0}$ of some Hermitian matrix $O$ in the lowest eigenvector. \citet{zhang2022computing} formalise this as \emph{ground-state property estimation}: given $H$ with gap $\gamma$, an observable $O$, a circuit preparing a guess $\ket{\phi_0}$ with overlap $|\braket{\phi_0|\psi_0}|^2 \ge \eta$, and a precision $\epsilon$, estimate $\braket{\psi_0|O|\psi_0}$ to within $\epsilon$. Without the overlap and gap assumptions this is provably harder than estimating the energy.}
 \begin{itemize}\setlength\itemsep{0.25em}
     \item \textbf{Variational route:} optimise a circuit to approximate $\ket{\psi_0}$, then measure $O$. Cheap circuits; but no guarantee on how close the optimised state is, hence none on the property.
-    \item \textbf{Early fault-tolerant route} \cite{zhang2022computing}: use the guess only as a starting point with overlap $\eta$, and extract $\braket{\psi_0|O|\psi_0}$ from many short circuits plus classical Fourier post-processing. Longest circuit $\widetilde{\mathcal O}(\gamma^{-1})$, independent of $\epsilon$; total work $\widetilde{\mathcal O}(\gamma^{-1}\epsilon^{-2}\eta^{-2})$; one extra qubit. \emph{Guaranteed} accuracy, whatever the quality of the guess, paid for in running time.
+    \item \textbf{Early fault-tolerant route} \citep{zhang2022computing}: use the guess only as a starting point with overlap $\eta$, and extract $\braket{\psi_0|O|\psi_0}$ from many short circuits plus classical Fourier post-processing. Longest circuit $\widetilde{\mathcal O}(\gamma^{-1})$, independent of $\epsilon$; total work $\widetilde{\mathcal O}(\gamma^{-1}\epsilon^{-2}\eta^{-2})$; one extra qubit. \emph{Guaranteed} accuracy, whatever the quality of the guess, paid for in running time.
 \end{itemize}
 \ona{The two routes are complementary: the variational one supplies the starting guess, the other supplies the guarantee. This is the role we assign to variational methods in chemistry in \Chaps~\chref{C.EQA} and~\chref{C.VQE}.}
 \end{frame}
 
 \begin{frame}\ft{How the guarantee works, in one slide (optional)}
-\ona{Here is the idea, for the curious; nothing later depends on it. Write the starting guess in the eigenbasis of $H$, $\ket{\phi_0} = \sum_k\alpha_k\ket{\psi_k}$, and think of $p_k = |\alpha_k|^2$ as a probability distribution over the energy levels $\lambda_k$. Its cumulative distribution function $C(x) = \sum_{\lambda_k\le x}p_k$ is a staircase whose first step is at the lowest eigenvalue $E_0$ and has height $p_0 \ge \eta$. Lin and Tong \cite{lt21} observe that the quantum computer can measure the \emph{Fourier transform} of this distribution:}
+\ona{Here is the idea, for the curious; nothing later depends on it. Write the starting guess in the eigenbasis of $H$, $\ket{\phi_0} = \sum_k\alpha_k\ket{\psi_k}$, and think of $p_k = |\alpha_k|^2$ as a probability distribution over the energy levels $\lambda_k$. Its cumulative distribution function $C(x) = \sum_{\lambda_k\le x}p_k$ is a staircase whose first step is at the lowest eigenvalue $E_0$ and has height $p_0 \ge \eta$. \citet{lt21} observe that the quantum computer can measure the \emph{Fourier transform} of this distribution:}
 \begin{equation}\label{eq:ch01:acdf}
     \braket{\phi_0|e^{-ijH}|\phi_0} = \sum_kp_ke^{-ij\lambda_k}
 \end{equation}
-\ona{one number for each integer time $j$, each estimated by a small circuit (a Hadamard test: one extra qubit controlling the evolution $e^{-ijH}$). From finitely many Fourier coefficients, $|j| \le d$, one reconstructs a smoothed staircase $\tilde C$ accurate to within $\eta/8$ everywhere except within $\delta \sim 1/d$ of a step. A binary search for the first point where $\tilde C \ge \eta/2$ then finds $E_0$ to precision $\delta$. Weighting the same construction by an observable $O$ gives $p_0\braket{\psi_0|O|\psi_0}$, and dividing by $p_0$ gives the property \cite{zhang2022computing}. The longest circuit has length $d \sim 1/\gamma$, set by the gap, not by the final precision; the price of precision is paid in repetitions, $\widetilde{\mathcal O}(\epsilon^{-2}\eta^{-2})$ of them.}
+\ona{one number for each integer time $j$, each estimated by a small circuit (a Hadamard test: one extra qubit controlling the evolution $e^{-ijH}$). From finitely many Fourier coefficients, $|j| \le d$, one reconstructs a smoothed staircase $\tilde C$ accurate to within $\eta/8$ everywhere except within $\delta \sim 1/d$ of a step. A binary search for the first point where $\tilde C \ge \eta/2$ then finds $E_0$ to precision $\delta$. Weighting the same construction by an observable $O$ gives $p_0\braket{\psi_0|O|\psi_0}$, and dividing by $p_0$ gives the property \citep{zhang2022computing}. The longest circuit has length $d \sim 1/\gamma$, set by the gap, not by the final precision; the price of precision is paid in repetitions, $\widetilde{\mathcal O}(\epsilon^{-2}\eta^{-2})$ of them.}
 \onp{View the starting guess as a distribution over energy levels; small circuits measure its Fourier coefficients; reconstruct the CDF; its first step is $E_0$ (Lin--Tong); weight by $O$ for properties (Zhang--Wang--Johnson). Circuit length $\sim 1/\gamma$; precision paid in repetitions.}
 \end{frame}
 
@@ -275,12 +275,12 @@ hardness & $\mathbf{QMA}$-hard in general & $\mathbf{NP}$-hard; $\mathbf{APX}$-h
 
 
 \begin{frame}\ft{Variational quantum algorithms}
-\ona{In a \emph{variational quantum algorithm} (VQA) \cite{peruzzo2014variational,cerezo2021variational}, the family is generated by a parametrised quantum circuit $U(\boldsymbol\theta)$ acting on an easy initial state, $\ket{\psi(\boldsymbol\theta)} = U(\boldsymbol\theta)\ket{\psi_0}$. The quantum computer prepares $\ket{\psi(\boldsymbol\theta)}$ and estimates $C(\boldsymbol\theta)$ by repeated measurement; a classical optimizer updates $\boldsymbol\theta$; and the two alternate in a loop, see Fig.~\ref{fig:ch01:vqa}.}
+\ona{In a \emph{variational quantum algorithm} (VQA) \citep{peruzzo2014variational,cerezo2021variational}, the family is generated by a parametrised quantum circuit $U(\boldsymbol\theta)$ acting on an easy initial state, $\ket{\psi(\boldsymbol\theta)} = U(\boldsymbol\theta)\ket{\psi_0}$. The quantum computer prepares $\ket{\psi(\boldsymbol\theta)}$ and estimates $C(\boldsymbol\theta)$ by repeated measurement; a classical optimizer updates $\boldsymbol\theta$; and the two alternate in a loop, see Fig.~\ref{fig:ch01:vqa}.}
 \figslide[height=0.55\textheight]{figures/vqa/vqa2024.pdf}{The variational loop: the quantum computer evaluates the cost $C(\boldsymbol\theta)$ of a parametrised circuit by sampling; a classical optimizer proposes new parameters.}{fig:ch01:vqa}
 \end{frame}
 
 \begin{frame}\ft{QAOA in one slide}
-\ona{The \emph{quantum approximate optimization algorithm} (QAOA) \cite{farhi2014quantum} is the VQA for combinatorial optimization. To minimise $f : \{0,1\}^n \to \R$, one encodes $f$ into a diagonal cost Hamiltonian $H_C = \sum_x f(x)\ket{x}\!\bra{x}$, so that the ground states of $H_C$ are the minimisers of $f$, and prepares}
+\ona{The \emph{quantum approximate optimization algorithm} (QAOA) \citep{farhi2014quantum} is the VQA for combinatorial optimization. To minimise $f : \{0,1\}^n \to \R$, one encodes $f$ into a diagonal cost Hamiltonian $H_C = \sum_x f(x)\ket{x}\!\bra{x}$, so that the ground states of $H_C$ are the minimisers of $f$, and prepares}
 \begin{equation}\label{eq:ch01:qaoa}
     \ket{\psi(\boldsymbol\theta)} \;=\; \prod_{k=1}^{p} e^{-i\beta_k H_M}\, e^{-i\gamma_k H_C}\, \ket{+}^{\otimes n},
     \qquad H_M = \sum_{j=1}^n X_j,
@@ -306,7 +306,7 @@ hardness & $\mathbf{QMA}$-hard in general & $\mathbf{NP}$-hard; $\mathbf{APX}$-h
 
 \begin{frame}\ft{What QAOA is competing against}
 \ona{Any claim about QAOA on MaxCut must be measured against the best classical polynomial-time algorithm, and it pays to understand that algorithm completely. It is the algorithm of \citet{Goemans1995}, and it has three ingredients: a \emph{relaxation} of MaxCut that replaces bits by vectors, the observation that this relaxation is a \emph{semidefinite program} (SDP) and hence solvable in polynomial time, and a \emph{randomized rounding} that turns vectors back into bits while losing at most a factor $\alpha_{\rm GW} \approx 0.878$. We derive all three.}
-\onp{Three ingredients \cite{Goemans1995}: \begin{enumerate}\item a \emph{vector relaxation} of MaxCut; \item it is a \emph{semidefinite program}, solvable in polynomial time; \item a \emph{random-hyperplane rounding} losing at most a factor $\alpha_{\rm GW}\approx 0.878$.\end{enumerate}}
+\onp{Three ingredients \citep{Goemans1995}: \begin{enumerate}\item a \emph{vector relaxation} of MaxCut; \item it is a \emph{semidefinite program}, solvable in polynomial time; \item a \emph{random-hyperplane rounding} losing at most a factor $\alpha_{\rm GW}\approx 0.878$.\end{enumerate}}
 \ona{Along the way we meet the two objects QAOA will later borrow: a continuous relaxation whose solution can serve as a warm start, and a randomized rounding, which is exactly what measuring a quantum state is.}
 \end{frame}
 
@@ -489,8 +489,8 @@ For unit vectors $v_i, v_j$ at angle $\theta_{ij} = \arccos(v_i^\top v_j) \in [0
 
 \begin{frame}\ft{Remarks on Goemans--Williamson}
 \begin{itemize}\setlength\itemsep{0.3em}
-    \item \textbf{Tightness.} The analysis is tight for the SDP: there are graphs with $\mathrm{OPT}/\mathrm{SDP} \to \alpha_{\rm GW}$, so no rounding of this relaxation can guarantee more. Under the Unique Games Conjecture, no polynomial-time algorithm at all, classical or quantum, beats $\alpha_{\rm GW}$ on all instances \cite{khot2010unique}; unconditionally, none beats $16/17 \approx 0.941$ unless $\mathbf P = \mathbf{NP}$ \cite{Hstad2001}.
-    \item \textbf{Weights.} We used $w_{ij}\ge 0$ when summing the per-edge inequalities. With negative weights, i.e., general QUBO, the guarantee changes and the hardness factor becomes $11/13$ \cite{charikar2004maximizing}; \Chap~\chref{C.WSRounded}.
+    \item \textbf{Tightness.} The analysis is tight for the SDP: there are graphs with $\mathrm{OPT}/\mathrm{SDP} \to \alpha_{\rm GW}$, so no rounding of this relaxation can guarantee more. Under the Unique Games Conjecture, no polynomial-time algorithm at all, classical or quantum, beats $\alpha_{\rm GW}$ on all instances \citep{khot2010unique}; unconditionally, none beats $16/17 \approx 0.941$ unless $\mathbf P = \mathbf{NP}$ \citep{Hstad2001}.
+    \item \textbf{Weights.} We used $w_{ij}\ge 0$ when summing the per-edge inequalities. With negative weights, i.e., general QUBO, the guarantee changes and the hardness factor becomes $11/13$ \citep{charikar2004maximizing}; \Chap~\chref{C.WSRounded}.
     \item \textbf{Randomness is removable} by the method of conditional expectations; in practice one simply draws many hyperplanes and keeps the best cut.
     \item \textbf{In practice} GW is much better than $0.878$: on the 144-node instances of \Chap~\chref{C.PerIteration}, ten hyperplanes find the optimum on all but a handful of instances, within ten seconds on a laptop.
     \item \textbf{Exercise.} Solve the SDP for the 5-cycle by hand (the pentagram) and compute $\mathrm{OPT}/\mathrm{SDP}$; you should get $\approx 0.8845$.
@@ -627,43 +627,43 @@ Gurobi & $1$ & $1$ & $1$ \\\bottomrule
 \section{The bad news: QAOA from a cold start}
 
 \begin{frame}\ft{Bad news I: the angles are hard to find}
-\ona{The landscape $F_p(\boldsymbol\theta)$ is a trigonometric polynomial in $2p$ variables, riddled with local minima even at $p=1$ \cite{Vijendran2025}. Worse, finding the global minimum is provably hard:}
+\ona{The landscape $F_p(\boldsymbol\theta)$ is a trigonometric polynomial in $2p$ variables, riddled with local minima even at $p=1$ \citep{Vijendran2025}. Worse, finding the global minimum is provably hard:}
 \begin{itemize}\setlength\itemsep{0.3em}
-    \item Training a VQA to additive error below $(1-\alpha_{\max})/2$ is \textbf{NP}-hard \cite{bittel2021training}, even for a single layer, and even on logarithmically many qubits.
-    \item Deciding the depth $p$ needed to reach a target energy is \textbf{QCMA}-hard \cite{bittelQCMA}.
-    \item In an idealised digitised setting, deciding whether a depth-58 QAOA reaches a target energy is \emph{undecidable} \cite{korpas2025undecidable}.
+    \item Training a VQA to additive error below $(1-\alpha_{\max})/2$ is \textbf{NP}-hard \citep{bittel2021training}, even for a single layer, and even on logarithmically many qubits.
+    \item Deciding the depth $p$ needed to reach a target energy is \textbf{QCMA}-hard \citep{bittelQCMA}.
+    \item In an idealised digitised setting, deciding whether a depth-58 QAOA reaches a target energy is \emph{undecidable} \citep{korpas2025undecidable}.
 \end{itemize}
-\ona{The proofs exhibit persistent local minima bounded away from the global optimum, in which gradient methods get trapped unless one restarts or injects noise \cite{kungurtsev2022iteration}. There are tractable regimes, e.g., a constant number of angles \cite{sakos2026global}, but they are the exception.}
+\ona{The proofs exhibit persistent local minima bounded away from the global optimum, in which gradient methods get trapped unless one restarts or injects noise \citep{kungurtsev2022iteration}. There are tractable regimes, e.g., a constant number of angles \citep{sakos2026global}, but they are the exception.}
 \end{frame}
 
 \begin{frame}\ft{Bad news II: even the best angles do not help at constant depth}
 \ona{A complementary line of work shows that constant-depth QAOA fails on important instance families \emph{regardless of the angles}:}
 \begin{itemize}\setlength\itemsep{0.3em}
-    \item \textbf{Symmetry.} The state \eqref{eq:ch01:qaoa} inherits the $\mathbb{Z}_2$ spin-flip symmetry of $H_C$ and $H_M$, so $\langle Z_i\rangle = 0$ everywhere. On bipartite $D$-regular graphs, GW provably beats QAOA at any constant $p$ \cite{Bravyi2020}.
-    \item \textbf{Locality.} A depth-$p$ circuit sees only the $p$-neighbourhood of each vertex; on high-girth graphs QAOA is a local algorithm and cannot break symmetry \cite{BravyiKlieschKoenigTang2022,BarakMarwaha2022}.
-    \item \textbf{Overlap gap.} On sparse random graphs with the overlap-gap property, \emph{every} quantum circuit of depth $p < \varepsilon \log n$ falls short of the optimum with high probability \cite{ChouLoveSandhuShi2021,ChenHuangMarwaha2023}.
+    \item \textbf{Symmetry.} The state \eqref{eq:ch01:qaoa} inherits the $\mathbb{Z}_2$ spin-flip symmetry of $H_C$ and $H_M$, so $\langle Z_i\rangle = 0$ everywhere. On bipartite $D$-regular graphs, GW provably beats QAOA at any constant $p$ \citep{Bravyi2020}.
+    \item \textbf{Locality.} A depth-$p$ circuit sees only the $p$-neighbourhood of each vertex; on high-girth graphs QAOA is a local algorithm and cannot break symmetry \citep{BravyiKlieschKoenigTang2022,BarakMarwaha2022}.
+    \item \textbf{Overlap gap.} On sparse random graphs with the overlap-gap property, \emph{every} quantum circuit of depth $p < \varepsilon \log n$ falls short of the optimum with high probability \citep{ChouLoveSandhuShi2021,ChenHuangMarwaha2023}.
 \end{itemize}
-\ona{None of this is repaired by a better optimizer. It is, however, repaired by changing the algorithm: recursive QAOA \cite{Bravyi2020} and warm starts \cite{egger2021warm} both break the symmetry and the locality, and the latter is where we are heading today.}
+\ona{None of this is repaired by a better optimizer. It is, however, repaired by changing the algorithm: recursive QAOA \citep{Bravyi2020} and warm starts \citep{egger2021warm} both break the symmetry and the locality, and the latter is where we are heading today.}
 \end{frame}
 
 \begin{frame}\ft{Bad news III: what actually happens on hardware}
 \ona{Theory bounds the worst case; let us look at typical instances. Figure~\ref{fig:ch01:hwconv} shows a closed-loop optimization of depth-four QAOA on 100 qubits on \emph{ibm\_boston}, from \Chap~\chref{C.PerIteration}. The optimizer (COBYLA) needs some 80 iterations and 1.6 million samples, i.e., minutes of QPU time and comparable classical post-processing, and the best sample among all of them achieves an approximation ratio of $91.5\%$. The distribution of the quantum samples is shifted to the right of uniform sampling, but only modestly.}
-\figslide[height=0.58\textheight]{figures/numerics/figure2.pdf}{Closed-loop training of depth-four QAOA on 100 qubits on \emph{ibm\_boston} \cite{marecek2026angles}. (a) Energy of the best $5\%$ of samples per iteration. (b) QPU and CPU time versus the number of samples. (c) Cumulative distribution of the approximation ratio of the quantum samples (green) versus uniform sampling (red); the best sample achieves $91.5\%$.}{fig:ch01:hwconv}
+\figslide[height=0.58\textheight]{figures/numerics/figure2.pdf}{Closed-loop training of depth-four QAOA on 100 qubits on \emph{ibm\_boston} \citep{marecek2026angles}. (a) Energy of the best $5\%$ of samples per iteration. (b) QPU and CPU time versus the number of samples. (c) Cumulative distribution of the approximation ratio of the quantum samples (green) versus uniform sampling (red); the best sample achieves $91.5\%$.}{fig:ch01:hwconv}
 \end{frame}
 
 \begin{frame}\ft{Bad news IV: even noiseless simulation needs depth}
 \ona{Noise is not the only culprit. Figure~\ref{fig:ch01:sv} shows exact statevector simulations on graphs with up to 22 nodes, again from \Chap~\chref{C.PerIteration}. With the best available angle-setting methods, the approximation ratio starts around $82$--$88\%$ at depth two and climbs to about $97\%$ only at depth ten. On Erd\H{o}s--R\'enyi graphs, angles transferred from regular graphs without re-optimization stagnate near $92\%$. Depth ten on 100 qubits is, today, well beyond what noisy hardware executes faithfully.}
-\figslide[height=0.58\textheight]{figures/numerics/figure17.pdf}{Noiseless statevector results for MaxCut \cite{marecek2026angles}. (a) Approximation ratio versus QAOA depth for three graph families; (b),(c) density and average degree of the instances; (d)--(f) fixed angles with and without re-optimization, against the Interp.\ method, per family.}{fig:ch01:sv}
+\figslide[height=0.58\textheight]{figures/numerics/figure17.pdf}{Noiseless statevector results for MaxCut \citep{marecek2026angles}. (a) Approximation ratio versus QAOA depth for three graph families; (b),(c) density and average degree of the instances; (d)--(f) fixed angles with and without re-optimization, against the Interp.\ method, per family.}{fig:ch01:sv}
 \end{frame}
 
 \begin{frame}\ft{Bad news V: quality versus cost at utility scale}
 \ona{Figure~\ref{fig:ch01:cost} puts quality and cost on one plot for ten 144-node heavy-hex MaxCut instances executed on \emph{ibm\_boston}. Every marker is an angle-setting strategy; the horizontal axis is the total wall-clock time spent finding the angles and sampling, the vertical axis is the approximation ratio of the hardware samples. The ratios range from $76\%$ to $85\%$, and the expensive iterative methods, costing $10^3$--$10^5$ seconds of classical training, buy at most a couple of percentage points over the cheapest look-up strategies.}
-\figslide[height=0.4\textheight]{figures/numerics/figure10.pdf}{Hardware approximation ratio versus total duration for ten 144-node heavy-hex MaxCut instances on \emph{ibm\_boston}, at depth (a) $p=5$ and (b) $p=10$ \cite{marecek2026angles}. Each colour is an angle-setting method; squares use Pauli propagation and triangles matrix-product states to evaluate the energy during training.}{fig:ch01:cost}
+\figslide[height=0.4\textheight]{figures/numerics/figure10.pdf}{Hardware approximation ratio versus total duration for ten 144-node heavy-hex MaxCut instances on \emph{ibm\_boston}, at depth (a) $p=5$ and (b) $p=10$ \citep{marecek2026angles}. Each colour is an angle-setting method; squares use Pauli propagation and triangles matrix-product states to evaluate the energy during training.}{fig:ch01:cost}
 \end{frame}
 
 \begin{frame}\ft{Bad news VI: the Pareto frontier}
 \ona{Taking the best strategy for every budget gives the Pareto frontier of Fig.~\ref{fig:ch01:pareto}. The frontier saturates at an approximation ratio of about $84\%$, reached after some $10^3$ seconds. Recall that GW reaches $100\%$ on almost all of these instances in under ten seconds.}
-\figslide[height=0.5\textheight]{figures/numerics/figure11.pdf}{Pareto frontier of hardware approximation ratio against total duration across angle-setting strategies, 144-node heavy-hex MaxCut on \emph{ibm\_boston} \cite{marecek2026angles}. Labels give the QAOA depth at which each strategy enters the frontier.}{fig:ch01:pareto}
+\figslide[height=0.5\textheight]{figures/numerics/figure11.pdf}{Pareto frontier of hardware approximation ratio against total duration across angle-setting strategies, 144-node heavy-hex MaxCut on \emph{ibm\_boston} \citep{marecek2026angles}. Labels give the QAOA depth at which each strategy enters the frontier.}{fig:ch01:pareto}
 \onp{GW: $100\%$ on almost all instances, in $<10$ s.}
 \end{frame}
 
@@ -698,27 +698,27 @@ Gurobi & $1$ & $1$ & $1$ \\\bottomrule
 
 \begin{frame}\ft{Good news I: sampling the optimum}
 \ona{Figure~\ref{fig:ch01:pevo} compares standard and warm-started QAOA on a six-asset portfolio-optimization instance with a budget constraint, encoded as a QUBO. The probability of sampling the optimal portfolio from the optimized trial state is more than five times higher with the warm start at every depth $p \le 5$, and the energy of the warm-started state reaches the ground energy $E_0$ already at depth two. Standard QAOA reaches $E_0$ at depth three but still fails to produce the optimum with high probability: the low energy comes from satisfying the budget penalty, not from finding the best portfolio. Keeping the warm initial state but the standard mixer (blue) is worse than either, which justifies changing the mixer.}
-\figslide[height=0.58\textheight]{figures/warmstart/figure04.pdf}{(a) Probability of sampling the optimal portfolio and (b) energy of the optimized trial state versus depth $p$, for standard QAOA (orange), warm-start QAOA (green), and warm initial state with the standard mixer (blue); medians and quartiles over ten random initial angles \cite{egger2021warm}.}{fig:ch01:pevo}
+\figslide[height=0.58\textheight]{figures/warmstart/figure04.pdf}{(a) Probability of sampling the optimal portfolio and (b) energy of the optimized trial state versus depth $p$, for standard QAOA (orange), warm-start QAOA (green), and warm initial state with the standard mixer (blue); medians and quartiles over ten random initial angles \citep{egger2021warm}.}{fig:ch01:pevo}
 \end{frame}
 
 \begin{frame}\ft{Good news II: 250 instances at depth one}
 \ona{Depth one is where near-term hardware lives. Figure~\ref{fig:ch01:depth1} solves 250 random portfolio instances at $p=1$. The cold-start energies pile up at $0.74\,E_0$: the depth-one variational form cannot do better than a fixed fraction of the ground energy from the symmetric initial state. The warm-start energies spread from $0.72$ to $1.0\,E_0$, with a large mass at the optimum. Panel (b) shows that the improvement is largest when the relaxed and the binary optimum overlap.}
-\figslide[height=0.58\textheight]{figures/warmstart/figure05.pdf}{Depth-one QAOA on 250 random portfolio instances \cite{egger2021warm}. (a) Histogram of the optimized energy relative to $E_0$ with (orange) and without (blue) warm start. (b) Remaining gap of the warm start relative to that of the cold start, against the overlap of the relaxed and the binary optimum.}{fig:ch01:depth1}
+\figslide[height=0.58\textheight]{figures/warmstart/figure05.pdf}{Depth-one QAOA on 250 random portfolio instances \citep{egger2021warm}. (a) Histogram of the optimized energy relative to $E_0$ with (orange) and without (blue) warm start. (b) Remaining gap of the warm start relative to that of the cold start, against the overlap of the relaxed and the binary optimum.}{fig:ch01:depth1}
 \end{frame}
 
 \begin{frame}\ft{Good news III: MaxCut and the GW warm start}
 \ona{For MaxCut the relaxation is the GW semidefinite program, and one warm-starts recursive QAOA (RQAOA) from its rounded cuts. Figure~\ref{fig:ch01:maxcut} compares, on 100 random graphs of each of four types, the best of ten GW cuts (blue), standard RQAOA (orange), warm-start RQAOA (red), and a purely classical recursion on the GW correlations (black). Warm-start RQAOA finds the maximum cut in more instances than any alternative, most markedly on the hardest family, fully connected 30-node graphs with random weights, where it finds the optimum in 85 of 100 graphs against 29 for standard RQAOA.}
-\figslide[height=0.5\textheight]{figures/warmstart/figure08.pdf}{Cut sizes relative to the maximum cut on 100 graphs per panel \cite{egger2021warm}: random graphs with edge probability $1/2$ and weights $\pm1$ with (a) 20 and (b) 30 nodes; fully connected graphs with weights in $\{-10,\dots,10\}$ with (c) 20 and (d) 30 nodes. Grey side panels count the maximum cuts found. Dashed line: hardness factor $11/13$.}{fig:ch01:maxcut}
+\figslide[height=0.5\textheight]{figures/warmstart/figure08.pdf}{Cut sizes relative to the maximum cut on 100 graphs per panel \citep{egger2021warm}: random graphs with edge probability $1/2$ and weights $\pm1$ with (a) 20 and (b) 30 nodes; fully connected graphs with weights in $\{-10,\dots,10\}$ with (c) 20 and (d) 30 nodes. Grey side panels count the maximum cuts found. Dashed line: hardness factor $11/13$.}{fig:ch01:maxcut}
 \end{frame}
 
 \begin{frame}\ft{Good news IV: beyond GW at depth one}
 \ona{Warm-start QAOA interpolates between the GW cut and standard QAOA through a regularisation parameter $\varepsilon \in [0, 0.5]$ that bounds the rotation angles \eqref{eq:ch01:wsinit} away from $0$ and $\pi$; at $\varepsilon = 0.5$ one recovers $\ket{+}^{\otimes n}$. Figure~\ref{fig:ch01:eps} sweeps $\varepsilon$ for depth-one warm-start QAOA on ten fully connected 30-node graphs. At $\varepsilon=0$ the energy is that of the GW cut, $0.907$ of the maximum cut; at $\varepsilon = 0.25$ it rises to $0.929$, \emph{above} the GW cut it started from; and towards $\varepsilon = 0.5$, the cold start, it collapses.}
-\figslide[height=0.58\textheight]{figures/warmstart/figure07.png}{Energy of depth-one warm-start QAOA relative to the maximum cut, as a function of the regularisation $\varepsilon$, for ten fully connected 30-node graphs each warm-started from five GW cuts \cite{egger2021warm}. Medians, quartiles, and individual runs; the dotted line marks the median at $\varepsilon=0.25$.}{fig:ch01:eps}
+\figslide[height=0.58\textheight]{figures/warmstart/figure07.png}{Energy of depth-one warm-start QAOA relative to the maximum cut, as a function of the regularisation $\varepsilon$, for ten fully connected 30-node graphs each warm-started from five GW cuts \citep{egger2021warm}. Medians, quartiles, and individual runs; the dotted line marks the median at $\varepsilon=0.25$.}{fig:ch01:eps}
 \end{frame}
 
 \begin{frame}\ft{Good news V: and it still improves with depth}
 \ona{Finally, the warm start does not freeze the algorithm at the classical solution. Figure~\ref{fig:ch01:depthmc} follows a six-node instance, warm-started from a suboptimal cut of size 23 where the maximum is 27: the probability of sampling the maximum cut grows and the energy falls with the depth $p$, as it must, since the depth-$(p+1)$ circuit contains the depth-$p$ one.}
-\figslide[height=0.6\textheight]{figures/warmstart/figure10.pdf}{Warm-start QAOA on a six-node graph, initialised from a cut of size 23 (maximum 27) \cite{egger2021warm}: (a) probability of sampling the maximum cut and (b) energy versus depth, 30 random initial angles per depth.}{fig:ch01:depthmc}
+\figslide[height=0.6\textheight]{figures/warmstart/figure10.pdf}{Warm-start QAOA on a six-node graph, initialised from a cut of size 23 (maximum 27) \citep{egger2021warm}: (a) probability of sampling the maximum cut and (b) energy versus depth, 30 random initial angles per depth.}{fig:ch01:depthmc}
 \end{frame}
 
 \begin{frame}\ft{Taking stock, again}

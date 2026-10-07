@@ -9,7 +9,7 @@
 \lecture{Inapproximability and the Unique Games Conjecture}{Lect03}
 \chapter{Inapproximability and the Unique Games Conjecture}\label{C.Inapprox}
 
-\ona{In \Chap~\chref{C.Motivation} we saw that the Goemans--Williamson algorithm cuts, in expectation, at least $\alpha_{\rm GW} \approx 0.878$ of the edges that an optimal cut would. In this \chap{} we ask whether one can do better in polynomial time, by any algorithm, classical or quantum. The answer depends on a conjecture, the Unique Games Conjecture of \citet{khot2002power}, which we state in several equivalent forms, and on a delicate piece of analysis showing that, if it holds, the constant $\alpha_{\rm GW}$ cannot be improved. We then turn from the quality of solutions to the training of variational circuits, and give a sketch of the proof of \citet{bittel2021training} that finding the optimal parameters of a variational quantum algorithm is $\mathbf{NP}$-hard, even when the quantum part is trivial. Our sources are the survey \citep{abbas2024challenges}, the appendices of \citet{egger2021warm}, the survey of \citet{KhotSurvey}, and \citet{bittel2021training}.}
+\ona{In \Chap~\chref{C.Motivation} we saw that the Goemans--Williamson algorithm cuts, in expectation, at least $\alpha_{\rm GW} \approx 0.878$ of the edges that an optimal cut would. In this \chap{} we ask whether one can do better in polynomial time, by any algorithm, classical or quantum. The answer depends on a conjecture, the Unique Games Conjecture of \citet{khot2002power}, which we state in several equivalent forms, and on a delicate piece of analysis showing that, if it holds, the constant $\alpha_{\rm GW}$ cannot be improved. In September 2026 a preprint \citep{OAI:The-Unique-Games-Theorem-September-23-2026} claimed a proof of the conjecture; it has not yet been peer reviewed, and we describe what it claims and what would follow from it. We then turn from the quality of solutions to the training of variational circuits, and give a sketch of the proof of \citet{bittel2021training} that finding the optimal parameters of a variational quantum algorithm is $\mathbf{NP}$-hard, even when the quantum part is trivial. Our sources are the survey \citep{abbas2024challenges}, the appendices of \citet{egger2021warm}, the survey of \citet{KhotSurvey}, and \citet{bittel2021training}.}
 
 \section{Complexity classes for optimization}
 
@@ -34,7 +34,7 @@
 \end{frame}
 
 \begin{frame}\ft{The landscape for MaxCut}
-\ona{Figure~\ref{fig:ch03:line} collects the constants that will occupy us. Assigning each vertex to a side at random cuts half the edges in expectation, so $1/2$ is trivial. Goemans--Williamson achieves $\alpha_{\rm GW} \approx 0.8786$. It is $\mathbf{NP}$-hard to do better than $16/17 \approx 0.9412$ \citep{Hstad2001}, and, under the Unique Games Conjecture, already to do better than $\alpha_{\rm GW}$ \citep{khot2007optimal}. When negative weights are allowed the relevant constant is $11/13 \approx 0.846$, as we discuss below; and on 3-regular graphs the picture is different again (Fig.~\ref{fig:ch03:cubic}).}
+\ona{Figure~\ref{fig:ch03:line} collects the constants that will occupy us. Assigning each vertex to a side at random cuts half the edges in expectation, so $1/2$ is trivial. Goemans--Williamson achieves $\alpha_{\rm GW} \approx 0.8786$. It is $\mathbf{NP}$-hard to do better than $16/17 \approx 0.9412$ \citep{Hstad2001}, and, under the Unique Games Conjecture, already to do better than $\alpha_{\rm GW}$ \citep{khot2007optimal}; if the claimed proof of the conjecture \citep{OAI:The-Unique-Games-Theorem-September-23-2026} stands, the latter is $\mathbf{NP}$-hard unconditionally. When negative weights are allowed the relevant constant is $11/13 \approx 0.846$, as we discuss below; and on 3-regular graphs the picture is different again (Fig.~\ref{fig:ch03:cubic}).}
 \ona{\begin{figure}[htb]}\begin{center}
 \begin{tikzpicture}[x=20cm,every node/.style={font=\scriptsize}]
   \fill[green!25] (0.5,0) rectangle (0.8786,0.35);
@@ -51,7 +51,7 @@
   \node at (0.9706,0.17) {$\mathbf{NP}$-hard};
 \end{tikzpicture}
 \end{center}
-\ona{\caption{Approximation ratios for MaxCut with non-negative weights. Green: achieved in polynomial time by Goemans--Williamson. Orange: $\mathbf{NP}$-hard if the Unique Games Conjecture holds. Red: $\mathbf{NP}$-hard unconditionally. $11/13$ is the corresponding threshold for real weights.}\label{fig:ch03:line}\end{figure}}
+\ona{\caption{Approximation ratios for MaxCut with non-negative weights. Green: achieved in polynomial time by Goemans--Williamson. Orange: $\mathbf{NP}$-hard if the Unique Games Conjecture holds, as a 2026 preprint claims to prove \citep{OAI:The-Unique-Games-Theorem-September-23-2026}. Red: $\mathbf{NP}$-hard unconditionally. $11/13$ is the corresponding threshold for real weights.}\label{fig:ch03:line}\end{figure}}
 \onp{\footnotesize Without the UGC, the status of ratios in $(0.878, 0.941]$ is unknown.}
 \end{frame}
 
@@ -160,7 +160,7 @@ There is a constant $s<1$ such that $\mathrm{Gap}_{1,s}$ for MAX-3-SAT is $\math
 \begin{thm}[\citet{Hstad2001}]
 For every $\epsilon > 0$, it is $\mathbf{NP}$-hard to approximate MaxCut with non-negative weights within $16/17 + \epsilon \approx 0.941$.
 \end{thm}
-\ona{Between $\alpha_{\rm GW} \approx 0.878$ and $0.941$ there remains a gap. The Unique Games Conjecture would close it.}
+\ona{Between $\alpha_{\rm GW} \approx 0.878$ and $0.941$ there remains a gap. The Unique Games Conjecture closes it, and a 2026 preprint claims to prove the conjecture (Section~\ref{sec:ch03:ugt}).}
 \onp{\footnotesize $\mathrm{Gap}_{c,s}$ $\mathbf{NP}$-hard $\Rightarrow$ no ratio better than $s/c$ unless $\mathbf P = \mathbf{NP}$.}
 \end{frame}
 
@@ -383,8 +383,49 @@ label-extended graph & sets of one copy per vertex & restatement \\
 small-set expansion & graphs only & implies it \citep{raghavendra2010graph} \\\bottomrule
 \end{tabular}
 \end{center}
-\ona{The conjecture is neither proved nor refuted. On the side of truth: \citet{Khot2018}, completing a programme with Dinur, Kindler and Minzer, proved the 2-to-2 games conjecture, a close relative, from which it follows that, for every $\epsilon>0$, it is $\mathbf{NP}$-hard to distinguish unique games of value at least $1/2-\epsilon$ from those of value at most $\epsilon$: completeness $1/2-\epsilon$ instead of $1-\zeta$. On the other side: \citet{arora2015subexponential} gave an algorithm running in time $\exp(n^{\mathrm{poly}(\zeta)})$, so that, if the conjecture holds, any reduction from an $\mathbf{NP}$-complete problem must enlarge instances by a polynomial whose degree grows as $\zeta \to 0$; and unique games whose constraint graphs are good expanders are easy \citep{arora2008unique}. Neither excludes the conjecture.}
-\onp{\footnotesize\begin{itemize}\item For: the 2-to-2 theorem, completeness $\approx 1/2$ \citep{Khot2018}. \item Against: a subexponential algorithm \citep{arora2015subexponential}; easy on expanders. \item Open.\end{itemize}}
+\ona{Until 2026 the conjecture was neither proved nor refuted. On the side of truth: \citet{Khot2018}, completing a programme with Dinur, Kindler and Minzer, proved the 2-to-2 games conjecture, a close relative, from which it follows that, for every $\epsilon>0$, it is $\mathbf{NP}$-hard to distinguish unique games of value at least $1/2-\epsilon$ from those of value at most $\epsilon$: completeness $1/2-\epsilon$ instead of $1-\zeta$. On the other side: \citet{arora2015subexponential} gave an algorithm running in time $\exp(n^{\mathrm{poly}(\zeta)})$, so that, if the conjecture holds, any reduction from an $\mathbf{NP}$-complete problem must enlarge instances by a polynomial whose degree grows as $\zeta \to 0$; and unique games whose constraint graphs are good expanders are easy \citep{arora2008unique}. Neither excludes the conjecture, and in September 2026 a proof was claimed, as we discuss next.}
+\onp{\footnotesize\begin{itemize}\item For: the 2-to-2 theorem, completeness $\approx 1/2$ \citep{Khot2018}. \item Against: a subexponential algorithm \citep{arora2015subexponential}; easy on expanders. \item 2026: a claimed proof \citep{OAI:The-Unique-Games-Theorem-September-23-2026}.\end{itemize}}
+\end{frame}
+
+\section{The Unique Games Theorem (2026)}\label{sec:ch03:ugt}
+
+\begin{frame}\ft{A claimed proof of the conjecture}
+\onp{\footnotesize}
+\ona{On 23 September 2026 OpenAI released a preprint, \emph{The Unique Games Theorem} \citep{OAI:The-Unique-Games-Theorem-September-23-2026}, which claims to prove Conjecture~\ref{conj:ch03:ugc}. Its main result reads as follows.}
+\begin{thm}[Unique Games Theorem, claimed in \citet{OAI:The-Unique-Games-Theorem-September-23-2026}]\label{thm:ch03:ugt}
+For every fixed $\epsilon,\delta\in(0,1/2)$ there are an integer $s\ge1$ and a deterministic polynomial-time reduction from 3-SAT to explicit, unweighted unique games $G_\varphi$ over the alphabet $K = \mathbb F_2^s$ such that $\varphi$ satisfiable implies $\mathrm{val}(G_\varphi)\ge1-\epsilon$, and $\varphi$ unsatisfiable implies $\mathrm{val}(G_\varphi)\le\delta$. The constraint graph is simple and bipartite, and every constraint is a translation $x_v = x_u + c_e$ in $K$.
+\end{thm}
+\begin{itemize}\setlength\itemsep{0.25em}
+    \item \textbf{The quantifiers are those of the conjecture:} the two errors are fixed first, and then the alphabet. The constraints are linear equations over $\mathbb F_2^s$, the form of Reformulation~4, which was known to be equivalent.
+    \item \textbf{Status.} As of October 2026 the preprint has not been peer reviewed, and the community has not yet reached a verdict on it. Until it has, every statement in this \chap{} that assumes the conjecture remains conditional, and we keep the label ``UG-hard''.
+    \item \textbf{What it does not settle.} The small-set expansion hypothesis, which implies the conjecture, is not addressed. Nor are the gaps that remain without the conjecture's help, such as $[0.9326, 0.997]$ for MaxCut on 3-regular graphs.
+\end{itemize}
+\onp{\scriptsize Unreviewed preprint (October 2026); results that assume the conjecture stay conditional until it is checked.}
+\end{frame}
+
+\begin{frame}\ft{How the claimed proof is organised}
+\onp{\scriptsize}
+\ona{The proof is long, 58 pages, and builds on most of the work described in this \chap{}. Its outline, as the preprint describes it:}
+\begin{itemize}\setlength\itemsep{0.25em}
+    \item \textbf{Starting point.} H\accent23 astad's gap for nearly satisfiable systems of parity equations on three variables \citep{Hstad2001}.
+    \item \textbf{The obstacle.} Completeness near $1$ is the difficult part when each label allows only one reply. The 2-to-2 theorem \citep{Khot2018} uses a test on binary matrices, which are perturbed by adding rank-one matrices. The natural unique version of this test keeps its answer with probability only about $1/2$, which is the source of the completeness $1/2$ mentioned above.
+    \item \textbf{The new ingredient: a ``latent alphabet'' gadget.} For any $p>0$, the preprint constructs a nonlinear map $C$ from a larger binary space $V \supseteq K$ to $K$ and a noise distribution on $V$. The map commutes with translations by $K$, and changes its value under the noise with probability at most $p$. At the same time, any family of linear observations of large rank still detects the noise. The construction iterates quadratic maps over a finite field. Testing equality of $C$ before and after a rank-one perturbation restores completeness near $1$.
+    \item \textbf{Soundness.} A labelling that passes the test often has Fourier mass on low-rank characters. An inverse theorem for the matrix shortcode, derived from the Grassmann expansion theorem of \citet{Khot2018}, then turns this mass into correlated strategies for a two-prover game. In the ``no'' case, parallel repetition, in the form of \citet{dinur2014analytical}, shows that such strategies agree too rarely. The two bounds contradict each other.
+    \item \textbf{Finishing.} Rounding weights and subdividing edges give the explicit unweighted, simple bipartite instances of Theorem~\ref{thm:ch03:ugt}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{What would follow}
+\ona{If Theorem~\ref{thm:ch03:ugt} is correct, every hardness result proved under the conjecture becomes an unconditional $\mathbf{NP}$-hardness result. Section~8 of the preprint works out the details for, among others, the following:}
+\begin{itemize}\setlength\itemsep{0.25em}
+    \item \textbf{MaxCut:} approximating within any ratio in $(\alpha_{\rm GW},1)$ is $\mathbf{NP}$-hard, by Theorem~\ref{thm:ch03:kkmo} below. Goemans--Williamson would then be optimal among polynomial-time algorithms, classical or quantum, unless $\mathbf{NP}\subseteq\mathbf{BQP}$ in the quantum case.
+    \item \textbf{Vertex cover:} hard within every factor in $(1,2)$ \citep{khot2008vertex}.
+    \item \textbf{Every CSP:} Raghavendra's semidefinite thresholds become $\mathbf{NP}$-hard \citep{raghavendra2008optimal}; for Max-2-SAT this gives $\approx0.940$ \citep{austrin2007balanced,brakensiek2024tight}.
+    \item \textbf{Ordering problems:} maximum acyclic subgraph is hard beyond the ratio $1/2$, and betweenness beyond $1/3$.
+    \item \textbf{Cut problems:} multicut, non-uniform sparsest cut and correlation clustering have no constant-factor approximation \citep{khot2015unique}.
+\end{itemize}
+\ona{For this course the first item is the one that matters: no polynomial-time quantum algorithm, QAOA included, could beat $\alpha_{\rm GW}\approx0.878$ on every MaxCut instance, unless $\mathbf{NP}\subseteq\mathbf{BQP}$. Any quantum advantage for MaxCut would then have to come from particular families of instances, or from exceeding polynomial time, as \Chap~\chref{C.EQA} argued for chemistry.}
+\onp{\footnotesize If correct: GW optimal for MaxCut unless $\mathbf{NP}\subseteq\mathbf{BQP}$; quantum advantage only on instance families.}
 \end{frame}
 
 \section{Boolean functions: dictators, long codes and noise stability}
@@ -414,7 +455,7 @@ For every $\rho\in(-1,1)$ and $\epsilon>0$ there is $\tau>0$ such that every $f:
 \onp{\scriptsize Dictators accepted with probability $\ge c$; functions with no notable coordinates with $\le s+o(1)$ $\Rightarrow$ UG-hard beyond $s/c$.}
 \end{frame}
 
-\section{Why Goemans--Williamson would be optimal}
+\section{Why Goemans--Williamson is optimal, given the conjecture}
 
 \begin{frame}\ft{The curve behind $\alpha_{\rm GW}$}
 \ona{Recall from \Chap~\chref{C.Motivation} that random-hyperplane rounding separates two unit vectors at angle $\theta$ with probability $\theta/\pi$, while the relaxation counts the edge as $(1-\cos\theta)/2$. Writing $\rho = \cos\theta$ for the correlation of the two vectors,}
@@ -486,7 +527,7 @@ Assume the Unique Games Conjecture. For every CSP, the largest ratio between the
 \begin{itemize}\setlength\itemsep{0.25em}
     \item Under the UGC, semidefinite programming is thus the last word on approximating CSPs in polynomial time. The approximation ratio of an algorithm and the hardness threshold are two faces of the same integrality gap.
     \item Other consequences include the hardness of approximating vertex cover within $2-\epsilon$ \citep{khot2008vertex}, and of approximating non-uniform sparsest cut within any constant \citep{khot2015unique}.
-    \item For quantum algorithms the conjecture sets the bar. If it holds, a polynomial-time quantum algorithm beating $\alpha_{\rm GW}$ on every instance would solve $\mathbf{NP}$-hard problems, which is not expected.
+    \item For quantum algorithms the conjecture sets the bar. If it holds, as the 2026 preprint claims, a polynomial-time quantum algorithm beating $\alpha_{\rm GW}$ on every instance would solve $\mathbf{NP}$-hard problems, which is not expected.
 \end{itemize}
 \end{frame}
 
@@ -506,7 +547,7 @@ metric TSP & $3/2 - 10^{-36}$ & $123/122$ & \\
 non-uniform sparsest cut & $\mathcal O(\sqrt{\log n}\,\log\log n)$ & & every constant \\\bottomrule
 \end{tabular}}
 \onp{\begin{center}\scriptsize\threshtab\end{center}}
-\ona{\begin{table}[htb]\centering\caption{Approximation thresholds. ``Tight'' means that the hardness matches the best algorithm, up to an arbitrarily small $\epsilon$. An empty entry in the last column means that the conjecture adds nothing to the unconditional result, or, for metric TSP, that no stronger conditional result is known; an empty entry in the middle column means that no constant-factor hardness is known unconditionally. The vertex-cover bound $\sqrt2$ follows from the 2-to-2 theorem. ${}^1$The ratio $\approx 0.9401$ of \citet{lewin2002improved} was computed numerically; \citet{austrin2007balanced} showed it UG-hard assuming a further ``simplicity'' conjecture, which \citet{brakensiek2024tight} proved, so that the result now rests on the Unique Games Conjecture alone. Sources, by row: MaxCut \citep{goemans1995improved,Hstad2001,khot2007optimal}; Max-2-SAT \citep{lewin2002improved,Hstad2001,austrin2007balanced,brakensiek2024tight}; Max-E3-SAT and Max-E3-Lin$(2)$ \citep{Hstad2001}; every CSP \citep{raghavendra2008optimal}; vertex cover \citep{Khot2018,khot2008vertex}; set cover \citep{dinur2014analytical}; maximum clique \citep{zuckerman2007linear}; metric TSP \citep{christofides1976worst,karlin2021slightly,karpinski2015new}; non-uniform sparsest cut \citep{arora2008euclidean,khot2015unique}.}\label{tab:ch03:thresholds}\small\threshtab\end{table}}
+\ona{\begin{table}[htb]\centering\caption{Approximation thresholds. ``Tight'' means that the hardness matches the best algorithm, up to an arbitrarily small $\epsilon$. An empty entry in the last column means that the conjecture adds nothing to the unconditional result, or, for metric TSP, that no stronger conditional result is known; an empty entry in the middle column means that no constant-factor hardness is known unconditionally. The vertex-cover bound $\sqrt2$ follows from the 2-to-2 theorem. If the claimed proof of the Unique Games Conjecture \citep{OAI:The-Unique-Games-Theorem-September-23-2026} is correct, every entry of the last column is $\mathbf{NP}$-hard unconditionally. ${}^1$The ratio $\approx 0.9401$ of \citet{lewin2002improved} was computed numerically; \citet{austrin2007balanced} showed it UG-hard assuming a further ``simplicity'' conjecture, which \citet{brakensiek2024tight} proved, so that the result now rests on the Unique Games Conjecture alone. Sources, by row: MaxCut \citep{goemans1995improved,Hstad2001,khot2007optimal}; Max-2-SAT \citep{lewin2002improved,Hstad2001,austrin2007balanced,brakensiek2024tight}; Max-E3-SAT and Max-E3-Lin$(2)$ \citep{Hstad2001}; every CSP \citep{raghavendra2008optimal}; vertex cover \citep{Khot2018,khot2008vertex}; set cover \citep{dinur2014analytical}; maximum clique \citep{zuckerman2007linear}; metric TSP \citep{christofides1976worst,karlin2021slightly,karpinski2015new}; non-uniform sparsest cut \citep{arora2008euclidean,khot2015unique}.}\label{tab:ch03:thresholds}\small\threshtab\end{table}}
 \onp{\scriptsize Maximisation: fraction of the optimum. Minimisation: factor above it. ``Tight'': hardness matches the algorithm.}
 \end{frame}
 
@@ -611,7 +652,7 @@ Minimising $\braket{O(\boldsymbol\phi)} = \braket{\Psi(\boldsymbol\phi)|O|\Psi(\
 \ona{where $\braket{O}_{\rm alg}$ is the value at the parameters returned and the denominator, the spectral width, makes $\rho$ independent of the scale of $O$. Unless $\mathbf P = \mathbf{NP}$:}
 \begin{itemize}\setlength\itemsep{0.25em}
     \item \textbf{With oracle access, no $\rho < 1$.} Take $k$ copies of the circuit of step 2 and the observable $(-1)^{k-1}O^{\otimes k}$, whose eigenvalues lie in $[-\mathrm{MC}^k,0]$, with $\mathrm{MC}$ the maximum cut. The expectation is $-|\mu(\boldsymbol\phi)|^k$. An algorithm with error $\rho<1$ would return $\boldsymbol\phi$ with $|\mu(\boldsymbol\phi)| \ge (1-\rho)^{1/k}\,\mathrm{MC}$, and rounding as in step 1 would give a cut within a factor $(1-\rho)^{1/k} \to 1$ of the optimum, for any $k$: an approximation scheme for MaxCut, which is $\mathbf{APX}$-hard.
-    \item \textbf{For QAOA of depth one, $\rho \ge (1-\alpha_{\max})/2$}, where $\alpha_{\max}$ is the best ratio achievable for MaxCut in polynomial time. In their construction $\braket{H_c}_{\min} = 1 - 2\mathrm{MC}/|E|$ with spectral width $2$, so a cut of ratio $\alpha$ gives error $\tfrac12(1-\alpha)\,2\mathrm{MC}/|E| \ge (1-\alpha)/2$, as $\mathrm{MC}\ge|E|/2$. With H\accent23 astad's bound $\alpha_{\max} \le 16/17$ this is $\rho \ge 1/34 \approx 0.029$; under the Unique Games Conjecture, $\alpha_{\max} = \alpha_{\rm GW}$ and $\rho \ge 0.061$. Gradient methods, whose fixed points are the local optima of single-vertex moves, have $\alpha = 1/2$ and hence $\rho \ge 1/4$.
+    \item \textbf{For QAOA of depth one, $\rho \ge (1-\alpha_{\max})/2$}, where $\alpha_{\max}$ is the best ratio achievable for MaxCut in polynomial time. In their construction $\braket{H_c}_{\min} = 1 - 2\mathrm{MC}/|E|$ with spectral width $2$, so a cut of ratio $\alpha$ gives error $\tfrac12(1-\alpha)\,2\mathrm{MC}/|E| \ge (1-\alpha)/2$, as $\mathrm{MC}\ge|E|/2$. With H\accent23 astad's bound $\alpha_{\max} \le 16/17$ this is $\rho \ge 1/34 \approx 0.029$; under the Unique Games Conjecture, $\alpha_{\max} = \alpha_{\rm GW}$ and $\rho \ge 0.061$, unconditionally if the 2026 claimed proof holds. Gradient methods, whose fixed points are the local optima of single-vertex moves, have $\alpha = 1/2$ and hence $\rho \ge 1/4$.
     \item \textbf{The depth, too.} For every $\epsilon>0$ it is $\mathbf{QCMA}$-hard to approximate the smallest depth of an ansatz that reaches a target energy within a factor $N^{1-\epsilon}$, where $N$ is the size of the instance \citep{bittelQCMA}.
 \end{itemize}
 \onp{\footnotesize Error $\rho$ relative to the spectral width. Oracle: no $\rho<1$; QAOA: $\rho\ge(1-\alpha_{\max})/2$, i.e., $\ge 1/34$, or $\ge 0.061$ under UGC; depth: $\mathbf{QCMA}$-hard within $N^{1-\epsilon}$.}
