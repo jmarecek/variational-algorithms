@@ -9,156 +9,543 @@
 \lecture{Iteration Complexity of QAOA with the Parameter-Shift Rule}{Lect08}
 \chapter{Iteration Complexity of QAOA with the Parameter-Shift Rule}\label{C.IterationComplexity}
 
-\ona{This \chap{} follows \citet{kungurtsev2022iteration}, \emph{Iteration Complexity of Variational Quantum Algorithms}. The question is how many steps the classical optimizer in a VQA needs until its iterates satisfy a surrogate measure of optimality, given that the quantum computer returns function values that are not only noisy but \emph{biased}. The gradient estimators, the parameter-shift rule (PSR), SPSA and the two-point approximation, were introduced in \Chap~\chref{C.PSR}; here we analyse them.}
+\ona{The optimizer of a variational algorithm is an iterative method, and this \chap{} asks how many iterations it needs. \Chap~\chref{C.VQE} showed that no polynomial-time method can guarantee the global minimum, nor even a point near a local minimum, and we therefore ask for a point at which the gradient is small. For gradient descent with the parameter-shift rule of \Chap~\chref{C.PSR}, and with the derivative-free estimators described there, we bound the number of iterations after which the expected squared norm of the gradient falls below a given $\epsilon$. The estimates of a quantum computer are noisy, which the theory of stochastic gradient descent accommodates, and they are also \emph{biased}: the noise of the device shifts the mean of an estimate, however many copies are measured. Following \citet{kungurtsev2022iteration}, we show that the bias does not change the rate of convergence, but sets a floor below which the guarantee cannot go, and we show that no method can remove this floor. We state the results with the constants that our proofs give, which differ in places from those of \citet{kungurtsev2022iteration}. The numbers quoted in this \chap{} are computed by \texttt{code/ch08\_figures.py}, on the worked example of \Chap~\chref{C.VQE}.}
 
-\section{Biased function evaluations}
+% \L is redefined in declarns.tex; the T1 encoding has the letter at position 138
+\mode<all>{\gdef\Loj{{\fontencoding{T1}\selectfont\char138}ojasiewicz}}
 
-\begin{frame}\ft{The classical optimizer's view of a VQA}
-\ona{From the optimizer's point of view, a VQA is the minimisation of}
-\begin{equation}\label{eq:ch06:cost}
-    C(\boldsymbol\theta) = \braket{\psi_0|U^\dagger(\boldsymbol\theta)\,O\,U(\boldsymbol\theta)|\psi_0}, \qquad U(\boldsymbol\theta) = U_p(\theta_p)\cdots U_1(\theta_1),\quad U_i(\theta_i) = W_i e^{-i\theta_i H_i},
-\end{equation}
-\ona{where each evaluation is a sample mean of measurement outcomes. Two things distinguish this from textbook stochastic optimization:}
-\begin{itemize}\setlength\itemsep{0.2em}
-    \item \textbf{Zero-order access.} One observes (estimates of) $C$, not $\nabla C$. Popular optimizers are SPSA, COBYLA, or gradients estimated by the \emph{parameter-shift rule}.
-    \item \textbf{Bias.} Noise in near-term devices does not average out. A depolarising channel $\mathcal E(\rho) = p\,\one/d + (1-p)\rho$ before the measurement of $O$ yields samples of $\Tr(\mathcal E(\rho)O) \ne \Tr(\rho O)$, no matter how many shots. Read-out on IBM devices is asymmetric, $p(0|1) > p(1|0)$\ona{, see Fig.~\ref{fig:ch06:bell}}.
-\end{itemize}
-\ona{Off-the-shelf analyses of SPSA and of zero-order methods assume unbiased evaluations, so they do not apply. The contribution of \citet{kungurtsev2022iteration} is to supply the missing guarantees.}
-\end{frame}
+\section{Iteration complexity}\label{sec:ch08:complexity}
 
-\begin{frame}\ft{Bias in a two-qubit experiment}
-\onp{\begin{center}\includegraphics[height=0.4\textheight]{figures/itercomp/qca1.png}\hspace{0.5cm}\includegraphics[height=0.4\textheight]{figures/itercomp/rqca1.png}\end{center}{\tiny Measurement statistics of a Bell state: noise-free simulation (left) and \texttt{ibmq\_santiago} (right). The outcomes $01$ and $10$ appear with non-zero frequency independently of the number of shots: the estimator is biased.}}
-\ona{\begin{figure}[htb]\centering\includegraphics[width=0.42\linewidth]{figures/itercomp/qca1.png}\hfill\includegraphics[width=0.42\linewidth]{figures/itercomp/rqca1.png}\caption{Measurement statistics of a Bell state prepared by a Hadamard and a CNOT: noise-free simulation (left) and IBM's five-qubit device \texttt{ibmq\_santiago} (right) \citep{kungurtsev2022iteration}. The outcomes $01$ and $10$ appear with non-zero frequency independently of the number of shots, so the sample mean of any observable is biased.}\label{fig:ch06:bell}\end{figure}}
-\end{frame}
-
-\begin{frame}\ft{The noise model}
-\ona{Write a function evaluation as}
-\begin{equation}\label{eq:ch06:feval}
-    f' \sim F(\boldsymbol\theta,\xi) = f(\boldsymbol\theta) + n(\boldsymbol\theta,\xi),
-\end{equation}
-\ona{where $f = C$ is the true objective and $\xi$ the randomness of the device. Two assumptions:}
-\begin{itemize}\setlength\itemsep{0.3em}
-    \item[\textbf{A1}] (bounded bias) $n(\boldsymbol\theta_k,\xi_k) = r_k + b_k$ with $\mathbb E[r_k] = 0$, $\mathbb E\|r_k\|^2 \le \sigma^2$, and $\|b_k\| \le b$ almost surely.
-    \item[\textbf{A2}] (smoothness) $\nabla F(\cdot,\xi)$ is $L$-Lipschitz for all $\xi$.
-\end{itemize}
-\ona{Both are natural for VQAs: a gate error $H_i \mapsto \tilde H_i$ perturbs \eqref{eq:ch06:cost} by at most $b = 2\|e^{i\theta H} - e^{i\theta\tilde H}\|\,\sigma^M(O)$, where $\sigma^M(O)$ is the largest eigenvalue of $O$, since all other factors are norm-preserving; and $C$ is a trigonometric polynomial with Hessian bounded by $L = \sigma^M(O)$ in the ideal case. Shot noise contributes to $\sigma^2$ and shrinks with the number of shots; the bias $b$ does not.}
-\onp{Gate errors give $b \le 2\|e^{i\theta H}-e^{i\theta\tilde H}\|\,\sigma^M(O)$; smoothness $L = \sigma^M(O)$; more shots shrink $\sigma^2$ but not $b$.}
-\end{frame}
-
-\section{The estimators, recalled}
-
-\begin{frame}\ft{Three ways to a gradient}
-\ona{Recall from \Chap~\chref{C.PSR}: the parameter-shift rule gives an exact gradient from $2L$ shifted evaluations, $\partial_jC = [C(\boldsymbol\theta + \tfrac\pi2e_j) - C(\boldsymbol\theta - \tfrac\pi2e_j)]/2$; the derivative-free estimators use two evaluations along a random direction $\boldsymbol\Delta_k$ with perturbation $c_k$:}
-\begin{align}
-    \text{SPSA:}\quad & [\boldsymbol g_k]_i \sim \frac{F(\boldsymbol\theta_k + c_k\boldsymbol\Delta_k,\xi_k^1) - F(\boldsymbol\theta_k - c_k\boldsymbol\Delta_k,\xi_k^2)}{2c_k[\boldsymbol\Delta_k]_i}, \label{eq:ch06:spsa}\\
-    \text{two-point (2PFA):}\quad & \boldsymbol g_k \sim \frac{F(\boldsymbol\theta_k + c_k\boldsymbol\Delta_k,\xi_k^1) - F(\boldsymbol\theta_k,\xi_k^2)}{c_k}\,\boldsymbol\Delta_k, \label{eq:ch06:2pfa}
-\end{align}
-\ona{each followed by $\boldsymbol\theta_{k+1} = \boldsymbol\theta_k - \alpha_k\boldsymbol g_k$. The two-point estimator is an unbiased gradient of the Gaussian smoothing $f_c(\boldsymbol\theta) = \mathbb E_{\boldsymbol\Delta}f(\boldsymbol\theta + c\boldsymbol\Delta)$, with $|f_c - f| \le \tfrac{c^2}{2}Lp$ and $\|\nabla f_c - \nabla f\| \le \tfrac c2L(p+3)^{3/2}$; these smoothing bounds \eqref{eq:ch06:smooth} enter the theorems below.}
-\begin{equation}\label{eq:ch06:smooth}
-    f_c(\boldsymbol\theta) = \mathbb E_{\boldsymbol\Delta\sim\mathcal N(0,\one)} f(\boldsymbol\theta + c\boldsymbol\Delta).
-\end{equation}
-\ona{Existing guarantees assume unbiased evaluations \citep{ghadimi2013stochastic} or strong convexity \citep{granichin2014simultaneous}, neither of which holds for VQAs.}
-\end{frame}
-
-\section{Iteration complexity with bias}
-
-\begin{frame}\ft{Two-point approximation with bias}
+\begin{frame}\ft{Counting iterations}
 \onp{\footnotesize}
-\begin{thm}[\citet{kungurtsev2022iteration}]\label{thm:ch06:twopoint}
-Under A1--A2, consider the two-point approximation \eqref{eq:ch06:2pfa} with $K$ iterations and constant step $\alpha_k \equiv \alpha/\sqrt K$, $\alpha \le L/4$. Then
-\begin{equation}\label{eq:ch06:tp}
-    \min_{k\le K}\mathbb E\|\nabla f(\boldsymbol\theta_k)\|^2 \le
-    \underbrace{\frac{4(f_c(\boldsymbol\theta_0) - f_c^*)}{\alpha\sqrt K}}_{\text{optimization}}
-    + \underbrace{\frac{2L\alpha(\sigma^2 + 8b^2/c^2)}{\alpha\sqrt K}}_{\text{noise and bias}}
-    + \underbrace{\Big[\frac{2b^2}{c^2} + \frac{c^2}{2}L(p+3)^3\Big]}_{\text{effect of bias}}.
+\ona{We consider, as in \Chap~\chref{C.PSR}, the cost of a circuit with $d$ parameters, $C(\boldsymbol\theta) = \braket{\psi(\boldsymbol\theta)|O|\psi(\boldsymbol\theta)}$, its infimum $C^*$, and iterations of the form}
+\begin{equation}\label{eq:ch08:iter}
+    \boldsymbol\theta_{k+1} = \boldsymbol\theta_k - \alpha\,\boldsymbol g_k,\qquad k = 0,1,\dots,K-1,
 \end{equation}
-With diminishing steps $\alpha_k = \alpha/k^\gamma$, $\gamma \in (1/2,1]$, and a random iterate $\boldsymbol\theta_R$ drawn with probability $\propto \alpha_k$, the same bound holds with $\sqrt K$ replaced by $K^\gamma$.
-\end{thm}
+\ona{where $\boldsymbol g_k$ is an estimate of the gradient $\nabla C(\boldsymbol\theta_k)$, obtained from circuits, and $\alpha>0$ is the step. The \emph{iteration complexity} of such a method, for a class of costs and a measure of accuracy, is the number of iterations that it needs, in the worst case over the class, to reach the accuracy. What a single iteration costs, in circuits and copies, is the subject of \Chap~\chref{C.PerIteration}.}
+\begin{defn}\label{defn:ch08:stationary}
+Let $\epsilon>0$. A random point $\hat{\boldsymbol\theta}$ is an \emph{$\epsilon$-stationary point} of $C$ if $\mathbb E\,\|\nabla C(\hat{\boldsymbol\theta})\|^2\le\epsilon$.
+\end{defn}
 \begin{itemize}\setlength\itemsep{0.2em}
-    \item The first two terms vanish as $K \to \infty$ at the rate $1/\sqrt K$ of unbiased stochastic gradient descent; the bias enlarges the constant.
-    \item The third term does not vanish: no number of iterations brings the gradient norm below it. Minimising it over the perturbation size gives $c^* = [4b^2/(L(p+3)^3)]^{1/4}$\ona{, see Fig.~\ref{fig:ch06:cstar}}.
+    \item The global minimum cannot be guaranteed: training VQA is $\mathbf{NP}$-hard even for circuits that can be simulated classically, and so is finding a point near a local minimum (\Chap~\chref{C.VQE}).
+    \item A small gradient is necessary at a minimum, and it is not sufficient: maxima and saddle points are stationary too. The bounds of this \chap{} say nothing about the value of $C$; good starting points are the subject of \Chaps~\chref{C.WSRounded}--\chref{C.WSContinuous}.
+    \item The expectation is over the measurements and over any randomness of the method.
 \end{itemize}
 \end{frame}
 
-\begin{frame}\ft{The optimal perturbation}
-\figslide[height=0.55\textheight]{figures/itercomp/cstar.pdf}{Logarithm of the optimal perturbation $c^*$ of the two-point approximation as a function of the bias $b$ and the number of parameters $p$ \citep{kungurtsev2022iteration}: more bias calls for coarser perturbations, more parameters for finer ones.}{fig:ch06:cstar}
+\begin{frame}\ft{Bounds on the derivatives of the cost}
+\onp{\scriptsize}
+\ona{The analysis of every method in this \chap{} rests on bounds on the derivatives of the cost. By the lemma on frequencies of \Chap~\chref{C.PSR}, applied to each gate in turn, the cost is a Hermitian trigonometric polynomial in the sense of \Chap~\chref{C.VQE}, whose degree in $\theta_j$ is at most the largest frequency of the $j$-th gate; for a Pauli rotation it is $1$.}
+\begin{lem}\label{lem:ch08:derivs}
+Let $C$ be a Hermitian trigonometric polynomial of degree at most $R_j$ in $\theta_j$, $j = 1,\dots,d$, let $W$ be half the width of its range, and let $\|\boldsymbol R\|^2 = \sum_jR_j^2$. Then for all $\boldsymbol\theta$ and $\boldsymbol h$ in $\R^d$,
+\begin{equation}\label{eq:ch08:derivs}
+    \|\nabla C(\boldsymbol\theta)\|\le\|\boldsymbol R\|\,W,\qquad |\boldsymbol h^\top\nabla^2C(\boldsymbol\theta)\boldsymbol h|\le\|\boldsymbol R\|^2W\|\boldsymbol h\|^2,\qquad |D^3C(\boldsymbol\theta)[\boldsymbol h,\boldsymbol h,\boldsymbol h]|\le\|\boldsymbol R\|^3W\|\boldsymbol h\|^3.
+\end{equation}
+For a circuit of $d$ Pauli rotations, $R_j = 1$ and $W\le w/2$, where $w = \lambda_{\max}(O)-\lambda_{\min}(O)$ is the spectral width of $O$; hence $\|\nabla C\|\le\sqrt d\,w/2$ and $\|\nabla^2C\|\le dw/2$.
+\end{lem}
+\ona{\emph{Proof.} By the general parameter-shift rule of \Chap~\chref{C.PSR}, applied at an arbitrary point, a real trigonometric polynomial $p$ of degree $R$ satisfies $|p'|\le\sum_\mu2|y_\mu|\max|p| = R\max|p|$, which is Bernstein's inequality \citep{zygmund2003trigonometric}; it applies to $p$ minus any constant, which has the same derivative. Applied to $\theta_j\mapsto C(\boldsymbol\theta)$ minus the midpoint of the range, it gives $|\partial_jC|\le R_jW$. The derivative $\partial_jC$ is again a trigonometric polynomial, of degree at most $R_k$ in $\theta_k$ and bounded by $R_jW$, so that $|\partial_k\partial_jC|\le R_kR_jW$, and in the same way $|\partial_l\partial_k\partial_jC|\le R_lR_kR_jW$. Hence $|\boldsymbol h^\top\nabla^2C\boldsymbol h|\le\sum_{j,k}R_jR_k|h_j||h_k|W = (\sum_jR_j|h_j|)^2W\le\|\boldsymbol R\|^2\|\boldsymbol h\|^2W$ by the Cauchy--Schwarz inequality, and similarly for the gradient and the third derivative. The range of $C$ lies between the extreme eigenvalues of $O$. \qed}
+\onp{Proof: Bernstein's inequality $|p'|\le R\max|p|$, from the general rule, applied once, twice or three times, and the Cauchy--Schwarz inequality.}
+\begin{itemize}\setlength\itemsep{0.15em}
+    \item The bounds are attained: $R_Y(\theta_d)\cdots R_Y(\theta_1)$ on one qubit, with $O = Z$, has the cost $\cos(\theta_1+\dots+\theta_d)$, with $\|\nabla C\| = \sqrt d$ and $\|\nabla^2C\| = d$ at suitable points.
+    \item In the worked example, $F(\beta,\gamma) = -2+\sin4\beta\sin2\gamma$ has the degrees $4$ and $2$ and $W = 1$: $\|\nabla F\|\le\sqrt{20}\approx4.47$ and $\|\nabla^2F\|\le20$, against the largest values $4$ and $16$. The spectra alone, with the degrees $8$ and $4$ and $W = 2$, give $\|\nabla^2F\|\le160$.
+\end{itemize}
 \end{frame}
 
-\begin{frame}\ft{SPSA with bias}
-\ona{For SPSA one uses Spall's lemma: without bias in the evaluations, the estimate \eqref{eq:ch06:spsa} satisfies $\boldsymbol g_k - \nabla f(\boldsymbol\theta_k) = \boldsymbol r_k + \boldsymbol b_0(\boldsymbol\theta_k)$ with $\mathbb E\boldsymbol r_k = 0$ and $\|\boldsymbol b_0\| \le b_0 c_k^2$, provided $\boldsymbol\Delta_k$ is symmetric with bounded components and inverse moments. Add the assumption that $[\boldsymbol\Delta_k]_i^{-1} \le B_3$ almost surely.}
-\begin{thm}[\citet{kungurtsev2022iteration}]\label{thm:ch06:spsa}
-Under A1--A2 and the SPSA conditions above, with $K$ iterations and $\alpha_k \equiv \alpha/\sqrt K$, $\alpha \le L/2$,
-\begin{equation}\label{eq:ch06:spsabound}
-    \min_{k\le K}\mathbb E\|\nabla f(\boldsymbol\theta_k)\|^2 \le
-    \frac{4(f_c(\boldsymbol\theta_0)-f_c^*)}{\alpha\sqrt K}
-    + \frac{2L\alpha\big[\frac{\sigma^2B_3^2}{c_k^2} + 2b_0c_k^2 + \frac{2b^2B_3^2}{c_k^2}\big]}{\sqrt K}
-    + \Big[b_0c_k^2 + \frac{b^2B_3^2}{c_k^2}\Big],
+% the energy of one gate of the worked example (Lecture 7), f(phi) = -2.03868 + 0.19471 sin(phi - 0.1),
+% with the parabola of the descent lemma at phi_0 = -0.1, L = 0.19471, and the step to its vertex
+\mode<all>{\gdef\descfig#1{\begin{axis}[#1,width=\dsW,height=\dsH,clip=false,axis lines=left,xmin=-3.1416,xmax=3.1416,ymin=-2.26,ymax=-1.82,xtick={-3.1416,-1.5708,0,1.5708,3.1416},xticklabels={$-\pi$,$-\frac\pi2$,$0$,$\frac\pi2$,$\pi$},ytick={-2.2,-2.1,-2,-1.9},xlabel={$\phi$},ylabel={energy},samples=150,no markers,thick]
+  \addplot[blue!70!black,domain=-3.1416:3.1416] {-2.03868+0.19471*sin(deg(x-0.1))};
+  \addplot[red!75!black,domain=-2.9:0.6] {-2.07736+0.19083*(x+0.1)+0.097355*(x+0.1)^2};
+  \draw[gray,densely dashed,thin] (axis cs:-1.4708,-2.26) -- (axis cs:-1.4708,-2.2334);
+  \draw[gray,densely dotted,thin] (axis cs:-1.0801,-2.07736) -- (axis cs:-0.1,-2.07736);
+  \draw[black,thin] (axis cs:-1.0801,-2.07736) -- (axis cs:-1.0801,-2.2187);
+  \fill[black] (axis cs:-0.1,-2.07736) circle (1.6pt);
+  \fill[red!75!black] (axis cs:-1.0801,-2.1709) circle (1.6pt);
+  \fill[blue!70!black] (axis cs:-1.0801,-2.2187) circle (1.6pt);
+  \node[font=\scriptsize,anchor=south west,inner sep=1pt] at (axis cs:-0.1,-2.07736) {$\phi_0$};
+  \node[font=\scriptsize,anchor=north west,inner sep=1pt] at (axis cs:-1.0801,-2.2187) {$\phi_1$};
+  \ona{\node[note,anchor=west] (s1) at (axis cs:3.5,-1.86) {the parabola of curvature\\$L = 0.195$ lies above $f$,\\since $|f''|\le L$};
+  \draw[notearrow] (s1.west) to[bend right=15] (axis cs:0.5,-1.93);
+  \node[note,anchor=west] (s2) at (axis cs:3.5,-2.0) {its vertex $\phi_1 = -1.080$,\\one step of length\\$f'(\phi_0)/L = 0.98$};
+  \draw[notearrow] (s2.west) to[bend left=12] (axis cs:-1.0,-2.168);
+  \node[note,anchor=west] (s3) at (axis cs:3.5,-2.13) {decrease guaranteed by\\the lemma: $0.094$;\\actual decrease: $0.141$};
+  \draw[notearrow] (s3.west) to[bend left=12] (axis cs:-1.03,-2.2);
+  \node[note,anchor=west] (s4) at (axis cs:3.5,-2.24) {the minimiser $-1.471$};
+  \draw[notearrow] (s4.west) to[bend left=8] (axis cs:-1.42,-2.25);}
+\end{axis}}}
+\begin{frame}\ft{The descent lemma}
+\onp{\footnotesize}
+\begin{lem}\label{lem:ch08:descent}
+If $\|\nabla^2C(\boldsymbol\theta)\|\le L$ for all $\boldsymbol\theta$, then for all $\boldsymbol\theta$ and $\boldsymbol\theta'$,
+\begin{equation}\label{eq:ch08:descent}
+    C(\boldsymbol\theta')\le C(\boldsymbol\theta) + \nabla C(\boldsymbol\theta)^\top(\boldsymbol\theta'-\boldsymbol\theta) + \frac L2\|\boldsymbol\theta'-\boldsymbol\theta\|^2.
 \end{equation}
-and analogously for diminishing steps.
+In particular, the step $\boldsymbol\theta' = \boldsymbol\theta-\frac1L\nabla C(\boldsymbol\theta)$ decreases the cost by at least $\|\nabla C(\boldsymbol\theta)\|^2/(2L)$.
+\end{lem}
+\ona{\emph{Proof.} With $\boldsymbol h = \boldsymbol\theta'-\boldsymbol\theta$, Taylor's theorem with the integral form of the remainder gives $C(\boldsymbol\theta')-C(\boldsymbol\theta)-\nabla C(\boldsymbol\theta)^\top\boldsymbol h = \int_0^1(1-t)\,\boldsymbol h^\top\nabla^2C(\boldsymbol\theta+t\boldsymbol h)\boldsymbol h\,dt\le\frac L2\|\boldsymbol h\|^2$. The right-hand side of \eqref{eq:ch08:descent} is least at $\boldsymbol\theta' = \boldsymbol\theta-\nabla C(\boldsymbol\theta)/L$, where it equals $C(\boldsymbol\theta)-\|\nabla C(\boldsymbol\theta)\|^2/(2L)$. \qed}
+\onp{Proof: Taylor's theorem with the integral form of the remainder; the right-hand side is least at $\boldsymbol\theta-\nabla C/L$.}
+
+\ona{We call $L$ the \emph{smoothness constant} of $C$; it is a Lipschitz constant of $\nabla C$, and by Lemma~\ref{lem:ch08:derivs} it may be taken to be $dw/2$ for every circuit of $d$ Pauli rotations. The lemma says that the cost lies below a parabola that touches it at $\boldsymbol\theta$, and minimising the parabola in place of the cost gives a step of gradient descent with $\alpha = 1/L$. Figure~\ref{fig:ch08:descent} shows this for the energy of the worked example as a function of the angle $\phi$ of one gate, as in \Chap~\chref{C.PSR}, $f(\phi) = -2.039+0.195\sin(\phi-0.1)$, for which $L = 0.195$. From $\phi_0 = -0.1$, where $f = -2.077$ and $f' = 0.191$, the step reaches the vertex $\phi_1 = -1.080$ of the parabola. The lemma guarantees a decrease of $f'(\phi_0)^2/(2L) = 0.094$, and the actual decrease is $0.141$. Two further steps leave an error of $2\cdot10^{-7}$ with respect to the minimiser $-1.471$ (Exercise~\ref{exe:ch08:gate1}).}
+\ona{\gdef\dsW{0.5\linewidth}\gdef\dsH{0.36\linewidth}}\onp{\gdef\dsW{6.2cm}\gdef\dsH{5.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\descfig{}\end{tikzpicture}
+\caption{The descent lemma for the energy $f$ of the worked example of \Chap~\chref{C.VQE} as a function of the angle $\phi$ of the gate $R_Z$ of edge $12$ (blue), with the parabola of \eqref{eq:ch08:descent} at $\phi_0 = -0.1$ (red) and one step of gradient descent with $\alpha = 1/L$, to the vertex of the parabola.}\label{fig:ch08:descent}\end{figure}}
+\end{frame}
+
+\begin{frame}\ft{A step of gradient descent on one gate}
+\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\descfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item The energy of the worked example as a function of the angle $\phi$ of one gate (blue), $f(\phi) = -2.039+0.195\sin(\phi-0.1)$, with $L = 0.195$.
+    \item The parabola of the lemma at $\phi_0 = -0.1$ (red) lies above $f$.
+    \item One step of gradient descent, of length $f'(\phi_0)/L = 0.98$, reaches its vertex $\phi_1 = -1.080$.
+    \item Guaranteed decrease $0.094$; actual decrease $0.141$.
+    \item The minimiser is $-1.471$ (dashed); two more steps leave an error of $2\cdot10^{-7}$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\section{Gradient descent}\label{sec:ch08:gd}
+
+\begin{frame}\ft{Gradient descent}
+\onp{\footnotesize}
+\begin{thm}\label{thm:ch08:gd}
+Let $\|\nabla^2C\|\le L$. Gradient descent with exact gradients and the step $1/L$, $\boldsymbol\theta_{k+1} = \boldsymbol\theta_k-\frac1L\nabla C(\boldsymbol\theta_k)$, satisfies
+\begin{equation}\label{eq:ch08:gd}
+    \min_{k<K}\|\nabla C(\boldsymbol\theta_k)\|^2\le\frac1K\sum_{k=0}^{K-1}\|\nabla C(\boldsymbol\theta_k)\|^2\le\frac{2L\,(C(\boldsymbol\theta_0)-C^*)}K.
+\end{equation}
 \end{thm}
-\ona{The structure is the same: an optimization term, a noise-and-bias term, both decaying, and an asymptotic bias floor. Unlike the two-point method, the dimension $p$ enters SPSA only through $b_0$, and the user controls two knobs, $c_k$ and $B_3$, to mitigate the bias.}
+\ona{\emph{Proof.} By Lemma~\ref{lem:ch08:descent}, $\|\nabla C(\boldsymbol\theta_k)\|^2\le2L\,(C(\boldsymbol\theta_k)-C(\boldsymbol\theta_{k+1}))$. Summed over $k<K$, the right-hand side telescopes to $2L\,(C(\boldsymbol\theta_0)-C(\boldsymbol\theta_K))\le2L\,(C(\boldsymbol\theta_0)-C^*)$. \qed}
+\onp{Proof: each step decreases $C$ by at least $\|\nabla C(\boldsymbol\theta_k)\|^2/(2L)$, and the decreases add up to at most $C(\boldsymbol\theta_0)-C^*$.}
+
+\ona{Hence $\lceil2L(C(\boldsymbol\theta_0)-C^*)/\epsilon\rceil$ iterations give a point with $\|\nabla C\|^2\le\epsilon$. For a circuit of $d$ Pauli rotations, $L\le dw/2$ and $C(\boldsymbol\theta_0)-C^*\le w$, so that $dw^2/\epsilon$ iterations suffice, whatever the circuit; the number grows linearly with the number of parameters, through the smoothness constant. For general smooth functions the order cannot be improved: \citet{carmon2020lower} show that, in sufficiently high dimension, every method that uses gradients requires a number of iterations of the order of $L(C(\boldsymbol\theta_0)-C^*)/\epsilon$ in the worst case. Their functions are not costs of circuits, and the lower bound does not transfer to them directly. In the worked example, gradient descent with the step $1/20$ from $(0.1,-0.1)$ reaches the minimum $-3$ to six digits within $200$ iterations.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item $2L(C(\boldsymbol\theta_0)-C^*)/\epsilon$ iterations; at most $dw^2/\epsilon$ for $d$ Pauli rotations.
+    \item The order is the best possible for general smooth functions \citep{carmon2020lower}.
+    \item The bound holds for the least gradient among the iterates, not for the last iterate, and says nothing about the value.
+\end{itemize}
 \end{frame}
 
-\begin{frame}\ft{The bound surface for SPSA}
-\figslide[height=0.55\textheight]{figures/itercomp/exp.pdf}{The right-hand side of \eqref{eq:ch06:spsabound} for $L = 8$, $\alpha = 4$, $\sigma = 1$, $K = 10^5$, as a function of bias $b$ and perturbation $c$, logarithmic scale \citep{kungurtsev2022iteration}. For each bias there is an optimal perturbation size.}{fig:ch06:exp}
-\end{frame}
-
-\begin{frame}\ft{Parameter-shift rule with bias}
-\ona{Without bias, the parameter-shift rule is an exact gradient, so with shot noise it is an unbiased stochastic gradient; the device bias then puts us exactly in the setting of biased stochastic gradient descent \citep{ajalloeian2020convergence}, with bias bounded by $\zeta^2 = b$ and no gradient-proportional terms. Hence, for constant step $\alpha \le 1/L$,}
-\begin{equation}\label{eq:ch06:psrbound}
-    \frac1K\sum_{k=1}^K\|\nabla f(\boldsymbol\theta_k)\|^2 \le \frac{2F}{K\alpha} + \alpha L\sigma^2 + b,
+\begin{frame}\ft{Linear convergence near a minimiser}
+\onp{\footnotesize}
+\ona{The rate $1/K$ of Theorem~\ref{thm:ch08:gd} is slow. Near a minimiser gradient descent may converge much faster, under a condition that is weaker than convexity.}
+\begin{propn}[\citet{polyak1963gradient}]\label{propn:ch08:pl}
+Let $\|\nabla^2C\|\le L$, and suppose that on a set that contains the iterates, $C$ satisfies the \emph{Polyak--\Loj{} inequality}
+\begin{equation}\label{eq:ch08:pl}
+    \tfrac12\|\nabla C(\boldsymbol\theta)\|^2\ge\mu\,(C(\boldsymbol\theta)-C^*)
 \end{equation}
-\ona{where $F$ is the initial optimality gap.}
-\textbf{Comparison of \eqref{eq:ch06:tp}, \eqref{eq:ch06:spsabound}, \eqref{eq:ch06:psrbound}.}
-\begin{enumerate}\setlength\itemsep{0.1em}
-    \item All three have the same rate; the bias affects constants and the floor, not the rate.
-    \item The error grows at least with the square of $\sigma^M(O)$, through $L$ and $b$.
-    \item PSR has the smallest bias floor and constants, as an exact gradient should; but it costs $2p$ evaluations per iteration.
-    \item SPSA is the most tuneable: $B_3$ and $c_k$ are the user's, and aggressive choices mitigate bias; $p$ enters only via $b_0$.
-    \item The two-point approximation is the option of last resort: one knob, and a floor scaling with $(p+3)^3$.
-    \item More shots reduce $\sigma^2$, improving both the rate and the floor; the floor's dependence on $b$ remains.
-\end{enumerate}
-\end{frame}
+for some $\mu>0$. Then gradient descent with the step $1/L$ satisfies $C(\boldsymbol\theta_k)-C^*\le(1-\mu/L)^k(C(\boldsymbol\theta_0)-C^*)$.
+\end{propn}
+\ona{\emph{Proof.} By Lemma~\ref{lem:ch08:descent} and \eqref{eq:ch08:pl}, $C(\boldsymbol\theta_{k+1})-C^*\le C(\boldsymbol\theta_k)-C^*-\|\nabla C(\boldsymbol\theta_k)\|^2/(2L)\le(1-\mu/L)(C(\boldsymbol\theta_k)-C^*)$. \qed}
 
-\section{Numerical experiments}
-
-\begin{frame}\ft{Set-up: MaxCut on a 4-regular graph}
-\ona{The test case is depth-one QAOA for MaxCut on a four-vertex instance, Fig.~\ref{fig:ch06:qaoa}, simulated with Qiskit Aer with a custom noise model: depolarising channels of strength $10^{-3}$ per single-qubit gate and $10^{-2}$ per CNOT, and a read-out assignment matrix $P$. Two read-out models are used: a random sparse row-stochastic $P_{\rm rand}$, and a realistic single-bit-flip model built from the published assignment probabilities $p(1|0)$, $p(0|1)$ of IBM devices (\texttt{armonk}, \texttt{lima}, \texttt{bogota}, \dots), whose asymmetry $\tilde b = |p(0|1) - p(1|0)|$ ranges from $0.004$ to $0.14$.}
-\figslide[height=0.35\textheight]{figures/itercomp/qaoa4.pdf}{The QAOA circuit for 4 qubits; one layer is marked, and dots denote its repetition to the desired depth \citep{kungurtsev2022iteration}.}{fig:ch06:qaoa}
-\end{frame}
-
-\begin{frame}\ft{SPSA under biased read-out}
-\figslide[height=0.55\textheight]{figures/itercomp/spsa_comb.png}{Noisy objective values along SPSA iterations for four values of the estimated bias $\hat b$, perturbation $c = 0.01$ \citep{kungurtsev2022iteration}. The bias is estimated by fitting a mixture of a normal and a uniform distribution to the empirical distribution of objective values. In line with Theorem~\ref{thm:ch06:spsa}, the iteration complexity grows with the bias.}{fig:ch06:spsacomb}
-\end{frame}
-
-\begin{frame}\ft{SPSA on the noise models of three IBM devices}
-\onp{\begin{center}\includegraphics[width=0.32\linewidth]{figures/itercomp/spsa_arm.png}\includegraphics[width=0.32\linewidth]{figures/itercomp/spsa_lima.png}\includegraphics[width=0.32\linewidth]{figures/itercomp/spsa_bog.png}\end{center}{\tiny Five SPSA runs each, mean (crosses) and one standard deviation (shaded), with the read-out models of \texttt{armonk}, \texttt{lima}, and \texttt{bogota}.}}
-\ona{\begin{figure}[htb]\centering\includegraphics[width=0.32\linewidth]{figures/itercomp/spsa_arm.png}\includegraphics[width=0.32\linewidth]{figures/itercomp/spsa_lima.png}\includegraphics[width=0.32\linewidth]{figures/itercomp/spsa_bog.png}\caption{Objective values of five SPSA runs, their mean (crosses) and one standard deviation (shaded), under the read-out noise models of \texttt{ibmq\_armonk}, \texttt{ibmq\_lima}, and \texttt{ibmq\_bogota} \citep{kungurtsev2022iteration}. The device with the largest read-out asymmetry, \texttt{bogota}, converges to the highest noise-dominated level.}\label{fig:ch06:devices}\end{figure}}
-\end{frame}
-
-\begin{frame}\ft{SPSA versus two-point versus parameter shift}
-\ona{Finally, the three estimators are compared from ten random starting points with step sizes $\alpha$ and perturbations $c$ in $\{10^{-1},10^{-2},10^{-3}\}$, under the \texttt{lima} noise model. Two representative regimes:}
-\onp{\begin{center}\includegraphics[width=0.32\linewidth]{figures/itercomp/cmp_spsa_c01_a01.pdf}\includegraphics[width=0.32\linewidth]{figures/itercomp/cmp_2pfa_c01_a01.pdf}\includegraphics[width=0.32\linewidth]{figures/itercomp/cmp_psr_a01.pdf}\end{center}{\tiny Large step $\alpha = 0.1$, large perturbation $c = 0.1$: SPSA (left), two-point (centre), parameter shift (right).}}
-\ona{\begin{figure}[htb]\centering\includegraphics[width=0.32\linewidth]{figures/itercomp/cmp_spsa_c01_a01.pdf}\includegraphics[width=0.32\linewidth]{figures/itercomp/cmp_2pfa_c01_a01.pdf}\includegraphics[width=0.32\linewidth]{figures/itercomp/cmp_psr_a01.pdf}\\
-\includegraphics[width=0.32\linewidth]{figures/itercomp/cmp_spsa_c01_a0001.pdf}\includegraphics[width=0.32\linewidth]{figures/itercomp/cmp_2pfa_c01_a0001.pdf}\includegraphics[width=0.32\linewidth]{figures/itercomp/cmp_psr_a0001.pdf}
-\caption{Representative runs of SPSA (left), two-point approximation (centre) and parameter-shift rule (right) with perturbation $c = 0.1$; top row step size $\alpha = 0.1$, bottom row $\alpha = 0.001$ \citep{kungurtsev2022iteration}.}\label{fig:ch06:compare}\end{figure}}
-\begin{itemize}\setlength\itemsep{0.1em}
-    \item \emph{Large step, large perturbation:} SPSA converges as fast as the exact-gradient PSR, though to a noisier region with higher bias; 2PFA is slower and far less robust, with late iterates exceeding the starting value.
-    \item \emph{Small step, large perturbation}, the safe regime: SPSA converges even faster than PSR; all three decrease steadily, 2PFA being the noisiest.
-    \item \emph{Small perturbation} ($c \le 0.01$): SPSA becomes noisy with large steps; 2PFA becomes useless for $c = 0.001$, its variance swamping the steady decrease.
+\ona{A periodic cost satisfies \eqref{eq:ch08:pl} on no set that contains a maximiser, where the gradient vanishes and $C>C^*$. Near a minimiser it may. For a sinusoid $f(\phi) = a-A\cos(\phi-\phi^*)$, one has $\frac12f'(\phi)^2 = \frac A2(1+\cos(\phi-\phi^*))(f(\phi)-f^*)$, so that \eqref{eq:ch08:pl} holds with $\mu = A(1+\cos e_0)/2$ on the set $|\phi-\phi^*|\le e_0<\pi$, a sublevel set that gradient descent does not leave. This is the linear convergence quoted for gradient descent in \Chap~\chref{C.QAOA}; the inequality holds for strongly convex functions, and \citet{karimi2016linear} relate it to other conditions.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item Strong convexity implies the inequality; the inequality does not imply convexity.
+    \item A periodic cost satisfies it on no set containing a maximiser; a sinusoid satisfies it on every set $|\phi-\phi^*|\le e_0<\pi$, with $\mu = A(1+\cos e_0)/2$.
+    \item With $\alpha = 1/A$ the sinusoid converges even cubically\ona{ (Exercise~\ref{exe:ch08:gate1})}.
 \end{itemize}
 \end{frame}
 
-\section{Discussion}
+\section{Noise and bias}\label{sec:ch08:bias}
 
-\begin{frame}\ft{Take-aways}
-\begin{itemize}\setlength\itemsep{0.4em}
-    \item \textbf{Bias does not change the rate} of convergence to stationarity; it enlarges the constants and imposes a floor: the more bias, the farther one is guaranteed, at best, to reach a stationary point.
-    \item \textbf{Coarser gradient estimates stabilise against bias} but add their own approximation bias; there is an optimal perturbation $c^*(b, p)$.
-    \item \textbf{Zero-order methods scale poorly with dimension} in the floor, as usual; SPSA is the most forgiving among them and is a reasonable default for VQAs, provided $c$ is not too small.
-    \item \textbf{This is a small step} towards understanding variational methods beyond ``heuristics with no guarantees''; together with warm starts (\Chap~\chref{C.WSRounded}), which bound the objective at the limit point, one begins to characterise their performance.
-    \item Open: relating the stationarity measure $\|\nabla f\|^2$ to the approximation ratio of the sampled solutions, which is what \Chap~\chref{C.PerIteration} measures empirically.
+\begin{frame}\ft{Bias in the device}
+\onp{\footnotesize}
+\ona{An estimate $\hat C(\boldsymbol\theta)$ from $M$ copies has a mean}
+\begin{equation}\label{eq:ch08:device}
+    \tilde C(\boldsymbol\theta) = \mathbb E\,\hat C(\boldsymbol\theta),
+\end{equation}
+\ona{the cost that the device computes, which does not depend on $M$, and a variance that decreases as $1/M$. On an ideal device, $\tilde C = C$. On a real one, $\tilde C$ differs from $C$, and we call $\tilde C-C$ the \emph{bias} of the device. \Chap~\chref{C.PSR} showed that noise that does not depend on the angles leaves the parameter-shift rule exact for $\tilde C$; it is $C$, however, that the optimizer is meant to minimise. Following \citet{kungurtsev2022iteration}, we assume that}
+\begin{equation}\label{eq:ch08:biasvar}
+    |\tilde C(\boldsymbol\theta)-C(\boldsymbol\theta)|\le b,\qquad\mathrm{Var}\,\hat C(\boldsymbol\theta)\le\sigma^2/M\qquad\text{for all }\boldsymbol\theta,
+\end{equation}
+\ona{with $\sigma^2$ a bound on the variance of a single measured value, as in \Chap~\chref{C.PSR}, and that the estimates of different circuits are independent. The bias has several sources:}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item Depolarisation before the measurement: $\tilde C = (1-p)C+p\Tr(O)/2^n$. The bias is large, but $\tilde C$ has the stationary points of $C$ (\Chap~\chref{C.PSR}).
+    \item Errors of the read-out, which map $\braket{Z_i}$ affinely but mix terms into $\braket{Z_iZ_j}$.
+    \item Coherent errors: a gate applied with a wrong angle or axis. A fixed error moves the minimisers.
+    \item Errors that depend on the angle, as when the duration of a pulse grows with it: the shift rule is then biased even for $\tilde C$.
 \end{itemize}
+\ona{More copies reduce the variance of an estimate, not its bias.}
+\end{frame}
+
+% the Bell state on ibmq_santiago, 1000 shots (Kungurtsev et al. 2024, Fig. 9)
+\mode<all>{\gdef\bellfig#1{\begin{axis}[#1,width=\blW,height=\blH,ybar,bar width=8pt,symbolic x coords={00,01,10,11},xtick=data,ymin=0,ymax=0.66,ytick={0,0.1,0.2,0.3,0.4,0.5,0.6},ylabel={frequency},xlabel={outcome},enlarge x limits=0.18,clip=false,legend style={font=\scriptsize,draw=none,fill=none,at={(0.5,1.02)},anchor=south},legend columns=2]
+  \addplot[fill=gray!35,draw=gray] coordinates {(00,0.5) (01,0) (10,0) (11,0.5)};
+  \addplot[fill=blue!45,draw=blue!70!black] coordinates {(00,0.423) (01,0.012) (10,0.010) (11,0.555)};
+  \legend{ideal,\texttt{ibmq\_santiago}}
+  \ona{\node[note,anchor=south] (b1) at (rel axis cs:0.5,0.3) {$01$ and $10$ have\\probability zero, and\\occur in $2.2\%$ of\\the copies};
+  \draw[notearrow] (b1.south) to[bend right=15] (axis cs:01,0.03);
+  \draw[notearrow] (b1.south) to[bend left=15] (axis cs:10,0.03);
+  \node[note,anchor=west] (b2) at (rel axis cs:1.06,0.5) {$\braket{Z\otimes Z} = 0.956$, five\\standard errors below $1$};
+  \node[note,anchor=west] (b3) at (rel axis cs:1.06,0.25) {$\braket{Z}$ on either qubit $-0.13$,\\four standard errors\\from $0$};
+  \draw[notearrow] (b3.west) to[bend left=15] (axis cs:11,0.53);}
+\end{axis}}}
+\begin{frame}\ft{A Bell state on a device}
+\ona{Figure~\ref{fig:ch08:bell} shows the bias on a device. \citet{kungurtsev2022iteration} prepared the state $(\ket{00}+\ket{11})/\sqrt2$ with a Hadamard gate and a CNOT on the device \texttt{ibmq\_santiago} and measured $1000$ copies. The outcomes $01$ and $10$, which have probability zero, occurred in $2.2\%$ of the copies. The estimate of $\braket{Z\otimes Z}$ is $0.956$ instead of $1$, with a standard error of $0.009$, and those of $\braket Z$ on either qubit are $-0.130$ and $-0.134$ instead of $0$, with a standard error of $0.031$. More copies would reduce the standard errors, not the deviations.}
+\ona{\gdef\blW{0.42\linewidth}\gdef\blH{0.32\linewidth}}\onp{\gdef\blW{5.6cm}\gdef\blH{5cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\bellfig{}\end{tikzpicture}
+\caption{The frequencies of the four outcomes for the Bell state $(\ket{00}+\ket{11})/\sqrt2$, prepared with a Hadamard gate and a CNOT, ideally (grey) and on \texttt{ibmq\_santiago} with $1000$ copies (blue), after \citet{kungurtsev2022iteration}.}\label{fig:ch08:bell}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\begin{tikzpicture}\bellfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item The Bell state $(\ket{00}+\ket{11})/\sqrt2$, from a Hadamard gate and a CNOT, on \texttt{ibmq\_santiago}, $1000$ copies \citep{kungurtsev2022iteration}.
+    \item The outcomes $01$ and $10$ have probability zero, and occur in $2.2\%$ of the copies.
+    \item $\braket{Z\otimes Z} = 0.956$ instead of $1$, with a standard error of $0.009$.
+    \item $\braket Z = -0.13$ on either qubit instead of $0$, with a standard error of $0.031$.
+    \item More copies reduce the standard errors, not the deviations.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{Errors of the gates}
+\onp{\footnotesize}
+\begin{lem}\label{lem:ch08:gate}
+If a device applies unitaries $\tilde U_j$ in place of $U_j$ and measures $O$ exactly, then $|\tilde C(\boldsymbol\theta)-C(\boldsymbol\theta)|\le w\sum_{j=1}^d\|\tilde U_j-U_j\|$, where $w$ is the spectral width of $O$.
+\end{lem}
+\ona{\emph{Proof.} Replacing $O$ by $O$ minus the midpoint of its spectrum changes $C$ and $\tilde C$ by the same constant and gives $\|O\| = w/2$. With $\ket\psi$ and $\ket{\tilde\psi}$ the two states, $\tilde C-C = \braket{\tilde\psi-\psi|O|\tilde\psi}+\braket{\psi|O|\tilde\psi-\psi}$, so that $|\tilde C-C|\le w\,\|\tilde\psi-\psi\|$. Finally, $\tilde U_d\cdots\tilde U_1-U_d\cdots U_1 = \sum_j\tilde U_d\cdots\tilde U_{j+1}(\tilde U_j-U_j)U_{j-1}\cdots U_1$, a sum of $d$ terms of norm at most $\|\tilde U_j-U_j\|$. \qed}
+\onp{Proof: $|\tilde C-C|\le w\|\tilde\psi-\psi\|$ with $\|O\| = w/2$, and a telescoping sum over the gates.}
+
+\ona{A rotation applied with its angle in error by $\delta$, $R_P(\theta+\delta)$ in place of $R_P(\theta)$, contributes $\|R_P(\delta)-\one\| = 2\sin(|\delta|/4)$. In the worked example, with $w = 4$, if the four gates $R_X(2\beta)$ of the mixer are each applied as $R_X(2\beta+\delta)$, the lemma gives $b\le4\cdot4\cdot2\sin(\delta/4)$, which is $0.40$ for $\delta = 0.05$; the largest bias found at $20\,000$ random angles of the eight gates is $0.094$, and at the angles of QAOA it is $2\sin\delta = 0.10$. Such a device computes $\tilde F(\beta,\gamma) = F(\beta+\delta/2,\gamma)$, whose minimisers are displaced by $\delta/2$; we return to it below.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item An angle in error by $\delta$: $\|R_P(\delta)-\one\| = 2\sin(|\delta|/4)$.
+    \item A mixer over-rotated by $\delta = 0.05$ in the worked example: $b\le0.40$ by the lemma, $0.094$ at $20\,000$ random angles of the eight gates. The device computes $F(\beta+\delta/2,\gamma)$, with displaced minimisers.
+    \item The bound is additive over the gates: deeper circuits, larger bias.
+\end{itemize}
+\end{frame}
+
+\mode<all>{\gdef\ibmtab{{\setlength\tabcolsep{4pt}\begin{tabular}{@{}lccccccc@{}}\toprule
+device \texttt{ibmq\_} & \texttt{armonk} & \texttt{lima} & \texttt{santiago} & \texttt{bogota} & \texttt{belem} & \texttt{quito} & \texttt{manila} \\\midrule
+$q_0 = p(1|0)$ & $0.0322$ & $0.0078$ & $0.0274$ & $0.0496$ & $0.0052$ & $0.0186$ & $0.0114$ \\
+$q_1 = p(0|1)$ & $0.0358$ & $0.0260$ & $0.0448$ & $0.1916$ & $0.0352$ & $0.0548$ & $0.0340$ \\
+$q_1-q_0$ & $0.0036$ & $0.0182$ & $0.0174$ & $0.1420$ & $0.0300$ & $0.0362$ & $0.0226$ \\\bottomrule
+\end{tabular}}}}
+\begin{frame}\ft{Errors of the read-out}
+\onp{\footnotesize}
+\onp{Each qubit read out independently, reporting $1$ for $0$ with probability $q_{0i}$ and $0$ for $1$ with probability $q_{1i}$: with $a_i = 1-q_{0i}-q_{1i}$ and $c_i = q_{1i}-q_{0i}$, the reported $Z_iZ_j$ has the mean}
+\ona{Read-out errors are of a different kind. Suppose that each qubit $i$ is read out independently, reporting $1$ for $0$ with probability $q_{0i}$ and $0$ for $1$ with probability $q_{1i}$. The reported value of $Z_i$ then has the conditional mean $a_iz_i+c_i$, with $a_i = 1-q_{0i}-q_{1i}$ and $c_i = q_{1i}-q_{0i}$, where $z_i = \pm1$ is the true value, and that of $Z_iZ_j$ has the mean}
+\begin{equation}\label{eq:ch08:readout}
+    a_ia_j\braket{Z_iZ_j}+a_ic_j\braket{Z_i}+c_ia_j\braket{Z_j}+c_ic_j.
+\end{equation}
+\ona{In QAOA with the mixer $\sum_iX_i$, the operator $X^{\otimes n}$ commutes with every gate and leaves $\ket+^{\otimes n}$ unchanged, while it anticommutes with $Z_i$; hence $\braket{Z_i} = 0$ for all angles. The cost of MaxCut that the device computes is then that of the instance with the weights $a_ia_jw_{ij}$, up to a constant: a reweighting, which leaves the stationary points unchanged when the $a_i$ are equal. On the $4$-cycle all edges are alike, and with the rates of \texttt{lima}, \texttt{santiago}, \texttt{bogota} and \texttt{manila} (Table~\ref{tab:ch08:ibm}) on the four qubits, the device computes $-2+0.812\,(F+2)$ plus a constant; the minimisers do not move (Exercise~\ref{exe:ch08:readout}). Read-out errors that are correlated between qubits, and noise during the circuit that is not invariant under conjugation by $X^{\otimes n}$, such as the decay of $\ket1$ to $\ket0$, break the symmetry.}
+\onp{\begin{itemize}\setlength\itemsep{0.2em}
+    \item In QAOA with the mixer $\sum_iX_i$: $X^{\otimes n}$ commutes with the circuit and fixes $\ket+^{\otimes n}$, so $\braket{Z_i} = 0$.
+    \item Independent read-out errors then reweight the edges, $w_{ij}\mapsto a_ia_jw_{ij}$: on the $4$-cycle the minimisers do not move.
+    \item Correlated read-out errors, and the decay of $\ket1$ to $\ket0$ during the circuit, break the symmetry.
+\end{itemize}}
+\onp{\begin{center}\tiny\ibmtab\end{center}}
+\ona{\begin{table}[htb]\centering\caption{Probabilities of reporting $1$ for $0$ and $0$ for $1$ on seven IBM devices, as quoted by \citet{kungurtsev2022iteration}; \texttt{armonk} has one qubit, the others five. On every device $q_1>q_0$, as the decay of $\ket1$ to $\ket0$ during the measurement would cause.}\label{tab:ch08:ibm}\footnotesize\ibmtab\end{table}}
+\end{frame}
+
+\section{Stochastic gradient descent}\label{sec:ch08:sgd}
+
+\begin{frame}\ft{Stochastic gradient descent with biased estimates}
+\onp{\scriptsize}
+\ona{We write the estimate of the gradient at $\boldsymbol\theta_k$ as}
+\begin{equation}\label{eq:ch08:decomp}
+    \boldsymbol g_k = \nabla C(\boldsymbol\theta_k)+\boldsymbol\beta_k+\boldsymbol\rho_k,\qquad\boldsymbol\beta_k = \mathbb E[\boldsymbol g_k\,|\,\boldsymbol\theta_k]-\nabla C(\boldsymbol\theta_k),
+\end{equation}
+\ona{its bias $\boldsymbol\beta_k$ and its random error $\boldsymbol\rho_k$, and assume that for constants $\zeta$, $A$ and $V$,}
+\begin{equation}\label{eq:ch08:assume}
+    \|\boldsymbol\beta_k\|\le\zeta,\qquad\mathbb E\big[\|\boldsymbol\rho_k\|^2\,\big|\,\boldsymbol\theta_k\big]\le A\,\|\nabla C(\boldsymbol\theta_k)+\boldsymbol\beta_k\|^2+V.
+\end{equation}
+\ona{Shot noise contributes to $V$, which decreases with $M$; the constant $A$ allows an error that grows with the gradient, as for the derivative-free estimators; the bias $\zeta$ comes from the device.}
+\begin{thm}[\citet{ajalloeian2020convergence,kungurtsev2022iteration}]\label{thm:ch08:sgd}
+Let $\|\nabla^2C\|\le L$, and let the estimates satisfy \eqref{eq:ch08:assume}. With a constant step $\alpha\le1/((A+1)L)$, the iterates \eqref{eq:ch08:iter} satisfy
+\begin{equation}\label{eq:ch08:sgd}
+    \frac1K\sum_{k=0}^{K-1}\mathbb E\,\|\nabla C(\boldsymbol\theta_k)\|^2\le\frac{2\,(C(\boldsymbol\theta_0)-C^*)}{\alpha K}+\alpha LV+\zeta^2.
+\end{equation}
+\end{thm}
+\ona{\emph{Proof.} By Lemma~\ref{lem:ch08:descent}, $C(\boldsymbol\theta_{k+1})\le C(\boldsymbol\theta_k)-\alpha\nabla C(\boldsymbol\theta_k)^\top\boldsymbol g_k+\frac{L\alpha^2}2\|\boldsymbol g_k\|^2$. Write $\boldsymbol\nabla$ for $\nabla C(\boldsymbol\theta_k)$ and $\boldsymbol\beta$ for $\boldsymbol\beta_k$. Conditionally on $\boldsymbol\theta_k$,}
+\ona{\begin{gather*}
+    \mathbb E\,\boldsymbol\nabla^\top\boldsymbol g_k = \boldsymbol\nabla^\top(\boldsymbol\nabla+\boldsymbol\beta) = \tfrac12\big(\|\boldsymbol\nabla\|^2+\|\boldsymbol\nabla+\boldsymbol\beta\|^2-\|\boldsymbol\beta\|^2\big),\\
+    \mathbb E\,\|\boldsymbol g_k\|^2 = \|\boldsymbol\nabla+\boldsymbol\beta\|^2+\mathbb E\,\|\boldsymbol\rho_k\|^2\le(A+1)\|\boldsymbol\nabla+\boldsymbol\beta\|^2+V.
+\end{gather*}}
+\ona{Hence $\mathbb E[C(\boldsymbol\theta_{k+1})\,|\,\boldsymbol\theta_k]\le C(\boldsymbol\theta_k)-\frac\alpha2\|\boldsymbol\nabla\|^2-\frac\alpha2(1-(A+1)L\alpha)\|\boldsymbol\nabla+\boldsymbol\beta\|^2+\frac\alpha2\zeta^2+\frac{L\alpha^2}2V$, and the third term is not positive by the choice of $\alpha$. Taking expectations, summing over $k<K$ and using $\mathbb E\,C(\boldsymbol\theta_K)\ge C^*$ gives $\frac\alpha2\sum_{k<K}\mathbb E\|\nabla C(\boldsymbol\theta_k)\|^2\le C(\boldsymbol\theta_0)-C^*+\frac{K\alpha}2\zeta^2+\frac{KL\alpha^2}2V$; divide by $K\alpha/2$. \qed}
+\onp{Proof: the descent lemma, $\mathbb E\,\boldsymbol\nabla^\top\boldsymbol g_k = \frac12(\|\boldsymbol\nabla\|^2+\|\boldsymbol\nabla+\boldsymbol\beta\|^2-\|\boldsymbol\beta\|^2)$, and a telescoping sum.}
+\begin{itemize}\setlength\itemsep{0.15em}
+    \item Three terms: the progress of the method, which decreases as $1/K$; the noise, $\alpha LV$, which a smaller step reduces; and the bias, $\zeta^2$, which nothing in the method reduces.
+    \item The left-hand side is $\mathbb E\,\|\nabla C(\boldsymbol\theta_R)\|^2$ for an iterate $\boldsymbol\theta_R$ chosen uniformly at random, which is how a guarantee for a single output is obtained \citep{ghadimi2013stochastic}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{Unbiased estimates}
+\onp{\footnotesize}
+\begin{cor}[\citet{ghadimi2013stochastic}]\label{cor:ch08:unbiased}
+If $\zeta = 0$ and $A = 0$, the step $\alpha = \min\{1/L,\ (2(C(\boldsymbol\theta_0)-C^*)/(LVK))^{1/2}\}$ gives
+\begin{equation}\label{eq:ch08:rate}
+    \frac1K\sum_{k=0}^{K-1}\mathbb E\,\|\nabla C(\boldsymbol\theta_k)\|^2\le\frac{4L\,(C(\boldsymbol\theta_0)-C^*)}K+2\Big(\frac{2L\,(C(\boldsymbol\theta_0)-C^*)\,V}K\Big)^{1/2},
+\end{equation}
+and $K\ge\max\{8L(C(\boldsymbol\theta_0)-C^*)/\epsilon,\ 32L(C(\boldsymbol\theta_0)-C^*)V/\epsilon^2\}$ iterations give an $\epsilon$-stationary point.
+\end{cor}
+\ona{\emph{Proof.} If the minimum is the square root, the two terms of \eqref{eq:ch08:sgd} both equal $(2L(C(\boldsymbol\theta_0)-C^*)V/K)^{1/2}$. Otherwise $\alpha = 1/L$ and $V<2L(C(\boldsymbol\theta_0)-C^*)/K$, and the bound is at most $4L(C(\boldsymbol\theta_0)-C^*)/K$. The choice of $K$ makes each term of \eqref{eq:ch08:rate} at most $\epsilon/2$. \qed}
+
+\ona{With noise, the iteration complexity is of the order of $1/\epsilon^2$, against $1/\epsilon$ without. \citet{arjevani2023lower} show that the order $LV(C(\boldsymbol\theta_0)-C^*)/\epsilon^2$ cannot be improved, in the worst case over smooth functions in high dimension, by any method that uses unbiased estimates of the gradient with variance $V$. The step depends on $K$, $L$, $V$ and $C(\boldsymbol\theta_0)-C^*$; with a step that decreases as $k^{-1/2}$, the same rate holds up to a logarithmic factor without knowledge of $K$.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item Of the order of $L/\epsilon+LV/\epsilon^2$ iterations; with noise the second term dominates for small $\epsilon$.
+    \item No method using unbiased estimates of variance $V$ does better in the worst case \citep{arjevani2023lower}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{The parameter-shift rule}
+\onp{\footnotesize}
+\begin{cor}\label{cor:ch08:psr}
+Let $C$ be the cost of $d$ Pauli rotations, estimated by a device that satisfies \eqref{eq:ch08:biasvar}. The parameter-shift rule $\partial_jC(\boldsymbol\theta) = \frac12[C(\boldsymbol\theta+\frac\pi2\boldsymbol e_j)-C(\boldsymbol\theta-\frac\pi2\boldsymbol e_j)]$, with $M$ copies for each of its $2d$ circuits, gives estimates that satisfy \eqref{eq:ch08:assume} with $\zeta = \sqrt d\,b$, $A = 0$ and $V = d\sigma^2/(2M)$. Hence, for $\alpha\le1/L$,
+\begin{equation}\label{eq:ch08:psrbound}
+    \frac1K\sum_{k=0}^{K-1}\mathbb E\,\|\nabla C(\boldsymbol\theta_k)\|^2\le\frac{2\,(C(\boldsymbol\theta_0)-C^*)}{\alpha K}+\frac{\alpha Ld\sigma^2}{2M}+db^2.
+\end{equation}
+\end{cor}
+\ona{\emph{Proof.} The $j$-th component of the estimate is $\frac12[\hat C(\boldsymbol\theta+\frac\pi2\boldsymbol e_j)-\hat C(\boldsymbol\theta-\frac\pi2\boldsymbol e_j)]$. By the parameter-shift rule its mean is $\partial_jC(\boldsymbol\theta)$ plus half the difference of the biases at the two points, which is at most $b$ in absolute value; hence $\|\boldsymbol\beta_k\|\le\sqrt d\,b$. Its variance is at most $\frac14(\sigma^2/M+\sigma^2/M)$, and the variances of the $d$ components add. \qed}
+
+\ona{This is the bound of \citet{kungurtsev2022iteration} for the parameter-shift rule, with the bias $\sqrt d\,b$ of the gradient in place of the bias $b$ of a value. Each iteration requires $2d$ circuits and $2dM$ copies. With $N$ copies in all, $K = N/(2dM)$, and the step of Corollary~\ref{cor:ch08:unbiased}, the noise term of \eqref{eq:ch08:rate} becomes $2d\,(2L(C(\boldsymbol\theta_0)-C^*)\sigma^2/N)^{1/2}$, which depends on $N$ alone: as far as the bound is concerned, and once $K$ is large enough for the first term, many iterations with few copies are as good as few iterations with many, down to $M = 1$ \citep{sweke2020stochastic}. What favours many copies is the time taken to submit a circuit (\Chap~\chref{C.PerIteration}). In QAOA, where an angle controls several gates, the chain rule of \Chap~\chref{C.PSR} adds the biases and the variances of the gates: in the worked example, $\zeta\le\sqrt{8^2+4^2}\,b = \sqrt{80}\,b$ and $V\le10\sigma^2/M$.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item The floor $db^2$ does not decrease with $K$, $M$ or $\alpha$.
+    \item With $N$ copies in all, the noise term depends on $N$ alone: few copies per circuit suffice \citep{sweke2020stochastic}; the latency of a circuit favours many.
+    \item Worked example, with shared angles: $\zeta\le\sqrt{80}\,b$, $V\le10\sigma^2/M$.
+\end{itemize}
+\end{frame}
+
+% stochastic gradient descent on the worked example: running averages and the bounds of the theorem
+\mode<all>{\gdef\sgdcurves#1{%
+  \addplot[red!75!black] table[x=k,y=avg10] {figures/ch08/sgd_#1.dat};
+  \addplot[red!75!black,densely dashed,thin] table[x=k,y=bnd10] {figures/ch08/sgd_#1.dat};
+  \addplot[blue!70!black] table[x=k,y=avg100] {figures/ch08/sgd_#1.dat};
+  \addplot[blue!70!black,densely dashed,thin] table[x=k,y=bnd100] {figures/ch08/sgd_#1.dat};
+  \addplot[green!40!black] table[x=k,y=avg1000] {figures/ch08/sgd_#1.dat};
+  \addplot[green!40!black,densely dashed,thin] table[x=k,y=bnd1000] {figures/ch08/sgd_#1.dat};}
+\gdef\sgdA#1{\begin{axis}[#1,width=\sgW,height=\sgH,xmode=log,ymode=log,xmin=1,xmax=3000,ymin=0.003,ymax=50,xlabel={iterations $K$},ylabel={$\frac1K\sum_{k<K}\mathbb E\|\nabla F(\boldsymbol\theta_k)\|^2$},clip=false,no markers,thick]
+  \sgdcurves{unbiased}
+  \ona{\node[font=\scriptsize,red!75!black,anchor=west] at (axis cs:3000,0.54) {$M = 10$};
+  \node[font=\scriptsize,blue!70!black,anchor=west] at (axis cs:3000,0.062) {$M = 100$};
+  \node[font=\scriptsize,green!40!black,anchor=west] at (axis cs:3000,0.0118) {$M = 1000$};
+  \node[note,anchor=west] (u2) at (axis cs:30000,8) {dashed: the bounds,\\levelling off at\\$\alpha LV = 12/M$};
+  \draw[notearrow] (u2.west) to[bend right=15] (axis cs:1500,1.3);
+  \node[note,anchor=west] (u1) at (axis cs:30000,0.15) {solid: a decrease as $1/K$\\while the first term of\\the bound dominates, then\\a level that falls with $M$};
+  \draw[notearrow] (u1.west) to[bend left=10] (axis cs:150,0.12);}
+\end{axis}}
+\gdef\sgdB#1{\begin{axis}[#1,width=\sgW,height=\sgH,xmode=log,ymode=log,xmin=1,xmax=3000,ymin=0.003,ymax=50,xlabel={iterations $K$},ylabel={$\frac1K\sum_{k<K}\mathbb E\|\nabla F(\boldsymbol\theta_k)\|^2$},clip=false,no markers,thick]
+  \sgdcurves{biased}
+  \addplot[black,densely dotted,thin,domain=1:3000] {0.1599};
+  \ona{\node[font=\scriptsize,red!75!black,anchor=west] at (axis cs:3000,0.69) {$M = 10$};
+  \node[font=\scriptsize,blue!70!black,anchor=west] at (axis cs:3000,0.26) {$M = 100$};
+  \node[font=\scriptsize,green!40!black,anchor=west] at (axis cs:3000,0.12) {$M = 1000$};
+  \node[note,anchor=west] (v1) at (axis cs:30000,0.02) {the floor $\zeta^2 = 64\sin^2\delta = 0.160$\\(dotted), attained at the\\minimisers of $F(\beta+\delta/2,\gamma)$:\\more copies do not lower it};
+  \draw[notearrow] (v1.west) to[bend left=15] (axis cs:400,0.15);}
+\end{axis}}}
+\begin{frame}\ft{Stochastic gradient descent on the worked example}
+\ona{Figure~\ref{fig:ch08:sgd} shows stochastic gradient descent on the worked example from $(\beta,\gamma) = (0.1,-0.1)$, with the step $\alpha = 1/20$ that Lemma~\ref{lem:ch08:derivs} allows, and the gradient estimated gate by gate from $16$ circuits with $M$ copies each. Each curve is the running average $\frac1K\sum_{k<K}\mathbb E\|\nabla F(\boldsymbol\theta_k)\|^2$, estimated from $200$ runs; the dashed curves are the bounds \eqref{eq:ch08:sgd} with $L = 20$ and $MV = 12$, the largest value on a grid of angles. (a) On an ideal device, after $3000$ iterations, the averages are $0.54$, $0.062$ and $0.012$ for $M = 10$, $100$ and $1000$, within a factor of about two of the bounds. (b) On a device whose mixer is over-rotated by $\delta = 0.05$, as above, the iterates approach the minimisers of $F(\beta+\delta/2,\gamma)$, such as $(\pi/8-\delta/2,-\pi/4)$, where $\|\nabla F\|^2 = 16\sin^22\delta = 0.160$. The bias of the estimate is $\nabla F(\beta+\delta/2,\gamma)-\nabla F(\beta,\gamma)$, of norm at most $\zeta = 8\sin\delta$, and the floor $\zeta^2 = 0.160$ of Theorem~\ref{thm:ch08:sgd} is attained to within $0.3\%$. The averages after $3000$ iterations are $0.69$, $0.22$ and $0.17$; more copies do not take them below the floor. Corollary~\ref{cor:ch08:psr}, with the bias $0.094$ of a value, would give only $\zeta\le\sqrt{80}\cdot0.094 = 0.84$: the biases of the shifted values are correlated, and the bias of the gradient is smaller than their sum.}
+\ona{\gdef\sgW{0.46\linewidth}\gdef\sgH{0.36\linewidth}}\onp{\gdef\sgW{6.2cm}\gdef\sgH{5.4cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\sgdA{name=a}\node[font=\small,anchor=south west] at (a.north west) {(a)};\sgdB{name=b,at={(0,-0.45\linewidth)}}\node[font=\small,anchor=south west] at (b.north west) {(b)};\end{tikzpicture}
+\caption{Stochastic gradient descent on the worked example with the parameter-shift rule, $M = 10$ (red), $100$ (blue) and $1000$ (green) copies per circuit, $\alpha = 1/20$: the running averages of $\mathbb E\|\nabla F(\boldsymbol\theta_k)\|^2$ over $200$ runs (solid) and the bounds of Theorem~\ref{thm:ch08:sgd} (dashed). (a) An ideal device. (b) A device whose mixer gates are over-rotated by $\delta = 0.05$, with the floor $\zeta^2$ (dotted).}\label{fig:ch08:sgd}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\sgdA{}\end{tikzpicture}\end{column}
+\begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item The worked example from $(0.1,-0.1)$, $\alpha = 1/20$, $16$ circuits per gradient with $M$ copies each; averages over $200$ runs.
+    \item Solid: the running average of $\mathbb E\|\nabla F(\boldsymbol\theta_k)\|^2$. Dashed: the bound of the theorem, with $L = 20$ and $MV\le12$.
+    \item It decreases as $1/K$, and levels off at the noise $\alpha LV$, which is proportional to $1/M$.
+    \item After $3000$ iterations: $0.54$, $0.062$ and $0.012$ for $M = 10$ (red), $100$ (blue) and $1000$ (green), within a factor of about two of the bounds.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{Stochastic gradient descent with an over-rotated mixer}
+\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\sgdB{}\end{tikzpicture}\end{column}
+\begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Every $R_X(2\beta)$ applied as $R_X(2\beta+\delta)$, $\delta = 0.05$: the device computes $F(\beta+\delta/2,\gamma)$.
+    \item The bias of the estimate has norm at most $\zeta = 8\sin\delta$; the floor $\zeta^2 = 0.160$ is dotted.
+    \item At the minimiser $(\pi/8-\delta/2,-\pi/4)$ of the device's cost, $\|\nabla F\|^2 = 16\sin^22\delta = 0.160$: the floor is attained.
+    \item After $3000$ iterations: $0.69$, $0.22$ and $0.17$ for $M = 10$ (red), $100$ (blue) and $1000$ (green). More copies do not go below the floor.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% two costs that no device with bias b can distinguish: -cos(theta) and -cos(theta - 0.6)
+\mode<all>{\gdef\twocostfig#1{\begin{axis}[#1,width=\tcW,height=\tcH,clip=false,axis lines=left,xmin=-3.1416,xmax=3.1416,ymin=-1.15,ymax=1.15,xtick={-3.1416,-1.5708,0,1.5708,3.1416},xticklabels={$-\pi$,$-\frac\pi2$,$0$,$\frac\pi2$,$\pi$},ytick={-1,-0.5,0,0.5,1},xlabel={$\theta$},ylabel={cost},samples=150,domain=-3.1416:3.1416,no markers,thick]
+  \addplot[blue!70!black] {-cos(deg(x))};
+  \addplot[red!75!black] {-cos(deg(x-0.6))};
+  \addplot[green!40!black,domain=-0.6:1.2] {-0.95534+0.29552*(x-0.3)};
+  \addplot[green!40!black,domain=-0.6:1.2] {-0.95534-0.29552*(x-0.3)};
+  \draw[{Stealth[length=3pt]}-{Stealth[length=3pt]},black,thin] (axis cs:1.8708,0.2955) -- (axis cs:1.8708,-0.2955);
+  \fill[black] (axis cs:0.3,-0.95534) circle (1.6pt);
+  \ona{\node[note,anchor=west] (t1) at (axis cs:3.5,1.0) {$C_1 = -\cos\theta$ (blue),\\$C_2 = -\cos(\theta-\delta)$ (red)};
+  \node[note,anchor=west] (t2) at (axis cs:3.5,0.25) {the largest difference,\\$b = 2\sin\frac\delta2 = 0.59$: a device\\for $C_1$ is one for $C_2$\\with bias $b$};
+  \draw[notearrow] (t2.west) to[bend right=10] (axis cs:1.92,0.1);
+  \node[note,anchor=west] (t3) at (axis cs:3.5,-0.7) {at every point, one slope\\is at least $\frac12\sin\delta = 0.28$;\\midway, both are $0.30$};
+  \draw[notearrow] (t3.west) to[bend left=15] (axis cs:1.0,-0.76);}
+\end{axis}}}
+\begin{frame}\ft{The floor cannot be removed}
+\onp{\scriptsize}
+\begin{propn}\label{propn:ch08:floor}
+Let $d\ge1$, $a>0$ and $0<\delta<\pi$, and let $C_1(\boldsymbol\theta) = -a\cos(\theta_1+\dots+\theta_d)$ and $C_2(\boldsymbol\theta) = -a\cos(\theta_1+\dots+\theta_d-\delta)$, the costs of $R_Y(\theta_d)\cdots R_Y(\theta_1)$ on one qubit with $O = -aZ$, without and with a fixed rotation $R_Y(-\delta)$. Then $|C_1-C_2|\le b := 2a\sin(\delta/2)$, and every method that uses only the estimates of a device with bias at most $b$, with any number of iterations and copies, produces an output $\hat{\boldsymbol\theta}$ such that, for $i = 1$ or $i = 2$,
+\begin{equation}\label{eq:ch08:floor}
+    \mathbb E\,\|\nabla C_i(\hat{\boldsymbol\theta})\|^2\ge\tfrac d4\,b^2\cos^2(\delta/2).
+\end{equation}
+\end{propn}
+\ona{\emph{Proof.} A device whose estimates have the mean $C_1$ is a device for $C_1$ without bias and a device for $C_2$ with bias $C_1-C_2$, which is at most $b$. The method receives the same estimates in both cases, and its output has the same distribution. With $s = \sum_j\hat\theta_j$, $\|\nabla C_1(\hat{\boldsymbol\theta})\| = a\sqrt d\,|\sin s|$ and $\|\nabla C_2(\hat{\boldsymbol\theta})\| = a\sqrt d\,|\sin(s-\delta)|$, and $|\sin s|+|\sin(s-\delta)|\ge\sin\delta$, since $\sin\delta = \sin s\cos(s-\delta)-\cos s\sin(s-\delta)$. Hence $\|\nabla C_1\|^2+\|\nabla C_2\|^2\ge\frac12(\|\nabla C_1\|+\|\nabla C_2\|)^2\ge\frac12da^2\sin^2\delta$, the larger of the two expectations is at least $\frac14da^2\sin^2\delta$, and $a\sin\delta = b\cos(\delta/2)$. \qed}
+\onp{Proof: the method cannot tell $C_1$ from $C_2$, and at every point one of the two gradients has norm at least $\frac12a\sqrt d\sin\delta$.}
+
+\ona{As $\delta\to0$, no method can guarantee less than about $db^2/4$, however many copies and iterations it uses, and the floor $db^2$ of Corollary~\ref{cor:ch08:psr} is attained up to a factor of about $4$. The bias in the proposition is a coherent error of a single gate. Figure~\ref{fig:ch08:twocost} shows the case $d = 1$.}
+\ona{\gdef\tcW{0.5\linewidth}\gdef\tcH{0.4\linewidth}}\onp{\gdef\tcW{6.2cm}\gdef\tcH{5cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\twocostfig{}\end{tikzpicture}
+\caption{The two costs of Proposition~\ref{propn:ch08:floor} for $d = 1$, $a = 1$ and $\delta = 0.6$, with their tangents (green) at the point midway between their minimisers, $0$ and $\delta$, and their largest difference $b$ (black arrow).}\label{fig:ch08:twocost}\end{figure}}
+\end{frame}
+
+\begin{frame}\ft{Two costs that a device cannot distinguish}
+\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\twocostfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $C_1 = -\cos\theta$ (blue) and $C_2 = -\cos(\theta-\delta)$ (red), $\delta = 0.6$: the same circuit without and with a fixed rotation $R_Y(-\delta)$.
+    \item They differ by at most $b = 2\sin(\delta/2) = 0.59$ (arrow): a device for $C_1$ is a device for $C_2$ with bias $b$.
+    \item At every point one of the two slopes is at least $\frac12\sin\delta = 0.28$; midway between the minimisers, both are $\sin\frac\delta2 = 0.30$ (green).
+    \item With $d$ rotations: no method guarantees less than about $db^2/4$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\section{Derivative-free estimators under bias}\label{sec:ch08:dfo}
+
+\begin{frame}\ft{Simultaneous perturbation under bias}
+\onp{\scriptsize}
+\ona{Simultaneous perturbation (\Chap~\chref{C.PSR}) estimates the gradient from two circuits, at $\boldsymbol\theta\pm c\boldsymbol\Delta$ with $\boldsymbol\Delta$ uniform on $\{\pm1\}^d$. Since $1/\Delta_i = \Delta_i$, the estimate is $\boldsymbol g = [\hat C(\boldsymbol\theta+c\boldsymbol\Delta)-\hat C(\boldsymbol\theta-c\boldsymbol\Delta)]\,\boldsymbol\Delta/(2c)$.}
+\begin{propn}\label{propn:ch08:spsa}
+Let $\|\nabla^2C\|\le L$ and $|D^3C[\boldsymbol h,\boldsymbol h,\boldsymbol h]|\le L_3\|\boldsymbol h\|^3$, and let the device satisfy \eqref{eq:ch08:biasvar}. Then, with $\kappa = L_3d^{3/2}/6$,
+\begin{equation}\label{eq:ch08:spsa}
+    \|\mathbb E\,\boldsymbol g-\nabla C(\boldsymbol\theta)\|\le\kappa c^2+\frac bc,\qquad\mathbb E\,\|\boldsymbol g\|^2\le4d\,\|\nabla C(\boldsymbol\theta)\|^2+L^2c^2d^3+\frac{d\,(4b^2+\sigma^2/M)}{2c^2},
+\end{equation}
+and for $\alpha\le1/((8d+1)L)$ the iterates of simultaneous perturbation satisfy
+\begin{equation}\label{eq:ch08:spsabound}
+    \frac1K\sum_{k=0}^{K-1}\mathbb E\,\|\nabla C(\boldsymbol\theta_k)\|^2\le\frac{2\,(C(\boldsymbol\theta_0)-C^*)}{\alpha K}+\alpha L\Big[L^2c^2d^3+\frac{d\,(4b^2+\sigma^2/M)}{2c^2}\Big]+2\Big(\kappa c^2+\frac bc\Big)^2.
+\end{equation}
+\end{propn}
+\ona{\emph{Proof.} By Taylor's theorem, the terms of second order cancel in the difference, and $[C(\boldsymbol\theta+c\boldsymbol\Delta)-C(\boldsymbol\theta-c\boldsymbol\Delta)]/(2c) = \nabla C(\boldsymbol\theta)^\top\boldsymbol\Delta+e$ with $|e|\le\frac{c^2}6L_3\|\boldsymbol\Delta\|^3 = \kappa c^2$. Since $\mathbb E\,\boldsymbol\Delta\boldsymbol\Delta^\top = \one$, the first term contributes $\nabla C(\boldsymbol\theta)$ to $\mathbb E\,\boldsymbol g$. For a unit vector $\boldsymbol v$, $\mathbb E\,|\boldsymbol\Delta^\top\boldsymbol v|\le(\mathbb E(\boldsymbol\Delta^\top\boldsymbol v)^2)^{1/2} = 1$; hence the remainder contributes at most $\kappa c^2$ to $\|\mathbb E\,\boldsymbol g-\nabla C\|$, and the bias of the values, which changes the difference by at most $2b$, at most $b/c$. For the second moment, $\|\boldsymbol g\|^2 = d\,[\hat C(\boldsymbol\theta+c\boldsymbol\Delta)-\hat C(\boldsymbol\theta-c\boldsymbol\Delta)]^2/(4c^2)$. By Lemma~\ref{lem:ch08:descent}, applied to $C$ and to $-C$, $|C(\boldsymbol\theta+c\boldsymbol\Delta)-C(\boldsymbol\theta-c\boldsymbol\Delta)-2c\nabla C^\top\boldsymbol\Delta|\le Lc^2d$, so that the square of the difference of the means has the expectation at most $2[8c^2\|\nabla C\|^2+2L^2c^4d^2]+8b^2$; the random parts add $2\sigma^2/M$. Multiplying by $d/(4c^2)$ gives the second inequality. Finally, with $\zeta = \kappa c^2+b/c$, the inequality $\|\nabla C\|^2\le2\|\nabla C+\boldsymbol\beta\|^2+2\zeta^2$ gives \eqref{eq:ch08:assume} with $A = 8d$ and $V$ the bracket in \eqref{eq:ch08:spsabound} plus $8d\zeta^2$, and $\alpha L\cdot8d\zeta^2\le\zeta^2$ by the choice of $\alpha$; Theorem~\ref{thm:ch08:sgd} gives \eqref{eq:ch08:spsabound}. \qed}
+\onp{Proof: Taylor's theorem to third order, $\mathbb E\,|\boldsymbol\Delta^\top\boldsymbol v|\le1$ for unit $\boldsymbol v$, the descent lemma for the second moment, and the theorem on biased estimates with $A = 8d$.}
+
+\ona{The bias of the values enters as $b/c$, which calls for a large perturbation, and the error of the Taylor expansion as $\kappa c^2$, which calls for a small one. The best choice, $c^3 = b/(2\kappa)$, gives the floor $2(\kappa c^2+b/c)^2 = 9\cdot2^{-1/3}\kappa^{2/3}b^{4/3}$, which decreases with $b$ more slowly than the floor $db^2$ of the parameter-shift rule. The step is smaller by a factor of about $8d$, and the number of iterations larger by a factor of the order of $d$; each iteration, however, requires $2$ circuits instead of $2d$. This is the trade-off of the estimators compared in \Chap~\chref{C.PSR}, now over many iterations. The theorem of \citet{kungurtsev2022iteration} for simultaneous perturbation has the same three terms.}
+\end{frame}
+
+\begin{frame}\ft{Gaussian smoothing under bias}
+\onp{\scriptsize}
+\ona{The two-point estimator of \Chap~\chref{C.PSR}, $\boldsymbol g = [\hat C(\boldsymbol\theta+c\boldsymbol u)-\hat C(\boldsymbol\theta)]\,\boldsymbol u/c$ with $\boldsymbol u\sim\mathcal N(0,\one_d)$, is unbiased for the gradient of the smoothed cost $C_c$ on an ideal device (\Chap~\chref{C.PSR}). We use three bounds of \citet{Nesterov2015}, for $\|\nabla^2C\|\le L$: $|C_c-C|\le\frac{c^2}2Ld$, $\|\nabla C_c-\nabla C\|\le\frac c2L(d+3)^{3/2}$, and $\mathbb E[(C(\boldsymbol\theta+c\boldsymbol u)-C(\boldsymbol\theta))^2\|\boldsymbol u\|^2]/c^2\le\frac{c^2}2L^2(d+6)^3+2(d+4)\|\nabla C(\boldsymbol\theta)\|^2$.}
+\onp{Smoothing bounds \citep{Nesterov2015}: $|C_c-C|\le\frac{c^2}2Ld$, $\|\nabla C_c-\nabla C\|\le\frac c2L(d+3)^{3/2}$.}
+\begin{propn}\label{propn:ch08:twopoint}
+Let $\|\nabla^2C\|\le L$ and let the device satisfy \eqref{eq:ch08:biasvar}. Then $\|\mathbb E\,\boldsymbol g-\nabla C_c(\boldsymbol\theta)\|\le2\sqrt{2/\pi}\,b/c$ and $\mathbb E\,\|\boldsymbol g\|^2\le4(d+4)\|\nabla C(\boldsymbol\theta)\|^2+c^2L^2(d+6)^3+2d\,(4b^2+\sigma^2/M)/c^2$. For $\alpha\le1/((16d+65)L)$, the iterates satisfy
+\begin{equation}\label{eq:ch08:2pbound}
+    \frac1K\sum_{k=0}^{K-1}\mathbb E\,\|\nabla C(\boldsymbol\theta_k)\|^2\le\frac{4\,(C_c(\boldsymbol\theta_0)-C^*)}{\alpha K}+2\alpha LV_c+\frac{32}\pi\,\frac{b^2}{c^2}+\frac{c^2}2L^2(d+3)^3,
+\end{equation}
+where $V_c = c^2L^2[(d+6)^3+2(d+4)(d+3)^3]+2d\,(4b^2+\sigma^2/M)/c^2$.
+\end{propn}
+\ona{\emph{Proof.} By the lemma on Gaussian smoothing of \Chap~\chref{C.PSR}, $\mathbb E\,\boldsymbol g-\nabla C_c(\boldsymbol\theta)$ is the mean of $[(\tilde C-C)(\boldsymbol\theta+c\boldsymbol u)-(\tilde C-C)(\boldsymbol\theta)]\,\boldsymbol u/c$, and $\mathbb E\,|\boldsymbol u^\top\boldsymbol v| = \sqrt{2/\pi}$ for a unit vector $\boldsymbol v$. The second moment follows as for simultaneous perturbation, with the third bound of \citet{Nesterov2015} in place of Taylor's theorem and $\mathbb E\|\boldsymbol u\|^2 = d$. Theorem~\ref{thm:ch08:sgd} applies to $C_c$, which has the smoothness constant $L$ and the infimum at least $C^*$, with $\zeta = 2\sqrt{2/\pi}\,b/c$, $A = 16(d+4)$ and $V = V_c+16(d+4)\zeta^2$, by $\|\nabla C\|^2\le2\|\nabla C_c\|^2+\frac{c^2}2L^2(d+3)^3\le4\|\nabla C_c+\boldsymbol\beta\|^2+4\zeta^2+\frac{c^2}2L^2(d+3)^3$. It bounds the average of $\mathbb E\|\nabla C_c(\boldsymbol\theta_k)\|^2$ by $2(C_c(\boldsymbol\theta_0)-C^*)/(\alpha K)+\alpha LV_c+2\zeta^2$, and the first of these inequalities, applied once more, gives \eqref{eq:ch08:2pbound}. \qed}
+\onp{Proof: as for simultaneous perturbation, with $\mathbb E\,|\boldsymbol u^\top\boldsymbol v| = \sqrt{2/\pi}$, and the theorem on biased estimates applied to $C_c$.}
+
+\ona{The floor $\frac{32}\pi b^2/c^2+\frac{c^2}2L^2(d+3)^3$ is least at $c^4 = \frac{64}\pi b^2/(L^2(d+3)^3)$, where it equals $\frac8{\sqrt\pi}\,bL(d+3)^{3/2}$: it is linear in $b$, and grows as $d^{5/2}$ with the number of parameters, since $L$ grows with $d$. The theorem of \citet{kungurtsev2022iteration} for the two-point estimator has the same structure, a term $b^2/c^2$ from the bias and a term $c^2(d+3)^3$ from the smoothing.}
+\begin{itemize}\setlength\itemsep{0.15em}
+    \item The bias of the values enters as $b/c$, the smoothing as $c\,(d+3)^{3/2}$.
+    \item At the best $c$ the floor is $\frac8{\sqrt\pi}\,bL(d+3)^{3/2}$: linear in $b$.
+\end{itemize}
+\end{frame}
+
+\mode<all>{\gdef\floortab#1#2#3#4#5{{\setlength\tabcolsep{4pt}\begin{tabular}{@{}>{\raggedright\arraybackslash}p{#1\linewidth}>{\raggedright\arraybackslash}p{#2\linewidth}>{\raggedright\arraybackslash}p{#3\linewidth}>{\raggedright\arraybackslash}p{#4\linewidth}>{\raggedright\arraybackslash}p{#5\linewidth}@{}}\toprule
+estimator & circuits for one iteration & bias of the gradient & largest step & floor, at the best $c$ \\\midrule
+parameter-shift rule & $2d$ & $\sqrt d\,b$ & $1/L$ & $db^2$ \\
+simultaneous perturbation & $2$ & $\kappa c^2+b/c$ & $1/((8d+1)L)$ & $9\cdot2^{-1/3}\kappa^{2/3}b^{4/3}$ \\
+two-point & $2$ & $2\sqrt{2/\pi}\,b/c$, for $C_c$ & $1/((16d+65)L)$ & $\frac8{\sqrt\pi}\,L(d+3)^{3/2}\,b$ \\
+any method & & & & at least $\approx db^2/4$ \\\bottomrule
+\end{tabular}}}}
+% the floors as functions of the bias, for d = 8 Pauli rotations and |O| = 1
+\mode<all>{\gdef\floorsfig#1{\begin{axis}[#1,width=\flW,height=\flH,xmode=log,ymode=log,xmin=1e-5,xmax=0.1,ymin=1e-10,ymax=1e3,ytick={1e-10,1e-8,1e-6,1e-4,1e-2,1,1e2},xlabel={bias $b$ of a value},ylabel={floor},clip=false,no markers,thick]
+  \addplot[green!40!black] table[x=b,y=psr] {figures/ch08/floors.dat};
+  \addplot[blue!70!black] table[x=b,y=spsa] {figures/ch08/floors.dat};
+  \addplot[red!75!black] table[x=b,y=twopoint] {figures/ch08/floors.dat};
+  \addplot[gray,densely dotted,thin,domain=1e-5:0.1] {8};
+  \ona{\node[font=\scriptsize,green!40!black,anchor=west] at (axis cs:0.1,0.08) {shift rule};
+  \node[font=\scriptsize,blue!70!black,anchor=west] at (axis cs:0.1,6.4) {SPSA};
+  \node[font=\scriptsize,red!75!black,anchor=west] at (axis cs:0.1,132) {two-point};
+  \node[note,anchor=west] (f1) at (axis cs:0.4,3e-4) {$\|\nabla C\|^2\le d = 8$ everywhere\\(dotted): a floor above\\this line says nothing};
+  \draw[notearrow] (f1.west) to[bend left=20] (axis cs:0.03,8);
+  \node[note,anchor=west] (f2) at (axis cs:0.4,1e-8) {slopes $2$, $\frac43$ and $1$:\\for a small bias the\\shift rule is far ahead};
+  \draw[notearrow] (f2.west) to[bend left=15] (axis cs:3e-3,8e-5);}
+\end{axis}}}
+\begin{frame}\ft{The floors compared}
+\ona{Table~\ref{tab:ch08:floors} collects the three estimators. For a small bias the floors are ordered: the parameter-shift rule, with $b^2$, simultaneous perturbation, with $b^{4/3}$, and the two-point estimator, with $b$. Figure~\ref{fig:ch08:floors} shows them for a circuit of $d = 8$ Pauli rotations with $\|O\| = 1$, for which Lemma~\ref{lem:ch08:derivs} gives $L = 8$ and $L_3 = 8^{3/2}$, and $\kappa = d^3/6 = 85.3$; the floors are $8b^2$, $138\,b^{4/3}$ and $1317\,b$. For $b = 10^{-3}$ they are $8\cdot10^{-6}$, $0.014$ and $1.3$. These are worst-case bounds, and the two-point bound exceeds $\max\|\nabla C\|^2 = 8$, and says nothing, once $b>0.006$. The conclusions agree with those of \citet{kungurtsev2022iteration}: the parameter-shift rule has the lowest floor and the smallest constants, simultaneous perturbation has a free parameter $c$ that trades the bias of the device against that of the estimator, and the two-point estimator is the method of last resort.}
+\ona{\gdef\flW{0.5\linewidth}\gdef\flH{0.38\linewidth}}\onp{\gdef\flW{6.2cm}\gdef\flH{5.4cm}}
+\onp{\begin{center}\scriptsize\floortab{0.19}{0.12}{0.19}{0.16}{0.22}\end{center}}
+\ona{\begin{table}[htb]\centering\caption{The three estimators under a bias $b$ of the values, for $d$ parameters, $\|\nabla^2C\|\le L$ and $\kappa = L_3d^{3/2}/6$, with the floors of Corollary~\ref{cor:ch08:psr} and Propositions~\ref{propn:ch08:spsa} and~\ref{propn:ch08:twopoint} at the best perturbation $c$, and the lower bound of Proposition~\ref{propn:ch08:floor}.}\label{tab:ch08:floors}\footnotesize\floortab{0.2}{0.14}{0.2}{0.17}{0.22}\end{table}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\floorsfig{}\end{tikzpicture}
+\caption{The floors of the three estimators at their best perturbations, as functions of the bias $b$ of a value, for a circuit of $d = 8$ Pauli rotations with $\|O\| = 1$: the parameter-shift rule (green), simultaneous perturbation (blue) and the two-point estimator (red).}\label{fig:ch08:floors}\end{figure}}
+\onp{\footnotesize For a small bias: shift rule $b^2$, SPSA $b^{4/3}$, two-point $b$; the last is the method of last resort \citep{kungurtsev2022iteration}.}
+\end{frame}
+
+\begin{frame}\ft{The floors as functions of the bias}
+\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\floorsfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item A circuit of $d = 8$ Pauli rotations with $\|O\| = 1$: $L = 8$, $L_3 = 8^{3/2}$, $\kappa = 85.3$.
+    \item The floors at the best perturbations: $8b^2$ (shift rule, green), $138\,b^{4/3}$ (SPSA, blue), $1317\,b$ (two-point, red).
+    \item At $b = 10^{-3}$: $8\cdot10^{-6}$, $0.014$ and $1.3$.
+    \item Above $\|\nabla C\|^2 = 8$ (dotted) a floor says nothing: the two-point bound is void for $b>0.006$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{The experiments of Kungurtsev et al.}
+\onp{\footnotesize}
+\ona{\citet{kungurtsev2022iteration} compare the three estimators on depth-one QAOA for an instance of MaxCut on four vertices, simulated with depolarising noise of strength $10^{-3}$ after each gate on one qubit and $10^{-2}$ after each CNOT, and with the read-out errors of Table~\ref{tab:ch08:ibm}, extended to four qubits by allowing a single flipped bit in each outcome. From ten starting points, with steps $\alpha$ and perturbations $c$ in $\{10^{-1},10^{-2},10^{-3}\}$, they observe the following.}
+\begin{itemize}\setlength\itemsep{0.25em}
+    \item With $c = 0.1$ and $\alpha = 0.1$, simultaneous perturbation converged in as few iterations as the parameter-shift rule, to a region of larger fluctuations; with $\alpha = 10^{-3}$ it converged in fewer.
+    \item With smaller $c$ and $\alpha = 0.1$, simultaneous perturbation became erratic; the two-point estimator decreased slowly with $c = 0.01$ and made no progress with $c = 10^{-3}$.
+    \item In the other regimes, the two-point estimator was the slowest or the noisiest of the three.
+    \item Under read-out errors of increasing asymmetry, simultaneous perturbation required more iterations, as \ona{Proposition~\ref{propn:ch08:spsa}}\onp{the bound for simultaneous perturbation} suggests.
+\end{itemize}
+\ona{Measured in iterations, simultaneous perturbation is thus competitive with the parameter-shift rule at a fraction of the circuits, provided that $c$ is not too small, in agreement with the floors of Table~\ref{tab:ch08:floors}, which favour a large $c$ when the bias is large.}
+\end{frame}
+
+\section{Conclusions}
+
+\begin{frame}\ft{A short history}
+\onp{\scriptsize}
+\ona{The following list gives the main steps in the analysis of iterative methods with noisy and biased estimates.}
+\begin{description}\setlength\itemsep{0.1em}
+    \item[1951, 1952] Stochastic approximation: the root of a function from noisy values \citep{robbins1951stochastic}, and its maximum from noisy differences \citep{kiefer1952stochastic}.
+    \item[1963] Linear convergence of gradient methods under the inequality now named after Polyak and \Loj{} \citep{polyak1963gradient}.
+    \item[1992] Simultaneous perturbation \citep{spall1992multivariate}.
+    \item[2013] The complexity of stochastic first- and zeroth-order methods for non-convex problems \citep{ghadimi2013stochastic}.
+    \item[2015] Two-point estimators \citep{duchi2015optimal}; simultaneous perturbation under bounded disturbances \citep{granichin2014simultaneous}.
+    \item[2016, 2017] The Polyak--\Loj{} inequality revisited \citep{karimi2016linear}; Gaussian smoothing \citep{Nesterov2015}; the asymptotic bias of stochastic gradient search \citep{tadic2017asymptotic}.
+    \item[2019, 2020] Non-asymptotic analyses of biased stochastic approximation \citep{pmlr-v99-karimi19a} and of stochastic gradient descent with biased gradients \citep{ajalloeian2020convergence}; stochastic gradient descent for variational algorithms with few copies \citep{sweke2020stochastic}; lower bounds for finding stationary points \citep{carmon2020lower}.
+    \item[2023] Lower bounds for stochastic methods \citep{arjevani2023lower}.
+    \item[2024] The iteration complexity of variational algorithms with biased estimates \citep{kungurtsev2022iteration}.
+\end{description}
+\end{frame}
+
+\begin{frame}\ft{Conclusions}
+\onp{\footnotesize}
+\begin{itemize}\setlength\itemsep{0.3em}
+    \item The cost of $d$ Pauli rotations has $\|\nabla C\|\le\sqrt d\,w/2$ and $\|\nabla^2C\|\le dw/2$, both attained.
+    \item Gradient descent finds an $\epsilon$-stationary point in $2L(C(\boldsymbol\theta_0)-C^*)/\epsilon\le dw^2/\epsilon$ iterations; with unbiased estimates of variance $V$, of the order of $LV/\epsilon^2$ iterations suffice. Neither order can be improved for general smooth functions.
+    \item The bias of a device does not change the rate, but adds a floor $\zeta^2$, the squared bias of the estimate of the gradient: $db^2$ for the parameter-shift rule. No method can guarantee less than about $db^2/4$.
+    \item The derivative-free estimators have floors of the orders of $b^{4/3}$ and $b$, and steps smaller by a factor of the order of $d$, with two circuits per iteration instead of $2d$.
+    \item On the worked example, the bound is within a factor of about two of the simulated averages, and an over-rotated mixer produces the predicted floor.
+    \item What an iteration costs is the subject of \Chap~\chref{C.PerIteration}; where to start, so that a stationary point is a good one, that of \Chaps~\chref{C.WSRounded}--\chref{C.WSContinuous}.
+\end{itemize}
+\end{frame}
+
+\ona{\section*{Exercises}}
+
+\begin{frame}\ft{Exercises}
+\onp{\footnotesize}
+\begin{exe}[Gradient descent on one gate]\label{exe:ch08:gate1}
+For $f(\phi) = a-A\cos(\phi-\phi^*)$, show that gradient descent with $\alpha = 1/A$ maps the error $e = \phi-\phi^*$ to $e-\sin e$, and hence converges cubically. Compute the iterates from $\phi_0 = -0.1$ for the gate of \ona{Fig.~\ref{fig:ch08:descent}}\onp{the figure on the descent lemma}, and compare the decrease at each step with that guaranteed by \ona{Lemma~\ref{lem:ch08:descent}}\onp{the descent lemma}.
+\end{exe}
+\begin{exe}[The Polyak--\Loj{} inequality]\label{exe:ch08:pl}
+Show that a function with $\nabla^2C\succeq\mu\one$ satisfies \eqref{eq:ch08:pl}. Show that $x^2+3\sin^2x$ is not convex, and find numerically the largest $\mu$ with which it satisfies \eqref{eq:ch08:pl} on $\R$; \citet{karimi2016linear} give $\mu = 1/32$. Show that no non-constant periodic function satisfies \eqref{eq:ch08:pl} on $\R^d$.
+\end{exe}
+\end{frame}
+
+\begin{frame}\ft{Exercises, continued}
+\onp{\footnotesize}
+\begin{exe}[A fixed number of copies]\label{exe:ch08:budget}
+For the parameter-shift rule with $N$ copies in all, $K$ iterations and $M = N/(2dK)$ copies per circuit, show that the step of \ona{Corollary~\ref{cor:ch08:unbiased}}\onp{the corollary on unbiased estimates} gives the bound $4L(C(\boldsymbol\theta_0)-C^*)/K+2d(2L(C(\boldsymbol\theta_0)-C^*)\sigma^2/N)^{1/2}+db^2$. Show that $K\ge8L(C(\boldsymbol\theta_0)-C^*)/\epsilon$ and $N\ge32d^2L(C(\boldsymbol\theta_0)-C^*)\sigma^2/\epsilon^2$ make it at most $\epsilon+db^2$, and compute the number of circuits and the copies per circuit for $d = 2$, $L = 20$, $C(\boldsymbol\theta_0)-C^* = 0.92$, $\sigma^2 = 2$ and $\epsilon = 0.01$.
+\end{exe}
+\begin{exe}[Read-out errors in QAOA]\label{exe:ch08:readout}
+Show that $X^{\otimes n}$ commutes with the gates of QAOA with the mixer $\sum_iX_i$ and leaves $\ket+^{\otimes n}$ unchanged, and deduce that $\braket{Z_i} = 0$. Derive the cost of MaxCut that a device with independent read-out errors computes, and show that for the $4$-cycle, with the rates of \texttt{lima}, \texttt{santiago}, \texttt{bogota} and \texttt{manila} on the four qubits, it is $-2+0.812\,(F+2)$ plus a constant.
+\end{exe}
+\end{frame}
+
+\begin{frame}\ft{Exercises, continued}
+\onp{\footnotesize}
+\begin{exe}[An over-rotated mixer]\label{exe:ch08:mixer}
+In the worked example, let every $R_X(2\beta)$ be applied as $R_X(2\beta+\delta)$. Show that the device computes $F(\beta+\delta/2,\gamma)$, that the bias of the estimate of the gradient by the parameter-shift rule has norm at most $8\sin\delta$, and that $\|\nabla F\|^2 = 16\sin^22\delta$ at the minimisers of the device's cost. Compare with the bounds $b\le0.40$ of \ona{Lemma~\ref{lem:ch08:gate}}\onp{the lemma on gate errors} and $\zeta\le\sqrt{80}\,b$.
+\end{exe}
+\begin{exe}[The floors of the derivative-free estimators]\label{exe:ch08:floors}
+Derive the best perturbations and the floors in \ona{Table~\ref{tab:ch08:floors}}\onp{the table of floors}. For $d = 8$, $L = 8$, $L_3 = 8^{3/2}$ and $b = 10^{-3}$, compute the best $c$ for simultaneous perturbation and for the two-point estimator, and find the bias above which the floor of simultaneous perturbation exceeds $\max\|\nabla C\|^2 = 8$.
+\end{exe}
 \end{frame}
 
 \begin{frame}[allowframebreaks]\ft{References}

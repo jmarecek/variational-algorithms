@@ -9,117 +9,1029 @@
 \lecture{The Parameter-Shift Rule}{Lect07}
 \chapter{The Parameter-Shift Rule}\label{C.PSR}
 
-\ona{This \chap{} treats the question of how the classical optimizer of a variational algorithm obtains gradients. It follows the background sections of \citet{kungurtsev2022iteration}: the parameter-shift rule (PSR), its history and generalisations, and the derivative-free alternatives SPSA and the two-point approximation, which are compared analytically in \Chap~\chref{C.IterationComplexity}.}
+\ona{This \chap{} is concerned with the derivatives of the cost of a variational algorithm. Several of the optimizers of \Chap~\chref{C.QAOA} require gradients, and the worked example of \Chap~\chref{C.VQE} obtained one from sixteen circuits with shifted angles, by a rule that was stated there without proof. We prove the rule, the \emph{parameter-shift rule}, and extend it in three directions: to gates whose generators have more than two eigenvalues, to gates whose generator does not commute with the rest of the gate, and to second derivatives. Following \citet{sakos2026global}, we then write the cost as a trigonometric polynomial in all the parameters, which can be reconstructed from its values on a grid and minimised globally when the number of parameters is constant. We then examine what the estimates cost in measured copies, how they compare with finite differences, what the noise of a device does to them, and how the same structure gives an exact minimisation along one coordinate. The \chap{} ends with two derivative-free estimators, simultaneous perturbation and Gaussian smoothing, which use two circuits whatever the number of parameters. The iteration complexity of all these methods under noisy and biased estimates is the subject of \Chap~\chref{C.IterationComplexity}. The numbers quoted in this \chap{} are computed by \texttt{code/ch07\_figures.py}, on the worked example of \Chap~\chref{C.VQE}.}
 
-\section{Why not finite differences?}
+\section{Derivatives from estimates}\label{sec:ch07:estimates}
 
-\begin{frame}\ft{The optimizer's problem}
-\ona{The classical optimizer sees the cost}
-\begin{equation}\label{eq:ch07:cost}
-    C(\boldsymbol\theta) = \braket{\psi_0|U^\dagger(\boldsymbol\theta)\,O\,U(\boldsymbol\theta)|\psi_0},\qquad U(\boldsymbol\theta) = U_L(\theta_L)\cdots U_1(\theta_1),\quad U_i(\theta_i) = W_ie^{-i\theta_iH_i},
+\begin{frame}\ft{The setting}
+\onp{\footnotesize}
+\ona{We use the form of the variational loop of \Chap~\chref{C.VQE}. A circuit with $d$ parameters prepares the state}
+\begin{equation}\label{eq:ch07:ansatz}
+    \ket{\psi(\boldsymbol\theta)} = U_d(\theta_d)\cdots U_1(\theta_1)\ket{\psi_0},\qquad U_j(\theta_j) = e^{-i\theta_jH_j},
 \end{equation}
-\ona{only through noisy estimates from a finite number of shots. A finite difference $[C(\theta + h) - C(\theta - h)]/2h$ with $h \sim 10^{-7}$ is hopeless: the two evaluations differ by less than the shot noise. Two ways out:}
-\begin{itemize}\setlength\itemsep{0.3em}
-    \item \textbf{Exact gradients from shifted evaluations}, exploiting the trigonometric structure of \eqref{eq:ch07:cost}: the parameter-shift rule, with shifts of order one.
-    \item \textbf{Derivative-free methods} that never form a gradient, or form a crude random one: COBYLA, Nelder--Mead, SPSA, two-point approximations.
+\ona{and the optimizer minimises the cost}
+\begin{equation}\label{eq:ch07:cost}
+    C(\boldsymbol\theta) = \braket{\psi(\boldsymbol\theta)|O|\psi(\boldsymbol\theta)},\qquad\boldsymbol\theta\in\R^d.
+\end{equation}
+\ona{In the notation of \Chap~\chref{C.VQE}, $d$ is the number $L$ of layers; we keep the letter $L$ for a Lipschitz constant, as in \Chap~\chref{C.IterationComplexity}. Fixed gates between the layers are absorbed into the generators and the observable, as a fixed initial state was absorbed in \Chap~\chref{C.VQE}. A Pauli rotation $R_P(\theta) = e^{-i\theta P/2}$ has the generator $P/2$, with the eigenvalues $\pm\frac12$; a parameter that controls several gates, as $\gamma$ controls all the $ZZ$ rotations of a layer of QAOA, has the sum of their generators. The cost is available only through estimates. We assume that $O$ is measured in its eigenbasis, as the cost Hamiltonian of QAOA is measured in the computational basis; a sum of Pauli strings that do not commute is measured in several groups, and the variances of the groups add. A measurement then returns a random value with mean $C(\boldsymbol\theta)$ and variance}
+\begin{equation}\label{eq:ch07:var}
+    \sigma^2(\boldsymbol\theta) = \braket{\psi(\boldsymbol\theta)|O^2|\psi(\boldsymbol\theta)} - C(\boldsymbol\theta)^2,
+\end{equation}
+\ona{and the mean $\hat C(\boldsymbol\theta)$ of $M$ such values, obtained from $M$ copies of the state, each prepared afresh and measured once, is an unbiased estimate of $C(\boldsymbol\theta)$ with variance $\sigma^2(\boldsymbol\theta)/M$.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item An estimator of a derivative is a combination of such estimates at several points. Its cost has two parts: the number of circuits submitted, and the number $N$ of copies measured in all.
+    \item In the worked example of \Chap~\chref{C.VQE}, with $d = 2$, an iteration required $17$ circuits and $17\,000$ copies, and an estimated energy had a standard error of $0.03$.
+    \item We compare estimators by their bias and variance for a given $N$, and by the number of circuits.
 \end{itemize}
 \end{frame}
 
-\section{The parameter-shift rule}
+\begin{frame}\ft{Why a circuit is not differentiated as a program}
+\onp{\footnotesize}
+\ona{On a classical computer, the gradient of a function computed by a program can be obtained by reverse-mode automatic differentiation, at a cost of a small constant multiple of the cost of one evaluation of the function, whatever the number of parameters \citep{griewank2008evaluating}. The method stores the intermediate values of the forward computation and propagates derivatives backwards through them. A quantum circuit does not permit this. Its intermediate states cannot be copied, and measuring them destroys them. \citet{abbas2023backpropagation} show that, with access to a single copy of the state at a time, the scaling of reverse-mode differentiation cannot be achieved; with several copies at once it can be, in the quantum resources, by means of shadow tomography. The methods of this \chap{} use one copy at a time, and their cost grows with the number of parameters: the parameter-shift rule requires two circuits for each parameter, and the derivative-free estimators of Section~\ref{sec:ch07:dfo}, which require two circuits in all, pay for this with a variance that grows with the number of parameters.}
+\begin{itemize}\setlength\itemsep{0.25em}
+    \item Reverse mode: a constant multiple of the cost of one evaluation, for any $d$ \citep{griewank2008evaluating}.
+    \item It stores the intermediate values. Intermediate quantum states can be neither copied nor stored, and measuring them destroys them.
+    \item With one copy at a time, the scaling of reverse mode cannot be achieved \citep{abbas2023backpropagation}.
+    \item Hence $2d$ circuits for the parameter-shift rule, or two circuits with a large variance for the derivative-free estimators.
+\end{itemize}
+\end{frame}
 
-\begin{frame}\ft{Derivation}
-\ona{Assume the generators are rotation-like, $H_i^2 = \one$, as for Pauli strings; general generators are decomposed into Pauli strings. Then}
-\begin{equation}
-    U_i(\theta_i) = e^{-i\theta_iH_i} = \cos(\theta_i)\one - i\sin(\theta_i)H_i,
+\begin{frame}\ft{Finite differences under shot noise}
+\onp{\footnotesize}
+\ona{The simplest estimator of a partial derivative is the central difference. Fix all the parameters but one, write $f(\theta)$ for the cost as a function of the remaining one, and $\sigma_\pm^2$ for the variances \eqref{eq:ch07:var} at $\theta\pm h$. With $M$ copies at each of the two points, Taylor's theorem gives}
+\begin{equation}\label{eq:ch07:fd}
+    \hat g_h = \frac{\hat f(\theta+h)-\hat f(\theta-h)}{2h},\qquad \mathbb E\,\hat g_h - f'(\theta) = \frac{h^2}6f'''(\theta) + \mathcal O(h^4),\qquad \mathrm{Var}\,\hat g_h = \frac{\sigma_+^2+\sigma_-^2}{4h^2M}.
 \end{equation}
-\ona{so the conjugated observable $O(\theta_i) \coloneqq U_i^\dagger(\theta_i)OU_i(\theta_i)$ has the form $A + B\cos\theta_i + C\sin\theta_i$ with $\theta_i$-independent operators $A,B,C$ (in fact $A + B\cos 2\theta_i + C\sin 2\theta_i$ with the conventions of some authors; the argument is the same). Using the exact identities}
-\begin{equation}
-    \frac{d\cos x}{dx} = \frac{\cos(x+s) - \cos(x-s)}{2\sin s},\qquad \frac{d\sin x}{dx} = \frac{\sin(x+s)-\sin(x-s)}{2\sin s}, \qquad s \notin \pi\mathbb Z,
+\ona{The bias decreases with $h$, and the variance increases as $h$ decreases. If $\sigma_\pm\approx\sigma$, the mean squared error $\frac{h^4}{36}f'''(\theta)^2 + \frac{\sigma^2}{2h^2M}$ is least at $h^6 = 9\sigma^2/(Mf'''(\theta)^2)$, where it is $\frac1{12}f'''(\theta)^2h^4$, of the order of $M^{-2/3}$.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item The best step depends on the third derivative, which is not known.
+    \item At the best step, the error decreases as $M^{-1/3}$, not as $M^{-1/2}$.
+    \item A step of $10^{-7}$, usual in floating-point arithmetic, gives a variance of the order of $10^{14}\sigma^2/M$: the two estimates differ by far less than their errors.
+\end{itemize}
+\ona{The parameter-shift rule removes the dilemma: for the functions that circuits compute, a difference with a step of order one, suitably rescaled, is exact.}
+\end{frame}
+
+\section{The parameter-shift rule}\label{sec:ch07:psr}
+
+\begin{frame}\ft{One parameter at a time}
+\onp{\footnotesize}
+\ona{To differentiate with respect to $\theta_j$, absorb the later layers into the observable and the earlier ones into the state:}
+\begin{equation}\label{eq:ch07:heis}
+    C(\boldsymbol\theta) = \braket{\phi_j|e^{i\theta_jH_j}O_j\,e^{-i\theta_jH_j}|\phi_j},\qquad \ket{\phi_j} = U_{j-1}\cdots U_1\ket{\psi_0},\quad O_j = U_{j+1}^\dagger\cdots U_d^\dagger\,O\,U_d\cdots U_{j+1}.
 \end{equation}
-\ona{we obtain, for any such $s$,}
+\ona{As a function of $\theta_j$ alone, the cost therefore has the form $f(\theta) = \braket{\phi|e^{i\theta H}O'e^{-i\theta H}|\phi}$, for a state $\ket\phi$, a Hermitian generator $H$ and a Hermitian observable $O'$ that do not depend on $\theta$. Neither $\ket\phi$ nor $O'$ is known explicitly: the circuit prepares the one and measures the other.}
+\onp{As a function of $\theta_j$ alone: $f(\theta) = \braket{\phi|e^{i\theta H}O'e^{-i\theta H}|\phi}$, with $\ket\phi$ and $O'$ prepared and measured by the circuit, not known.}
+\begin{lem}\label{lem:ch07:freq}
+Let $H = \sum_{k=1}^m\lambda_k\Pi_k$ be the spectral decomposition of $H$, with distinct eigenvalues $\lambda_k$ and orthogonal projectors $\Pi_k$. Then
+\begin{equation}\label{eq:ch07:freq}
+    f(\theta) = \sum_{k,l=1}^m c_{kl}\,e^{i(\lambda_k-\lambda_l)\theta},\qquad c_{kl} = \braket{\phi|\Pi_kO'\Pi_l|\phi},\quad c_{lk} = \overline{c_{kl}}.
+\end{equation}
+In particular, if $H$ has exactly two eigenvalues, which differ by $\Omega>0$, then $f(\theta) = a + b\cos\Omega\theta + c\sin\Omega\theta$ for real $a$, $b$, $c$.
+\end{lem}
+\ona{\emph{Proof.} Insert $e^{-i\theta H} = \sum_le^{-i\theta\lambda_l}\Pi_l$ and its adjoint. With two eigenvalues, the terms with $k = l$ give $a = c_{11}+c_{22}$, and the other two give $2\,\mathrm{Re}(c_{12}e^{i\Omega\theta})$. \qed}
+
+\ona{The frequencies of $f$ are the differences of the eigenvalues of the generator. When they are integers, $f$ is a Hermitian trigonometric polynomial in the sense of \Chap~\chref{C.VQE}. For a Pauli rotation, $\Omega = 1$, and the cost is a sinusoid of period $2\pi$ in the angle of the gate.}
+\end{frame}
+
+% (a) the circuit cut at the gate of theta_j: the earlier layers prepare a state, the later ones and O form an observable;
+% (b) the spectrum of the generator H_C of gamma in the worked example, and the frequencies it gives
+\mode<all>{\gdef\absorbfig{%
+  \tikzset{g/.style={draw,fill=white,minimum height=0.62cm,minimum width=0.8cm,inner sep=2pt,font=\scriptsize}}
+  \draw[thick] (0,0) -- (8.75,0);
+  \node[font=\scriptsize,anchor=east] at (0,0) {$\ket{\psi_0}$};
+  \node[g] at (0.75,0) {$U_1$};
+  \node[fill=white,font=\scriptsize,inner sep=1pt] at (1.6,0) {$\cdots$};
+  \node[g] at (2.45,0) {$U_{j-1}$};
+  \node[g,fill=orange!15,minimum width=1.6cm] (uj) at (4.35,0) {$e^{-i\theta_jH_j}$};
+  \node[g] at (6.25,0) {$U_{j+1}$};
+  \node[fill=white,font=\scriptsize,inner sep=1pt] at (7.1,0) {$\cdots$};
+  \node[g] at (7.95,0) {$U_d$};
+  \draw[fill=white] (8.79,-0.22) rectangle (9.31,0.22); \draw (8.9,-0.08) arc (150:30:0.17); \draw[-{Stealth[length=2.5pt]}] (9.05,-0.12) -- (9.18,0.14);
+  \node[font=\scriptsize,anchor=west] at (9.36,0) {$O$};
+  \draw[decorate,decoration={brace,amplitude=4pt},blue!70!black] (-0.6,0.45) -- (2.95,0.45) node[midway,above=5pt,font=\scriptsize,text=black] {$\ket{\phi_j} = U_{j-1}\cdots U_1\ket{\psi_0}$};
+  \draw[decorate,decoration={brace,amplitude=4pt},green!40!black] (5.75,0.45) -- (9.7,0.45) node[midway,above=5pt,font=\scriptsize,text=black] {$O_j = U_{j+1}^\dagger\cdots U_d^\dagger\,O\,U_d\cdots U_{j+1}$};
+  \node[note,anchor=north] (a1) at (1.2,-0.6) {a state that does not\\depend on $\theta_j$; the\\circuit prepares it,\\but it is not known};
+  \draw[notearrow] (a1.north) -- (1.2,-0.08);
+  \node[note,anchor=north] (a2) at (4.35,-0.6) {the only gate\\that depends\\on $\theta_j$};
+  \draw[notearrow] (a2.north) -- (uj.south);
+  \node[note,anchor=north] (a3) at (7.9,-0.6) {an observable that does\\not depend on $\theta_j$; the\\circuit measures it,\\but it is not known};
+  \draw[notearrow] (a3.north) -- (7.9,-0.08);
+}\gdef\spectrumfig{%
+  \draw[gray!60,-{Stealth[length=3pt]}] (-0.15,-2.15) -- (-0.15,0.5) node[above,font=\scriptsize,text=black] {eigenvalue of $H_C$};
+  \foreach \y/\l/\m in {0/0/2,-0.9/-2/12,-1.8/-4/2} {
+    \draw[very thick,blue!70!black] (0,\y) -- (1.0,\y);
+    \node[font=\scriptsize,anchor=east] at (-0.2,\y) {$\l$};
+    \node[font=\tiny,anchor=west] at (1.02,\y) {$\times\m$};}
+  \draw[{Stealth[length=3pt]}-{Stealth[length=3pt]},thick,red!75!black] (1.75,0) -- (1.75,-0.9) node[midway,right,font=\scriptsize] {$2$};
+  \draw[{Stealth[length=3pt]}-{Stealth[length=3pt]},thick,red!75!black] (2.3,-0.9) -- (2.3,-1.8) node[midway,right,font=\scriptsize] {$2$};
+  \draw[{Stealth[length=3pt]}-{Stealth[length=3pt]},thick,red!75!black] (2.95,0) -- (2.95,-1.8) node[midway,right,font=\scriptsize] {$4$};
+  \ona{\node[font=\footnotesize,anchor=west] (fg) at (3.75,-0.9) {$f(\gamma) = a_0 + a_1\cos2\gamma + b_1\sin2\gamma + a_2\cos4\gamma + b_2\sin4\gamma$};
+  \node[note,anchor=west] (b1) at (3.75,0.2) {each pair of eigenvalues contributes its difference as a\\frequency, with the weight $c_{kl}$ of \eqref{eq:ch07:freq}; equal differences add up};
+  \draw[notearrow] (b1.west) to[bend right=25] (3.1,-0.55);
+  \node[note,anchor=north west] (b2) at (3.75,-1.4) {in $x = 2\gamma$, a trigonometric polynomial of degree $R = 2$;\\the pairs with $k = l$ give the constant $a_0$. At $\beta = 0.1$,\\$f(\gamma) = -2+0.389\sin2\gamma$: the frequency $4$ has weight $0$};
+  \draw[notearrow] (b2.north) to[bend left=10] (6.2,-1.1);
+  \node[note,anchor=north west] (b3) at (-0.5,-2.35) {minus the cut values $0$, $2$, $4$\\of the $4$-cycle, with their\\multiplicities};
+  \draw[notearrow] (b3.north) to[bend left=15] (0.5,-1.87);}
+}}
+\begin{frame}\ft{Absorbing the other layers}
+\ona{Figure~\ref{fig:ch07:heis} shows the two steps. In (a), the circuit is cut at the gate of $\theta_j$. The layers before it prepare the state $\ket{\phi_j}$, and the layers after it, together with the measurement of $O$, measure the observable $O_j$; neither depends on $\theta_j$, and neither is known explicitly, but the circuit realises both. In (b), the gate is the cost layer $e^{-i\gamma H_C}$ of the worked example of \Chap~\chref{C.VQE}, whose generator has the eigenvalues $0$, $-2$ and $-4$, the negatives of the cut values of the $4$-cycle, with the multiplicities $2$, $12$ and $2$. By Lemma~\ref{lem:ch07:freq}, each pair of eigenvalues contributes a term whose frequency is their difference, so that $f$ has the frequencies $0$, $2$ and $4$, and in $x = 2\gamma$ it is a trigonometric polynomial of degree $2$, of the form of Theorem~\ref{thm:ch07:general} below. The same cut, made inside a gate rather than between gates, gives the stochastic rule of Fig.~\ref{fig:ch07:stoch} in Section~\ref{sec:ch07:general}. The lemma determines the frequencies, not the weights, which depend on the unknown state and observable: in the worked example, $F = -2+\sin4\beta\sin2\gamma$, and the terms with the frequency $4$ vanish for every $\beta$.}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}
+\absorbfig
+\node[font=\scriptsize] at (-0.9,1.2) {(a)};
+\begin{scope}[yshift=-3.6cm,xshift=0.2cm]\spectrumfig\node[font=\scriptsize] at (-1.1,1.15) {(b)};\end{scope}
+\end{tikzpicture}
+\caption{(a) The circuit cut at the gate of $\theta_j$, as in \eqref{eq:ch07:heis}: the earlier layers prepare the state $\ket{\phi_j}$ (blue), and the later layers and the measurement of $O$ form the observable $O_j$ (green). (b) Lemma~\ref{lem:ch07:freq} for the parameter $\gamma$ of the worked example of \Chap~\chref{C.VQE}: the eigenvalues of the generator $H_C$ (blue), with their multiplicities, and the differences between them (red), which are the frequencies of $f$.}\label{fig:ch07:heis}\end{figure}}
+\onp{\begin{center}\begin{tikzpicture}[scale=0.95]\absorbfig\end{tikzpicture}\end{center}
+\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Cut the circuit at the gate of $\theta_j$ (orange). The earlier layers prepare $\ket{\phi_j}$ (blue brace); the later layers and the measurement of $O$ measure $O_j$ (green brace).
+    \item Neither depends on $\theta_j$, and neither is known: the circuit prepares the one and measures the other. Only the gate $e^{-i\theta_jH_j}$ remains, and its spectrum determines how $C$ depends on $\theta_j$.
+\end{itemize}}
+\end{frame}
+
+\begin{frame}\ft{The frequencies of one gate}
+\onp{\begin{columns}[c]\begin{column}{0.4\textwidth}\centering\begin{tikzpicture}[scale=1.1]\spectrumfig\end{tikzpicture}\end{column}
+\begin{column}{0.58\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.25em}
+    \item The cost layer $e^{-i\gamma H_C}$ of the worked example: the eigenvalues $0$, $-2$, $-4$ of $H_C$ (blue), minus the cut values of the $4$-cycle, with their multiplicities.
+    \item Each pair of eigenvalues contributes its difference as a frequency (red), with the weight $c_{kl} = \braket{\phi|\Pi_kO'\Pi_l|\phi}$; equal differences add up, and pairs with $k = l$ give a constant.
+    \item Hence $f(\gamma) = a_0 + a_1\cos2\gamma + b_1\sin2\gamma + a_2\cos4\gamma + b_2\sin4\gamma$: degree $2$ in $x = 2\gamma$.
+    \item The lemma fixes the frequencies, not the weights: at $\beta = 0.1$, $f(\gamma) = -2+0.389\sin2\gamma$, and the frequency $4$ has weight $0$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{The parameter-shift rule}
+\onp{\footnotesize}
+\begin{thm}[\citet{Mitarai_2018,schuld2019evaluating}]\label{thm:ch07:psr}
+If $H$ has exactly two eigenvalues, which differ by $\Omega>0$, then for every $\theta$ and every $s$ with $\sin\Omega s\ne0$,
+\begin{equation}\label{eq:ch07:psrs}
+    f'(\theta) = \Omega\,\frac{f(\theta+s)-f(\theta-s)}{2\sin\Omega s}.
+\end{equation}
+In particular, for a Pauli rotation $R_P(\theta) = e^{-i\theta P/2}$,
 \begin{equation}\label{eq:ch07:psr}
-    \frac{dO(\theta_i)}{d\theta_i} = \frac{O(\theta_i + s) - O(\theta_i - s)}{2\sin s}.
+    f'(\theta) = \tfrac12\big[f(\theta+\tfrac\pi2)-f(\theta-\tfrac\pi2)\big].
 \end{equation}
-\ona{This is \emph{exact}, not an approximation, and the shift $s$ can be as large as $\pi/2$, where the denominator is $2$: the derivative of an expectation is the difference of two expectations at well-separated points.}
-\onp{Exact for rotation-like generators; $s = \pi/2$ gives $\tfrac12[O(\theta_i+\pi/2) - O(\theta_i - \pi/2)]$.}
+\end{thm}
+\ona{\emph{Proof.} By Lemma~\ref{lem:ch07:freq}, $f(\theta) = a + b\cos\Omega\theta + c\sin\Omega\theta$, and the addition theorems give $f(\theta+s)-f(\theta-s) = 2\sin\Omega s\,(c\cos\Omega\theta - b\sin\Omega\theta) = \frac{2\sin\Omega s}\Omega f'(\theta)$. \qed}
+\onp{Proof: $f = a + b\cos\Omega\theta + c\sin\Omega\theta$, and $f(\theta+s)-f(\theta-s) = 2\sin\Omega s\,(c\cos\Omega\theta-b\sin\Omega\theta) = \frac{2\sin\Omega s}{\Omega}f'(\theta)$.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item The rule is exact. It is a statement about expectations, and the shift $\pi/2$ is of order one.
+    \item For such $f$, the central difference \eqref{eq:ch07:fd} is $\frac{\sin\Omega h}{\Omega h}f'(\theta)$; the rule is the central difference with this factor removed.
+    \item With $M$ copies at each point, the variance of the estimate is $\Omega^2(\sigma_+^2+\sigma_-^2)/(4M\sin^2\Omega s)$, least at $\Omega s = \pi/2$; for a Pauli rotation it is $(\sigma_+^2+\sigma_-^2)/(4M)$.
+\end{itemize}
+\end{frame}
+
+% The circle and the graph of the energy as a function of the angle phi of one gate of the worked example,
+% f(phi) = a + A sin(phi - 0.1), a = -2.0387, A = 0.1947, drawn with A as 1.2cm; the graph has phi + pi as abscissa.
+\mode<all>{\gdef\psrcircle{%
+  \draw[gray!60,-{Stealth[length=3pt]}] (-1.5,0) -- (1.55,0);
+  \draw[gray!60,-{Stealth[length=3pt]}] (0,-1.5) -- (0,1.6) node[above,font=\scriptsize,text=black] {$f-a$};
+  \draw[thick,blue!70!black] (0,0) circle (1.2);
+  \coordinate (P0) at (1.176,-0.238); \coordinate (Pp) at (0.238,1.176); \coordinate (Pm) at (-0.238,-1.176);
+  \coordinate (Qp) at (1.0,0.663); \coordinate (Qm) at (0.663,-1.0);
+  \draw[gray] (0,0) -- (P0);
+  \draw[red!75!black,thick] (Pm) -- (Pp);
+  \draw[orange!90!black,thick,densely dashed] (Qm) -- (Qp);
+  \draw[-{Stealth[length=4pt]},thick,green!40!black] (P0) -- ++(0.238,1.176);
+  \fill (P0) circle (1.6pt); \fill[red!75!black] (Pp) circle (1.6pt); \fill[red!75!black] (Pm) circle (1.6pt);
+  \fill[orange!90!black] (Qp) circle (1.3pt); \fill[orange!90!black] (Qm) circle (1.3pt);
+  \node[font=\scriptsize,anchor=north west,inner sep=1pt] at (P0) {$\phi_0$};
+  \node[font=\scriptsize,anchor=south west,inner sep=1pt] at (Pp) {$\phi_0+\frac\pi2$};
+  \node[font=\scriptsize,anchor=north east,inner sep=1pt] at (Pm) {$\phi_0-\frac\pi2$};
+  \node[note,anchor=east] (c1) at (-1.45,1.0) {the point turns at unit\\speed as $\phi$ grows;\\its height is $f(\phi)-a$};
+  \draw[notearrow] (c1.east) to[bend left=15] (-0.885,0.811);
+  \node[note,anchor=east] (c2) at (-1.45,-0.35) {the chord from $\phi_0-s$\\to $\phi_0+s$ is parallel to\\the tangent at $\phi_0$, and\\$2\sin s$ times as long};
+  \draw[notearrow] (c2.east) to[bend right=12] (0.76,-0.5);
+  \node[note,anchor=north east] (c3) at (-0.3,-1.6) {$s = \frac\pi2$: a diameter,\\the longest chord};
+  \draw[notearrow] (c3.north east) to[bend right=15] (-0.05,-0.25);
+  \node[note,anchor=north west] (c4) at (0.4,-1.6) {the tangent\\at $\phi_0$};
+  \draw[notearrow] (c4.north) to[bend right=25] (1.29,0.32);
+}\gdef\psrgraph{%
+  \draw[gray!60,-{Stealth[length=3pt]}] (0,-1.5) -- (0,1.6) node[above,font=\scriptsize,text=black] {$f(\phi)$};
+  \draw[gray!60,-{Stealth[length=3pt]}] (0,-1.5) -- (6.7,-1.5) node[right,font=\scriptsize,text=black] {$\phi$};
+  \draw[gray!40,densely dotted] (0,0) -- (6.28,0);
+  \foreach \y/\l in {1.2/-1.84,0/-2.04,-1.2/-2.23} {\draw[gray!60] (-0.06,\y) -- (0.06,\y); \node[font=\tiny,anchor=east] at (-0.06,\y) {$\l$};}
+  \foreach \x/\l in {0/-\pi,6.283/\pi} {\draw[gray!60] (\x,-1.56) -- (\x,-1.44); \node[font=\tiny,anchor=north] at (\x,-1.56) {$\l$};}
+  \foreach \x/\l in {1.471/\phi_0-\frac\pi2,3.042/\phi_0,4.612/\phi_0+\frac\pi2} {\draw[gray!60] (\x,-1.56) -- (\x,-1.44); \node[font=\tiny,anchor=north] at (\x,-1.56) {$\l$};}
+  \draw[thick,blue!70!black,domain=-3.1416:3.1416,samples=120] plot ({\x+3.1416},{1.2*sin(deg(\x-0.1))});
+  \draw[green!40!black,thick] (2.342,-1.061) -- (3.742,0.585);
+  \coordinate (G0) at (3.042,-0.238); \coordinate (Gp) at (4.612,1.176); \coordinate (Gm) at (1.471,-1.176);
+  \draw[red!75!black,densely dotted] (Gm) -- (Gm |- 0,-1.5); \draw[red!75!black,densely dotted] (Gp) -- (Gp |- 0,-1.5);
+  \draw[orange!90!black,thick] (4.612,1.083) -- (4.612,1.465); \draw[orange!90!black,thick] (4.55,1.274) -- (4.674,1.274);
+  \draw[orange!90!black,thick] (1.471,-1.555) -- (1.471,-1.173); \draw[orange!90!black,thick] (1.409,-1.364) -- (1.533,-1.364);
+  \fill (G0) circle (1.6pt); \fill[red!75!black] (Gp) circle (1.6pt); \fill[red!75!black] (Gm) circle (1.6pt);
+  \ona{\node[note,anchor=west] (g2) at (7.0,1.35) {estimates from $1000$\\copies each, \Chap~\chref{C.VQE}};
+  \draw[notearrow] (g2.west) to[bend right=15] (4.72,1.42);
+  \node[note,anchor=west] (g1) at (7.0,0.3) {the slope at $\phi_0 = -0.1$\\is $0.191$, half the\\difference of the\\values at $\phi_0\pm\frac\pi2$};
+  \draw[notearrow] (g1.west) to[bend left=15] (3.62,0.45);
+  \node[note,anchor=west] (g3) at (7.0,-0.85) {the true values\\$-1.848$ and $-2.230$};
+  \draw[notearrow] (g3.west) to[bend right=20] (4.7,1.1);}
+}}
+\begin{frame}\ft{The rule, pictured}
+\ona{Figure~\ref{fig:ch07:psr} shows the rule on the worked example of \Chap~\chref{C.VQE}, depth-one QAOA for MaxCut on the 4-cycle at the starting point $(\beta,\gamma) = (0.1,-0.1)$. The function is the energy as a function of the angle $\phi$ of the gate $R_Z$ of the edge $12$, all other angles being fixed; at the starting point, $\phi_0 = \gamma = -0.1$. By Lemma~\ref{lem:ch07:freq} it is a sinusoid, $f(\phi) = a + A\sin(\phi-0.1)$ with $a = -2.039$ and $A = 0.195$, and its derivative at $\phi_0$ is $0.191$, half the difference between the values $-1.848$ and $-2.230$ at $\phi_0\pm\frac\pi2$. The worked example estimated these values from $1000$ copies each, as $-1.832$ and $-2.260$, and so the derivative as $0.214$.}
+\ona{The picture on the left explains why a difference with a large step can be exact. As $\phi$ grows, the point $Ae^{i(\phi-0.1)}$ turns about the circle at unit angular speed, and its height is $f(\phi)-a$, so that the height of its velocity, which is tangent to the circle, is $f'(\phi)$. The chord between the points for $\phi_0-s$ and $\phi_0+s$ is parallel to the tangent at $\phi_0$, and its length is $2\sin s$ times that of the velocity; its height is therefore $f(\phi_0+s)-f(\phi_0-s) = 2\sin s\,f'(\phi_0)$, which is \eqref{eq:ch07:psrs} with $\Omega = 1$. The longest chord, the diameter, is obtained for $s = \pi/2$, and it gives the largest difference, and so the smallest relative effect of the noise.}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}
+\psrcircle
+\begin{scope}[xshift=2.65cm,xscale=0.85]\psrgraph\end{scope}
+\draw[gray!70,densely dotted] (Pp) -- (Gp); \draw[gray!70,densely dotted] (Pm) -- (Gm); \draw[gray!70,densely dotted] (P0) -- (G0);
+\end{tikzpicture}
+\caption{The parameter-shift rule for the angle $\phi$ of the gate $R_Z$ of edge $12$ in the worked example of \Chap~\chref{C.VQE}, at $\phi_0 = -0.1$. Right: the energy $f(\phi) = a + A\sin(\phi-0.1)$ (blue), its tangent at $\phi_0$ (green), its values at $\phi_0\pm\frac\pi2$ (red), and the estimates of these values from $1000$ copies each, with their standard errors (orange). Left: the same function as the height of a point turning about a circle of radius $A$; the chords for $s = \frac\pi4$ (orange, dashed) and $s = \frac\pi2$ (red) are parallel to the tangent. The dotted lines join points of equal height.}\label{fig:ch07:psr}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.56\textwidth}\centering\begin{tikzpicture}[scale=0.82]\psrgraph\end{tikzpicture}\end{column}
+\begin{column}{0.42\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.25em}
+    \item The worked example of \Chap~\chref{C.VQE} at $(\beta,\gamma) = (0.1,-0.1)$: the energy as a function of the angle $\phi$ of the gate $R_Z$ of edge $12$ alone.
+    \item A sinusoid, $f(\phi) = -2.039 + 0.195\sin(\phi-0.1)$ (blue).
+    \item Its slope at $\phi_0 = -0.1$ (green) is $0.191$, half the difference of the true values $-1.848$ and $-2.230$ at $\phi_0\pm\frac\pi2$ (red).
+    \item The estimates from $1000$ copies each, $-1.832$ and $-2.260$ (orange, with standard errors $0.03$), give $0.214$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{The rule on the circle}
+\onp{\begin{columns}[c]\begin{column}{0.56\textwidth}\centering\begin{tikzpicture}[scale=0.95]\psrcircle\end{tikzpicture}\end{column}
+\begin{column}{0.42\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.25em}
+    \item The same function as the height of a point $0.195\,e^{i(\phi-0.1)}$ turning about a circle at unit angular speed.
+    \item The height of its velocity, tangent to the circle (green), is $f'(\phi)$.
+    \item The chord from $\phi_0-s$ to $\phi_0+s$ is parallel to the tangent and $2\sin s$ times as long: its height is $f(\phi_0+s)-f(\phi_0-s) = 2\sin s\,f'(\phi_0)$.
+    \item At $s = \frac\pi2$ the chord is a diameter (red), the longest: the largest difference, and the smallest relative effect of the noise.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{A second proof, by the commutator}
+\onp{\footnotesize}
+\ona{The rule can also be derived without the spectral decomposition. The derivation is needed in Section~\ref{sec:ch07:general}.}
+\begin{lem}\label{lem:ch07:comm}
+For a Pauli string $P$ and every operator $O$,
+\begin{equation}\label{eq:ch07:comm}
+    i[P,O] = R_P(\tfrac\pi2)^\dagger\,O\,R_P(\tfrac\pi2) - R_P(-\tfrac\pi2)^\dagger\,O\,R_P(-\tfrac\pi2).
+\end{equation}
+\end{lem}
+\ona{\emph{Proof.} Since $P^2 = \one$, $R_P(\pm\frac\pi2) = (\one\mp iP)/\sqrt2$, and so $R_P(\pm\frac\pi2)^\dagger OR_P(\pm\frac\pi2) = \frac12(\one\pm iP)O(\one\mp iP) = \frac12\big(O + POP \pm i[P,O]\big)$. The difference of the two is $i[P,O]$. \qed}
+
+\ona{For $f(\theta) = \braket{\phi|R_P(\theta)^\dagger O'R_P(\theta)|\phi}$, differentiation gives $f'(\theta) = \braket{\phi|R_P(\theta)^\dagger\,\frac i2[P,O']\,R_P(\theta)|\phi}$. By the lemma, and since $R_P(\pm\frac\pi2)R_P(\theta) = R_P(\theta\pm\frac\pi2)$, this is \eqref{eq:ch07:psr}.}
+\onp{Since $\frac{d}{d\theta}R_P(\theta)^\dagger O'R_P(\theta) = R_P(\theta)^\dagger\,\frac i2[P,O']\,R_P(\theta)$ and $R_P(\pm\frac\pi2)R_P(\theta) = R_P(\theta\pm\frac\pi2)$, the lemma gives \eqref{eq:ch07:psr}.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item The derivative is the expectation of the observable $\frac i2[P,O']$ in the state at $\theta$. It could be measured with an additional qubit and controlled gates; the rule requires neither.
+    \item The shifted circuits are the original circuit with one angle changed. No new gates are compiled, and the same calibration serves.
+\end{itemize}
 \end{frame}
 
 \begin{frame}\ft{Assembling the gradient}
-\ona{To differentiate with respect to $\theta_j$ in a circuit of $L$ layers, absorb the later layers into the observable and the earlier ones into the state,}
-\begin{equation}
-    \tilde O_j \coloneqq U_{j+1}^\dagger\cdots U_L^\dagger\,O\,U_L\cdots U_{j+1},\qquad \ket{\tilde\psi_j} \coloneqq U_{j-1}\cdots U_1\ket{\psi_0},
-\end{equation}
-\ona{so that $C(\boldsymbol\theta) = \braket{\tilde\psi_j|U_j^\dagger(\theta_j)\tilde O_jU_j(\theta_j)|\tilde\psi_j}$ and \eqref{eq:ch07:psr} applies:}
+\onp{\footnotesize}
+\ona{For a circuit of Pauli rotations, \eqref{eq:ch07:heis} and \eqref{eq:ch07:psr} give every partial derivative from two circuits,}
 \begin{equation}\label{eq:ch07:grad}
-    \frac{\partial C}{\partial\theta_j} = \frac{C(\boldsymbol\theta + s\,e_j) - C(\boldsymbol\theta - s\,e_j)}{2\sin s},\qquad j = 1,\dots,L.
+    \frac{\partial C}{\partial\theta_j}(\boldsymbol\theta) = \tfrac12\big[C(\boldsymbol\theta+\tfrac\pi2\boldsymbol e_j) - C(\boldsymbol\theta-\tfrac\pi2\boldsymbol e_j)\big],\qquad j = 1,\dots,d,
 \end{equation}
+\ona{and so the gradient from $2d$ circuits. If a parameter controls several gates, as in QAOA, each gate is given its own angle $\phi_g$, which depends on the parameter, and the chain rule gives}
+\begin{equation}\label{eq:ch07:chain}
+    \frac{\partial C}{\partial\theta_j} = \sum_g\frac{\partial\phi_g}{\partial\theta_j}\cdot\tfrac12\big[C_{g+} - C_{g-}\big],
+\end{equation}
+\ona{where $C_{g\pm}$ is the cost with the angle of gate $g$ alone shifted by $\pm\frac\pi2$. This is the computation of the worked example of \Chap~\chref{C.VQE}: $\gamma$ is the angle of four gates $R_Z(\gamma)$ and $2\beta$ that of four gates $R_X(2\beta)$, so that $\partial\phi_g/\partial\beta = 2$, and the gradient required $16$ circuits.}
 \begin{itemize}\setlength\itemsep{0.2em}
-    \item Each partial derivative costs two circuit evaluations of the \emph{same} circuit with shifted parameters: $2L$ evaluations per gradient, each with its own shots.
-    \item Higher derivatives follow by iterating the rule; the Hessian costs $\mathcal O(L^2)$ evaluations.
-    \item For QAOA, $\theta = (\boldsymbol\beta,\boldsymbol\gamma)$ and $H_C = \sum_e w_eZ_iZ_j$ is not rotation-like as a whole; one differentiates each $ZZ$ rotation separately, or uses the generalised rules below.
+    \item For QAOA of depth $p$ on a graph $(V,E)$, gate by gate: $2p(|E|+|V|)$ circuits for a gradient of $2p$ parameters.
+    \item \ona{Section~\ref{sec:ch07:general}}\onp{The next section} gives rules that treat a parameter of several gates as one, with fewer circuits.
+    \item The estimate of each term is unbiased, and so is the sum. Its variance is the sum of the variances of the terms, since the circuits are measured independently.
 \end{itemize}
 \end{frame}
+
+\begin{frame}\ft{Second derivatives}
+\onp{\footnotesize}
+\ona{Applying \eqref{eq:ch07:psr} to each partial derivative \eqref{eq:ch07:grad} gives the second derivatives \citep{Mari_2021}. For $j\ne k$,}
+\begin{equation}\label{eq:ch07:hessmixed}
+    \frac{\partial^2C}{\partial\theta_j\partial\theta_k} = \tfrac14\big[C(\boldsymbol\theta+\tfrac\pi2\boldsymbol e_j+\tfrac\pi2\boldsymbol e_k) - C(\boldsymbol\theta+\tfrac\pi2\boldsymbol e_j-\tfrac\pi2\boldsymbol e_k) - C(\boldsymbol\theta-\tfrac\pi2\boldsymbol e_j+\tfrac\pi2\boldsymbol e_k) + C(\boldsymbol\theta-\tfrac\pi2\boldsymbol e_j-\tfrac\pi2\boldsymbol e_k)\big].
+\end{equation}
+\ona{For $j = k$, the sinusoid $f = a + b\cos\theta + c\sin\theta$ satisfies $f'' = a - f$ and $f(\theta+\pi) = 2a - f(\theta)$, and so}
+\begin{equation}\label{eq:ch07:hessdiag}
+    \frac{\partial^2C}{\partial\theta_j^2} = \tfrac12\big[C(\boldsymbol\theta+\pi\boldsymbol e_j) - C(\boldsymbol\theta)\big].
+\end{equation}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item The Hessian of $d$ parameters requires $4\binom d2 + d + 1 = 2d^2-d+1$ circuits, the value $C(\boldsymbol\theta)$ included. For $d = 20$ this is $781$ circuits.
+    \item Higher derivatives follow in the same way; each order multiplies the number of circuits by about $2d$.
+    \item The Newton, trust-region and cubic-regularisation methods of \Chap~\chref{C.QAOA} need these estimates, and they need them more accurately than gradients, since the Hessian is inverted.
+\end{itemize}
+\end{frame}
+
+% Root-mean-square errors of the central difference and of the shift rule, for the derivative of the energy
+% with respect to the angle of one gate of the worked example (code/ch07_figures.py)
+\mode<all>{\gdef\stepA#1{\begin{axis}[#1,width=\stW,height=\stH,clip mode=individual,axis lines=left,xmode=log,ymode=log,xmin=0.01,xmax=1.6,ymin=1e-3,ymax=30,xlabel={step $h$, or shift $s$},ylabel={root-mean-square error},no markers,thick,title={\scriptsize (a) error against the step}]
+  \addplot[blue!70!black] table[x=h,y=fd0] {figures/ch07/step_rmse.dat};
+  \addplot[blue!70!black,densely dashed] table[x=h,y=sr0] {figures/ch07/step_rmse.dat};
+  \addplot[orange!90!black] table[x=h,y=fd1] {figures/ch07/step_rmse.dat};
+  \addplot[orange!90!black,densely dashed] table[x=h,y=sr1] {figures/ch07/step_rmse.dat};
+  \addplot[green!40!black] table[x=h,y=fd2] {figures/ch07/step_rmse.dat};
+  \addplot[green!40!black,densely dashed] table[x=h,y=sr2] {figures/ch07/step_rmse.dat};
+  \addplot[only marks,mark=*,mark size=1.3pt,blue!70!black] table[x=h,y=fd] {figures/ch07/step_sampled.dat};
+  \addplot[only marks,mark=square,mark size=1.4pt,blue!70!black,thin] table[x=h,y=sr] {figures/ch07/step_sampled.dat};
+  \draw[gray,densely dotted] (axis cs:0.01,0.191) -- (axis cs:1.6,0.191);
+  \node[note,anchor=south west] (s1) at (axis cs:0.011,3.2) {central differences:\\shot noise, as $1/h$};
+  \draw[notearrow] (s1.south) to[bend right=15] (axis cs:0.025,0.9);
+  \ona{\node[note,anchor=south west] (s2) at (axis cs:0.25,2.2) {the bias grows as $h^2$};
+  \draw[notearrow] (s2.south east) to[bend left=20] (axis cs:1.05,0.034);
+  \node[note,anchor=south west] (s3) at (axis cs:0.011,1.2e-3) {the shift rule,\\least at $s = \frac\pi2$};
+  \draw[notearrow] (s3.east) to[bend right=10] (axis cs:1.45,0.0021);}
+\end{axis}}\gdef\stepB#1{\begin{axis}[#1,width=\stW,height=\stH,clip mode=individual,axis lines=left,xmode=log,ymode=log,xmin=100,xmax=1e7,ymin=1e-4,ymax=0.3,xlabel={copies $N$ in all},ylabel={root-mean-square error},no markers,thick,title={\scriptsize (b) error against the copies}]
+  \addplot[blue!70!black] table[x=N,y=fd] {figures/ch07/copies_rmse.dat};
+  \addplot[blue!70!black,densely dashed] table[x=N,y=sr] {figures/ch07/copies_rmse.dat};
+  \fill[black] (axis cs:2000,0.034) circle (1.4pt); \fill[black] (axis cs:2000,0.0219) circle (1.4pt);
+  \node[note,anchor=south west] (t1) at (axis cs:1.2e2,1.5e-3) {central difference\\at its best step:\\as $N^{-1/3}$};
+  \draw[notearrow] (t1.north east) to[bend right=20] (axis cs:1e4,0.019);
+  \node[note,anchor=south west] (t2) at (axis cs:1.2e2,1.4e-4) {shift rule: as $N^{-1/2}$};
+  \draw[notearrow] (t2.east) to[bend right=20] (axis cs:1e6,0.0009);
+  \node[note,anchor=south west] (t3) at (axis cs:2e4,0.04) {$N = 2000$, as in the\\worked example:\\$0.034$ and $0.022$};
+  \draw[notearrow] (t3.west) to[bend right=15] (axis cs:2300,0.03);
+\end{axis}}}
+\begin{frame}\ft{The shift rule against the central difference}
+\ona{Figure~\ref{fig:ch07:steps} compares the two estimators for the derivative of Fig.~\ref{fig:ch07:psr}, with $N$ copies in all, divided equally between the two circuits. The errors are computed exactly from the bias and the variance, and the dots are the errors of $4000$ simulated estimates. With $N = 2000$, the budget of the worked example, the central difference with $h = 10^{-2}$ has an error of $2.2$, eleven times the derivative $0.191$ itself; at its best step, $h = 0.80$, its error is $0.034$, against $0.022$ for the shift rule. At $N = 2\times10^6$, the best step is $0.25$, and the errors are $0.0034$ and $0.0007$. The best step of the central difference is large here because the sinusoid has a small third derivative, $f''' = -f'$; it could not be chosen without that knowledge. Below about $150$ copies in all, the central difference with a step larger than one has the slightly smaller error, its bias being smaller than the noise; as $N$ grows, the bias dominates.}
+\ona{\gdef\stW{0.44\linewidth}\gdef\stH{0.4\linewidth}}\onp{\gdef\stW{6.2cm}\gdef\stH{5.4cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\stepA{name=sa}\stepB{at={(sa.east)},anchor=west,xshift=2.4cm}\end{tikzpicture}
+\caption{The root-mean-square error of the central difference (solid) and of the shift rule (dashed) for the derivative $0.191$ of Fig.~\ref{fig:ch07:psr}. (a) Against the step $h$, or the shift $s$, for $N = 2\times10^3$ (blue), $2\times10^4$ (orange) and $2\times10^5$ (green) copies in all; the dots are the errors of $4000$ simulated estimates with $N = 2\times10^3$, for the central difference (filled) and the shift rule (open). (b) Against $N$, for the central difference at its best step and the shift rule at $s = \frac\pi2$.}\label{fig:ch07:steps}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.53\textwidth}\begin{tikzpicture}\stepA{}\end{tikzpicture}\end{column}
+\begin{column}{0.45\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.25em}
+    \item The derivative $0.191$ of the previous slides, with $N$ copies in all, half at each point; exact errors (lines) and $4000$ simulated estimates (dots).
+    \item Central differences (solid), for $N = 2\times10^3$ (blue), $2\times10^4$ (orange), $2\times10^5$ (green): the shot noise grows as $1/h$, the bias as $h^2$. At $h = 10^{-2}$ and $N = 2000$, the error is $2.2$.
+    \item The shift rule with shift $s$ (dashed) is unbiased; its error $\propto1/\sin s$ is least at $s = \frac\pi2$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{The error against the number of copies}
+\onp{\begin{columns}[c]\begin{column}{0.53\textwidth}\begin{tikzpicture}\stepB{}\end{tikzpicture}\end{column}
+\begin{column}{0.45\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.25em}
+    \item The central difference at its best step for each $N$ (solid), and the shift rule at $s = \frac\pi2$ (dashed).
+    \item With $N = 2000$, as in the worked example, the errors are $0.034$, at the best step $h = 0.80$, and $0.022$.
+    \item With $N = 2\times10^6$: $0.0034$, at $h = 0.25$, and $0.0007$.
+    \item The best step requires the third derivative, which is not known; the shift rule requires nothing.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\section{Generators with more eigenvalues}\label{sec:ch07:general}
+
+\mode<all>{\gdef\freqtab#1#2#3#4{{\setlength\tabcolsep{4pt}\begin{tabular}{@{}>{\raggedright\arraybackslash}p{#1\linewidth}>{\raggedright\arraybackslash}p{#2\linewidth}>{\raggedright\arraybackslash}p{#3\linewidth}>{\raggedright\arraybackslash}p{#4\linewidth}@{}}\toprule
+gate & eigenvalues of the generator & frequencies & $R$ \\\midrule
+Pauli rotation $R_P(\theta) = e^{-i\theta P/2}$ & $\pm\frac12$ & $1$ & $1$ \\
+$k$ commuting Pauli rotations with a common angle, $e^{-i\theta\sum_gP_g/2}$ & among $-\frac k2,-\frac k2+1,\dots,\frac k2$ & among $1,\dots,k$ & at most $k$ \\
+QAOA for MaxCut, cost layer $e^{-i\gamma H_C}$ & $-\mathrm{cut}(x)$, among $0,-1,\dots,-\mathrm{MC}$ & differences of cut values & at most $\mathrm{MC}$ \\
+QAOA, mixer $e^{-i\beta\sum_jX_j}$ on $n$ qubits & $-n,-n+2,\dots,n$ & $2,4,\dots,2n$ & $n$ \\
+UCC, excitation $e^{-i\theta G}$, $G = i(\tau-\tau^\dagger)$ & $-1$, $0$, $1$ & $1$, $2$ & $2$ \\\bottomrule
+\end{tabular}}}}
+\begin{frame}\ft{The frequencies of common gates}
+\onp{\footnotesize}
+\ona{By Lemma~\ref{lem:ch07:freq}, the frequencies of the cost in one parameter are the positive differences of the eigenvalues of its generator. Table~\ref{tab:ch07:freq} lists them for the gates of \Chaps~\chref{C.VQE} and~\chref{C.QAOA}. When they are among the multiples $\Omega_0,2\Omega_0,\dots,R\Omega_0$ of a base frequency $\Omega_0$, the substitution $x = \Omega_0\theta$ makes the cost a trigonometric polynomial of degree at most $R$ in $x$. The excitations of the unitary coupled-cluster ansatz have the eigenvalues $-1$, $0$ and $1$ \citep{Kottmann2021}. For MaxCut, $\mathrm{MC}$ denotes the maximum cut; in the worked example of \Chap~\chref{C.VQE}, on the 4-cycle, the cut values are $0$, $2$ and $4$, so that the frequencies in $\gamma$ are $2$ and $4$, and $R = 2$ with $\Omega_0 = 2$.}
+\onp{\begin{center}\scriptsize\freqtab{0.3}{0.27}{0.2}{0.12}\end{center}}
+\ona{\begin{table}[htb]\centering\caption{The frequencies of the cost in the angle of common gates. $\mathrm{MC}$ is the maximum cut, and $\tau$ a fermionic excitation operator mapped to qubits.}\label{tab:ch07:freq}\footnotesize\freqtab{0.3}{0.27}{0.2}{0.12}\end{table}}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item Gate by gate, a parameter of $k$ gates requires $2k$ circuits. The rule below requires $2R$, and $R\le k$.
+    \item MaxCut: $R\le\mathrm{MC}\le|E|$, with equality only for bipartite graphs; the 4-cycle, with even cut values, has $R = 2$ for four gates. The mixer: $R = n$, as many as the gates.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{The general parameter-shift rule}
+\onp{\footnotesize}
+\begin{thm}[\citet{Wierichs2021}]\label{thm:ch07:general}
+Let $f(x) = a_0 + \sum_{\ell=1}^R(a_\ell\cos\ell x + b_\ell\sin\ell x)$ with real coefficients, and let $x_\mu = \frac{(2\mu-1)\pi}{2R}$ for $\mu = 1,\dots,R$. Then
+\begin{equation}\label{eq:ch07:general}
+    f'(0) = \sum_{\mu=1}^Ry_\mu\big[f(x_\mu)-f(-x_\mu)\big],\qquad y_\mu = \frac{(-1)^{\mu-1}}{4R\sin^2(x_\mu/2)},
+\end{equation}
+and $\sum_{\mu=1}^R2|y_\mu| = R$.
+\end{thm}
+\ona{At another point $x_0$, the rule is applied to $x\mapsto f(x_0+x)$, which has the same frequencies. It requires $2R$ values. For $R = 1$ it is the rule \eqref{eq:ch07:psr}, with $x_1 = \frac\pi2$ and $y_1 = \frac12$. For $R = 2$, as for the excitations of the unitary coupled-cluster ansatz, the shifts are $\frac\pi4$ and $\frac{3\pi}4$, and the weights $y_1 = \frac12(1+\frac1{\sqrt2}) = 0.854$ and $y_2 = -\frac12(1-\frac1{\sqrt2}) = -0.146$; \citet{Kottmann2021} gave a rule with four values for these excitations. For the parameter $\gamma$ of the worked example, with $x = 2\gamma$,}
+\onp{$R = 1$: \eqref{eq:ch07:psr}. $R = 2$: shifts $\frac\pi4$, $\frac{3\pi}4$, weights $0.854$, $-0.146$. In the worked example, with $x = 2\gamma$:}
+\begin{equation}\label{eq:ch07:c4gamma}
+    \frac{\partial F}{\partial\gamma} = \big(1+\tfrac1{\sqrt2}\big)\big[F(\gamma+\tfrac\pi8) - F(\gamma-\tfrac\pi8)\big] - \big(1-\tfrac1{\sqrt2}\big)\big[F(\gamma+\tfrac{3\pi}8) - F(\gamma-\tfrac{3\pi}8)\big],
+\end{equation}
+\ona{four circuits in place of eight, which give $0.7633$ at $(\beta,\gamma) = (0.1,-0.1)$, the exact value. For $\beta$, with frequencies $2,4,6,8$, the rule with $R = 4$ requires eight circuits, as many as the gates.}
+\ona{The formula \eqref{eq:ch07:general} is classical in approximation theory: it is the interpolation formula of M.~Riesz for the derivative of a trigonometric polynomial, from which Bernstein's inequality follows \citep{zygmund2003trigonometric}.}
+\end{frame}
+
+\begin{frame}\ft{Proof of the general rule}
+\onp{\footnotesize}
+\ona{We use the \emph{Chebyshev polynomials}: $T_R$, of degree $R$, with $T_R(\cos x) = \cos Rx$, and $U_{\ell-1}$, of degree $\ell-1$, with $\sin\ell x = \sin x\,U_{\ell-1}(\cos x)$; both identities follow from de Moivre's formula.}
+\onp{Chebyshev polynomials: $T_R(\cos x) = \cos Rx$, of degree $R$, and $\sin\ell x = \sin x\,U_{\ell-1}(\cos x)$, with $U_{\ell-1}$ of degree $\ell-1$.}
+
+\ona{\emph{Proof of Theorem~\ref{thm:ch07:general}.}}
+\begin{enumerate}\setlength\itemsep{0.2em}
+    \item The odd part $g(x) = \frac12[f(x)-f(-x)] = \sum_\ell b_\ell\sin\ell x$ has $g'(0) = f'(0)$, and $g(x) = \sin x\,p(\cos x)$ for a polynomial $p = \sum_\ell b_\ell U_{\ell-1}$ of degree at most $R-1$. Differentiating, $g'(0) = p(1)$.
+    \item The points $t_\mu = \cos x_\mu$, $\mu = 1,\dots,R$, are distinct, and $T_R(t_\mu) = \cos\frac{(2\mu-1)\pi}2 = 0$: they are the zeros of $T_R$, the \emph{Chebyshev nodes}. Interpolation at $R$ nodes is exact for $p$, so $p(1) = \sum_\mu p(t_\mu)\ell_\mu(1)$ with the Lagrange polynomials $\ell_\mu(t) = \frac{T_R(t)}{(t-t_\mu)T_R'(t_\mu)}$.
+    \item $T_R(1) = 1$ and $1-t_\mu = 2\sin^2\frac{x_\mu}2$, and differentiating $T_R(\cos x) = \cos Rx$ gives $T_R'(t_\mu) = R\sin Rx_\mu/\sin x_\mu = R(-1)^{\mu-1}/\sin x_\mu$. Since $p(t_\mu) = g(x_\mu)/\sin x_\mu$,
+    \begin{equation*}
+        f'(0) = p(1) = \sum_\mu\frac{g(x_\mu)}{\sin x_\mu}\cdot\frac{(-1)^{\mu-1}\sin x_\mu}{2R\sin^2(x_\mu/2)} = \sum_\mu\frac{(-1)^{\mu-1}}{2R\sin^2(x_\mu/2)}\,g(x_\mu),
+    \end{equation*}
+    which is \eqref{eq:ch07:general}.
+    \item For $f = \sin Rx$, $f'(0) = R$ and $f(\pm x_\mu) = \pm(-1)^{\mu-1}$, the sign of $y_\mu$. The rule gives $R = \sum_\mu2|y_\mu|$.\ona{ \qed}
+\end{enumerate}
+\end{frame}
+
+% The shifts of the general rule on the circle, and their cosines, the zeros of T_R, for R = 3
+\mode<all>{\gdef\chebfig{%
+  \draw[gray!60,-{Stealth[length=3pt]}] (-1.75,0) -- (1.8,0);
+  \draw[thick,blue!70!black] (0,0) circle (1.4);
+  \foreach \a/\w/\p in {30/{+1.244}/right,90/{-0.167}/above,150/{+0.089}/left,210/{-0.089}/left,270/{+0.167}/below right,330/{-1.244}/right} {
+    \fill[red!75!black] (\a:1.4) circle (1.7pt);
+    \node[font=\tiny,\p,inner sep=2pt] at (\a:1.4) {$\w$};
+    \draw[gray,densely dotted] (\a:1.4) -- ({1.4*cos(\a)},-2.55);}
+  \fill[black] (1.4,0) circle (1.7pt);
+  \node[font=\scriptsize,anchor=south west,inner sep=1pt] at (1.42,0.02) {$0$};
+  \draw[gray!60,-{Stealth[length=3pt]}] (-1.75,-2.55) -- (1.95,-2.55) node[right,font=\scriptsize,text=black] {$t$};
+  \draw[gray!60] (0,-3.25) -- (0,-1.85);
+  \draw[thick,green!40!black,domain=-1:1,samples=80] plot ({1.4*\x},{-2.55+0.6*(4*\x*\x*\x-3*\x)});
+  \foreach \t in {-0.866,0,0.866} \fill[red!75!black] ({1.4*\t},-2.55) circle (1.7pt);
+  \fill[black] (1.4,-2.55) circle (1.7pt);
+  \node[font=\tiny,anchor=north] at (1.4,-2.62) {$1$}; \node[font=\tiny,anchor=south] at (-1.4,-2.5) {$-1$};
+  \node[note,anchor=west] (h1) at (2.6,1.3) {the $2R$ shifts $\pm x_\mu$ are\\equally spaced, half a step\\away from $0$; beside each,\\its weight in \eqref{eq:ch07:general}};
+  \draw[notearrow] (h1.west) to[bend right=20] (60:1.45);
+  \node[note,anchor=west] (h2) at (2.6,-0.2) {the weights alternate in\\sign, and their absolute\\values sum to $R$};
+  \draw[notearrow] (h2.west) to[bend left=10] (2.2,-0.72);
+  \node[note,anchor=west] (h3) at (2.6,-1.75) {$T_R(t)$; its zeros $\cos x_\mu$\\are the Chebyshev nodes};
+  \draw[notearrow] (h3.west) to[bend right=15] (1.24,-2.5);
+  \node[note,anchor=west] (h4) at (2.6,-2.95) {$f'(0) = p(1)$: from the\\nodes to the end point};
+  \draw[notearrow] (h4.west) to[bend left=15] (1.45,-2.6);
+}}
+\begin{frame}\ft{The shifts on the circle}
+\ona{Figure~\ref{fig:ch07:cheb} shows the construction for $R = 3$. The $2R$ shifts $\pm x_\mu$ are equally spaced on the circle, starting half a step from $0$, and the weights $y_\mu$ for $+x_\mu$ and $-y_\mu$ for $-x_\mu$ stand beside them; they alternate in sign, and the two shifts nearest to $0$ carry most of the weight. Projected onto the horizontal axis, the shifts give the zeros of $T_R$. The derivative at $0$ is the value at $t = 1$ of a polynomial interpolated at these nodes, an extrapolation to the end of the interval, which is why the weights of the nearest nodes are the largest.}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\chebfig\end{tikzpicture}
+\caption{The general rule for $R = 3$. Top: the shifts $\pm x_\mu$, at $30^\circ$, $90^\circ$ and $150^\circ$ and their negatives (red), with their weights; the point $0$ (black). Bottom: their cosines, the zeros of $T_3(t) = 4t^3-3t$ (green), and the point $t = 1$, at which the interpolating polynomial is evaluated.}\label{fig:ch07:cheb}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.64\textwidth}\centering\begin{tikzpicture}[scale=0.8]\chebfig\end{tikzpicture}\end{column}
+\begin{column}{0.34\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $R = 3$: six shifts at $\pm30^\circ$, $\pm90^\circ$, $\pm150^\circ$, with weights $\pm1.244$, $\mp0.167$, $\pm0.089$.
+    \item $|1.244|+|0.167|+|0.089|$, counted twice, is $3 = R$.
+    \item Their cosines $\pm\frac{\sqrt3}2$, $0$ are the zeros of $T_3(t) = 4t^3-3t$.
+    \item $f'(0) = p(1)$ is extrapolated from the nodes to $t = 1$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{No rule has smaller weights}
+\onp{\scriptsize}
+\begin{propn}\label{propn:ch07:l1}
+If $f'(0) = \sum_kw_kf(z_k)$ for every real trigonometric polynomial $f$ of degree at most $R$, then $\sum_k|w_k|\ge R$.
+\end{propn}
+\ona{\emph{Proof.} For $f = \sin Rx$, $R = f'(0) = \sum_kw_k\sin Rz_k\le\sum_k|w_k|$. \qed}
+\onp{Proof: take $f = \sin Rx$.}
+\begin{lem}\label{lem:ch07:alloc}
+If the values $f(z_k)$ are estimated from $N_k$ copies each, with variances $\sigma_k^2$ of a single value, and $\sum_kN_k = N$, then the variance $\sum_kw_k^2\sigma_k^2/N_k$ of the estimate of $f'(0)$ is least for $N_k\propto|w_k|\sigma_k$, where it is $\big(\sum_k|w_k|\sigma_k\big)^2/N$.
+\end{lem}
+\ona{\emph{Proof.} By the Cauchy--Schwarz inequality, $\big(\sum_k|w_k|\sigma_k\big)^2 = \big(\sum_k\frac{|w_k|\sigma_k}{\sqrt{N_k}}\sqrt{N_k}\big)^2\le\sum_k\frac{w_k^2\sigma_k^2}{N_k}\sum_kN_k$, with equality when $N_k$ is proportional to $|w_k|\sigma_k$. \qed}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item With $\sigma_k\le\sigma$, the general rule has variance at most $R^2\sigma^2/N$, and by the proposition no exact rule has a smaller bound. Gate by gate, a parameter of $k$ gates has weights whose absolute values sum to $k\ge R$.
+    \item The worked example, $\partial F/\partial\gamma$: with $1000$ copies for each circuit, the standard errors are $0.044$ gate by gate ($8$ circuits) and $0.077$ by \eqref{eq:ch07:c4gamma} ($4$ circuits, equal copies for unequal weights). With copies as in the lemma, $N$ times the variance is $15.4$ and $16.0$.
+\end{itemize}
+\ona{The general rule thus saves circuits, not copies. \citet{Theis2021} formulates the search for the rule of least variance as a pair of convex optimisation problems, and establishes the optimality of known rules for several families of circuits.}
+\end{frame}
+
+% A gate exp(-i(theta A + B)) split at the fraction t, with a Pauli rotation inserted (Banchi and Crooks)
+\mode<all>{\gdef\stochmeter#1#2{\draw[fill=white] (#1-0.26,#2-0.22) rectangle (#1+0.26,#2+0.22); \draw (#1-0.15,#2-0.08) arc (150:30:0.17); \draw[-{Stealth[length=2.5pt]}] (#1,#2-0.12) -- (#1+0.13,#2+0.14);}\gdef\stochfig{%
+  \tikzset{g/.style={draw,fill=white,minimum height=0.62cm,inner sep=2pt,font=\scriptsize}}
+  \draw[thick] (0,0) node[left,font=\scriptsize] {$\ket\psi$} -- (8.4,0);
+  \node[g,draw=blue!70!black,fill=blue!6] (u1) at (1.5,0) {$e^{-i(1-t)(\theta A+B)}$};
+  \node[g,fill=orange!15] (r) at (3.9,0) {$R_P(\pm\frac\pi2)$};
+  \node[g,draw=green!40!black,fill=green!8] (u2) at (6.1,0) {$e^{-it(\theta A+B)}$};
+  \stochmeter{8.4}{0}
+  \node[font=\scriptsize,anchor=west] at (8.75,0) {$O$};
+  \draw[decorate,decoration={brace,amplitude=4pt}] (0.3,0.45) -- (7.2,0.45) node[midway,above=4pt,font=\scriptsize] {the gate $e^{-i(\theta A+B)}$, split at the fraction $t$};
+  \node[note,anchor=north] (k1) at (0.95,-0.6) {the first part,\\absorbed into\\the state $\ket{\phi_t}$};
+  \draw[notearrow] (k1.north) -- (u1.south);
+  \node[note,anchor=north] (k2) at (3.9,-0.6) {a rotation about $P$\\by $\pm\frac\pi2$, inserted\\at $t$, uniform on $[0,1]$};
+  \draw[notearrow] (k2.north) -- (r.south);
+  \node[note,anchor=north west] (k3) at (5.7,-0.6) {half the difference of the\\two expectations is an\\unbiased estimate of $f'(\theta)$};
+  \draw[notearrow] (k3.north east) to[bend right=15] (8.4,-0.25);
+}}
+\begin{frame}\ft{Gates whose terms do not commute}
+\onp{\footnotesize}
+\ona{A gate realised by a pulse often has the form $e^{-i(\theta A+B)}$, where only the term $A$ carries the parameter, and a drift term $B$, which need not commute with $A$, acts throughout. Lemma~\ref{lem:ch07:freq} does not apply, since the eigenvectors of $\theta A+B$ depend on $\theta$, and the cost is not a trigonometric polynomial in $\theta$. The commutator form of the rule still gives an estimator.}
+\begin{thm}[\citet{Banchi_2021}]\label{thm:ch07:stoch}
+Let $A = P/2$ for a Pauli string $P$, let $B$ be Hermitian, and let $f(\theta)$ be the expectation of $O$ in the state $e^{-i(\theta A+B)}\ket\psi$. For $t\in[0,1]$, let $f_\pm(t)$ be the expectation of $O$ in the state $e^{-it(\theta A+B)}R_P(\pm\frac\pi2)e^{-i(1-t)(\theta A+B)}\ket\psi$. Then
+\begin{equation}\label{eq:ch07:stoch}
+    f'(\theta) = \tfrac12\int_0^1\big[f_+(t)-f_-(t)\big]\,dt.
+\end{equation}
+\end{thm}
+\ona{\emph{Proof.} Write $G = \theta A+B$. The derivative of the exponential is $\frac{d}{d\theta}e^{-iG} = -i\int_0^1e^{-itG}Ae^{-i(1-t)G}\,dt$, which follows on differentiating $s\mapsto e^{-isG(\theta)}e^{-i(1-s)G(\theta_0)}$, integrating over $s\in[0,1]$, dividing by $\theta-\theta_0$ and letting $\theta\to\theta_0$. With $\ket{\phi_t} = e^{-i(1-t)G}\ket\psi$ and $O_t = e^{itG}Oe^{-itG}$, that is, cutting the gate at the fraction $t$ as the circuit was cut in Fig.~\ref{fig:ch07:heis}(a), and as in the derivation of Lemma~\ref{lem:ch07:comm}, this gives $f'(\theta) = \int_0^1\braket{\phi_t|i[A,O_t]|\phi_t}\,dt$, and Lemma~\ref{lem:ch07:comm} with $i[A,O_t] = \frac i2[P,O_t]$ gives \eqref{eq:ch07:stoch}. \qed}
+
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\stochfig\end{tikzpicture}
+\caption{The circuits of the stochastic parameter-shift rule \eqref{eq:ch07:stoch}: the gate is split at a random fraction $t$, and a rotation about $P$ by $\pm\frac\pi2$ is inserted there. As in Fig.~\ref{fig:ch07:heis}(a), the first part of the gate, with $\ket\psi$, forms the state $\ket{\phi_t}$ (blue), and the second part, with the measurement of $O$, forms the observable $O_t$ (green).}\label{fig:ch07:stoch}\end{figure}}
+
+\onp{Proof: $\frac{d}{d\theta}e^{-iG} = -i\int_0^1e^{-itG}Ae^{-i(1-t)G}\,dt$ for $G = \theta A+B$, and the commutator lemma, applied at the fraction $t$.}
+\ona{One draws $t$ uniformly from $[0,1]$ and runs the two circuits of Fig.~\ref{fig:ch07:stoch}; half the difference of the two estimates is an unbiased estimate of $f'(\theta)$, whose variance includes that of the random $t$. On two qubits with a random drift $B$, $A = X_1/2$ and $\theta = 0.7$, the rule \eqref{eq:ch07:psr} gives $-0.957$ for the derivative $-0.845$, whereas \eqref{eq:ch07:stoch} is exact.}
+\onp{\begin{itemize}\setlength\itemsep{0.2em}
+    \item The lemma on frequencies does not apply: the eigenvectors of $\theta A+B$ depend on $\theta$.
+    \item On two qubits with a random drift: \eqref{eq:ch07:psr} gives $-0.957$ for the derivative $-0.845$; \eqref{eq:ch07:stoch} is exact.
+\end{itemize}}
+\end{frame}
+
+\begin{frame}\ft{The stochastic rule, pictured}
+\onp{\begin{center}\begin{tikzpicture}[scale=0.95]\stochfig\end{tikzpicture}\end{center}
+\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item A gate realised by a pulse, $e^{-i(\theta A+B)}$: only $A = P/2$ carries the parameter, and the drift $B$ acts throughout.
+    \item Draw $t$ uniformly from $[0,1]$, run the fraction $1-t$ of the gate, a rotation $R_P(\pm\frac\pi2)$, and the remaining fraction $t$.
+    \item Half the difference of the two estimates is an unbiased estimate of $f'(\theta)$; its variance includes that of $t$.
+    \item The cut of the slide on absorbing the other layers, made inside the gate: the first part (blue) goes into the state $\ket{\phi_t}$, the second (green) into the observable $O_t$.
+\end{itemize}}
+\end{frame}
+
+\section{The cost as a trigonometric polynomial}\label{sec:ch07:trig}
+
+\begin{frame}\ft{The cost as a trigonometric polynomial}
+\onp{\scriptsize}
+\ona{Theorem~\ref{thm:ch07:general} applies to the cost as a function of one parameter, once its degree $R$ is known. \citet{sakos2026global} determine the degree, and the form of the cost as a function of all the parameters, for circuits in which a parameter may control several gates that do not commute. Such a circuit applies $K\ge d$ gates between fixed unitaries $W_k$, the $k$-th gate being controlled by the parameter $\theta_{j_k}$:}
+\onp{$K\ge d$ gates, the $k$-th controlled by the parameter $\theta_{j_k}$, between fixed unitaries $W_k$:}
+\begin{equation}\label{eq:ch07:shared}
+    \ket{\psi(\boldsymbol\theta)} = W_Ke^{-i\theta_{j_K}H_K}\cdots W_1e^{-i\theta_{j_1}H_1}\ket{\psi_0}.
+\end{equation}
+\ona{We write $\Delta_k$ for the \emph{spectral width} of $H_k$, the difference of its largest and least eigenvalues; a Pauli rotation has $\Delta_k = 1$.}
+\begin{propn}[\citet{sakos2026global}]\label{propn:ch07:trig}
+Suppose that the eigenvalues of each $H_k$ differ by integers, and let $R_j = \sum_{k:\,j_k = j}\Delta_k$\onp{, where $\Delta_k$ is the spectral width of $H_k$}. Then the cost is a Hermitian trigonometric polynomial,
+\begin{equation}\label{eq:ch07:trig}
+    C(\boldsymbol\theta) = \sum_{\boldsymbol\ell}c_{\boldsymbol\ell}\,e^{i\boldsymbol\ell^\top\boldsymbol\theta},\qquad c_{-\boldsymbol\ell} = \overline{c_{\boldsymbol\ell}},
+\end{equation}
+the sum running over the $\boldsymbol\ell\in\mathbb Z^d$ with $|\ell_j|\le R_j$. In particular, for every $\boldsymbol\theta\in\R^d$ and every $j$, the function $f(x) = C(\boldsymbol\theta+x\boldsymbol e_j)$ is a real trigonometric polynomial of degree at most $R_j$, and \ona{Theorem~\ref{thm:ch07:general}}\onp{the general rule} applies to it with $R = R_j$.
+\end{propn}
+\ona{\emph{Proof.} As in the proof of Lemma~\ref{lem:ch07:freq}, $e^{-i\theta H_k} = \sum_\lambda e^{-i\theta\lambda}\Pi_{k,\lambda}$, where $\Pi_{k,\lambda}$ is the projector onto the eigenspace of $H_k$ for the eigenvalue $\lambda$. Expanding \eqref{eq:ch07:shared} gives $\ket{\psi(\boldsymbol\theta)} = \sum_{\boldsymbol\lambda}e^{-i\sum_k\lambda_k\theta_{j_k}}P_{\boldsymbol\lambda}\ket{\psi_0}$, the sum running over the choices $\boldsymbol\lambda = (\lambda_1,\dots,\lambda_K)$ of an eigenvalue of each generator, with $P_{\boldsymbol\lambda} = W_K\Pi_{K,\lambda_K}\cdots W_1\Pi_{1,\lambda_1}$. Hence}
+\ona{\begin{equation*}
+    C(\boldsymbol\theta) = \sum_{\boldsymbol\lambda,\boldsymbol\lambda'}e^{i\sum_k(\lambda_k-\lambda'_k)\theta_{j_k}}\braket{\psi_0|P_{\boldsymbol\lambda}^\dagger\,O\,P_{\boldsymbol\lambda'}|\psi_0}.
+\end{equation*}}
+\ona{The coefficient of $\theta_j$ in the exponent, $\ell_j = \sum_{k:\,j_k = j}(\lambda_k-\lambda'_k)$, is an integer with $|\ell_j|\le R_j$, and exchanging $\boldsymbol\lambda$ and $\boldsymbol\lambda'$ conjugates the term. Collecting the terms with equal $\boldsymbol\ell$ gives \eqref{eq:ch07:trig}. Collecting instead the terms with $\ell_j = \pm\ell$, for $\ell = 0,\dots,R_j$, gives $f$ in the form of Theorem~\ref{thm:ch07:general}, with real coefficients, since $f$ is real. \qed}
+\onp{Proof: expand each gate in the projectors of its generator, as in the lemma on frequencies; the frequency of a term in $\theta_j$ is a sum of differences of eigenvalues over the gates that $\theta_j$ controls.}
+\end{frame}
+
+\begin{frame}\ft{When the cost is a trigonometric polynomial}
+\onp{\footnotesize}
+\ona{The proposition rests on three conditions, each of which can fail in practice.}
+\begin{itemize}\setlength\itemsep{0.3em}
+    \item Each parameter enters only as the angle of gates $e^{-i\theta_{j_k}H_k}$ whose generators do not depend on the parameters. An angle $c\,\theta_j$ or $\theta_j+c$, for a constant $c$, is admissible: the factor is absorbed into the generator, and the constant into $W_k$. A gate $e^{-i(\theta A+B)}$ with a drift $B$ that does not commute with $A$ is not of this form, and its cost is not a trigonometric polynomial (\ona{Theorem~\ref{thm:ch07:stoch}}\onp{the stochastic rule}).
+    \item The eigenvalues of each generator differ by integers, possibly after a rescaling of each parameter, which requires that the differences for all the gates that $\theta_j$ controls be integer multiples of a single base frequency. Otherwise, as for a generator with the eigenvalues $0$, $1$ and $\sqrt2$, the cost is a sum of exponentials with incommensurable frequencies, which is in general not periodic, and neither the grid nor the hierarchy applies.
+    \item The cost is the expectation of a fixed observable, and so linear in the state. Quantum channels that do not depend on $\boldsymbol\theta$ may act between the gates, since the proof applies to density matrices, as in \ona{Proposition~\ref{propn:ch07:noise}}\onp{the proposition on noise in the device}. An objective that is not linear in the distribution of the measured values, such as the CVaR objective of \Chap~\chref{C.QAOA}, is not of this form.
+\end{itemize}
+\ona{The number of parameters, the number of gates and the norm of the observable do not enter these conditions; they enter only the cost of the algorithm below.}
+\end{frame}
+
+\begin{frame}\ft{The degree in a shared parameter}
+\onp{\footnotesize}
+\begin{itemize}\setlength\itemsep{0.3em}
+    \item The degree in $\theta_j$ adds the widths of all the gates that $\theta_j$ controls, whether or not they commute. With one gate for each parameter, this is \ona{Lemma~\ref{lem:ch07:freq} applied to each parameter}\onp{the lemma on frequencies}.
+    \item In the worked example, $\gamma$ controls four rotations $R_Z(\gamma)$, of width $1$, and $\beta$ four rotations $R_X(2\beta)$, of width $2$: $R_\gamma\le4$ and $R_\beta\le8$. All the frequencies are even, and in $x = 2\gamma$ and $y = 2\beta$ the degrees are at most $2$ and $4$, as in \ona{Table~\ref{tab:ch07:freq}}\onp{the table of frequencies}.
+    \onp{\item The general rule with $R = R_j$ gives $\partial C/\partial\theta_j$ from $2R_j$ circuits: for $k$ Pauli rotations, $2k$, as gate by gate; for $\gamma$, in $x = 2\gamma$, four.}
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{Reconstructing the cost from its values on a grid}
+\onp{\scriptsize}
+\ona{Theorem~\ref{thm:ch07:general} obtains the derivative $f'(0)$ from $2R$ values of $f$. The $2R+1$ values at the equally spaced points $\xi_k = 2\pi k/(2R+1)$, $k = 0,\dots,2R$, determine $f$ itself,}
+\onp{$2R$ values give $f'(0)$; the $2R+1$ values at $\xi_k = 2\pi k/(2R+1)$, $k = 0,\dots,2R$, give $f$:}
+\begin{equation}\label{eq:ch07:interp}
+    a_0 = \frac1{2R+1}\sum_{k=0}^{2R}f(\xi_k),\qquad a_\ell = \frac2{2R+1}\sum_{k=0}^{2R}f(\xi_k)\cos\ell\xi_k,\qquad b_\ell = \frac2{2R+1}\sum_{k=0}^{2R}f(\xi_k)\sin\ell\xi_k,
+\end{equation}
+\ona{since $\sum_ke^{im\xi_k} = 0$ for every integer $m$ with $0<|m|\le2R$. Applied to each coordinate in turn, \eqref{eq:ch07:interp} gives the coefficients of \eqref{eq:ch07:trig} from the values of $C$ on the grid $\mathcal G$ of the points $\big(\frac{2\pi k_1}{2R_1+1},\dots,\frac{2\pi k_d}{2R_d+1}\big)$,}
+\onp{and on the grid $\mathcal G$ of the points $\big(\frac{2\pi k_1}{2R_1+1},\dots,\frac{2\pi k_d}{2R_d+1}\big)$,}
+\begin{equation}\label{eq:ch07:dft}
+    c_{\boldsymbol\ell} = \frac1{|\mathcal G|}\sum_{\boldsymbol\phi\in\mathcal G}C(\boldsymbol\phi)\,e^{-i\boldsymbol\ell^\top\boldsymbol\phi},\qquad |\mathcal G| = \prod_{j=1}^d(2R_j+1),
+\end{equation}
+\ona{a discrete Fourier transform in $d$ dimensions, which the fast Fourier transform computes in $\mathcal O(|\mathcal G|\log|\mathcal G|)$ operations \citep{cooley1965algorithm}. The values are estimated, and the following lemma bounds the effect of their errors.}
+\onp{\begin{itemize}\setlength\itemsep{0.3em}
+    \item The $2R+1$ values determine $f$, as $2R$ values determine $f'(0)$; $|\mathcal G|$ values determine $C$.
+    \item A discrete Fourier transform in $d$ dimensions: $\mathcal O(|\mathcal G|\log|\mathcal G|)$ operations by the fast Fourier transform \citep{cooley1965algorithm}.
+\end{itemize}}
+\end{frame}
+
+% Along a parameter shared by three Pauli rotations: the cost f, of degree 3, its 7 values, and the degree-2 interpolant of 5 values
+\mode<all>{\gdef\aliasfig#1{\begin{axis}[#1,width=\alW,height=\alH,clip=false,axis lines=left,xmin=-3.1416,xmax=3.1416,ymin=-3,ymax=6.2,xtick={-3.1416,-1.5708,0,1.5708,3.1416},xticklabels={$-\pi$,$-\frac\pi2$,$0$,$\frac\pi2$,$\pi$},xlabel={$x$},ylabel={$f(x)$},no markers,thick]
+  \addplot[black] table[x=x,y=f] {figures/ch07/trig_shared.dat};
+  \addplot[red!75!black,densely dashed] table[x=x,y=f2] {figures/ch07/trig_shared.dat};
+  \addplot[only marks,mark=*,mark size=1.8pt,black] table[x=x,y=f] {figures/ch07/trig_samples7.dat};
+  \addplot[only marks,mark=square*,mark size=1.7pt,red!75!black] table[x=x,y=f] {figures/ch07/trig_samples5.dat};
+  \ona{\node[note,anchor=west] (s1) at (axis cs:3.5,5.7) {$f$ has degree $3$: $x$ controls\\three rotations of width $1$};
+  \draw[notearrow] (s1.west) to[bend right=15] (axis cs:2.8,3.95);
+  \node[note,anchor=west] (s2) at (axis cs:3.5,3.1) {the $7$ values at $\frac{2\pi k}7$ (black)\\determine $f$, by \eqref{eq:ch07:interp}};
+  \draw[notearrow] (s2.west) to[bend left=15] (axis cs:1.0,-1.15);
+  \node[note,anchor=west] (s3) at (axis cs:3.5,0.4) {the $5$ values at $\frac{2\pi k}5$ (red), read\\as degree $2$, give another\\trigonometric polynomial (dashed):\\the frequency $3$ is taken for $-2$};
+  \draw[notearrow] (s3.west) to[bend left=20] (axis cs:-0.45,4.33);}
+\end{axis}}}
+\begin{frame}\ft{The degree must be known}
+\ona{The bound $R_j$ on the degree is part of the method. Figure~\ref{fig:ch07:alias} shows the cost along a parameter $x$ that controls three Pauli rotations, which do not commute, in a random circuit on two qubits, with the other parameter fixed; by Proposition~\ref{propn:ch07:trig}, its degree is at most $3$, and indeed all the coefficients $c_\ell$, $|\ell|\le3$, are non-zero, of absolute values $2.29$, $1.16$, $0.93$ and $0.34$. Its $7$ values at the points $2\pi k/7$ determine it. The $5$ values at the points $2\pi k/5$, interpreted as those of a polynomial of degree $2$, determine another trigonometric polynomial, which agrees with $f$ at those points and differs from it elsewhere by up to $1.29$: at five equally spaced points, $e^{3ix}$ and $e^{-2ix}$ take the same values, and the frequency $3$ is taken for $-2$. This is the aliasing of signal processing, and it is avoided only by a correct bound on the degree.}
+\ona{\gdef\alW{0.5\linewidth}\gdef\alH{0.36\linewidth}}\onp{\gdef\alW{6.2cm}\gdef\alH{5.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\aliasfig{}\end{tikzpicture}
+\caption{The cost $f(x)$ along a parameter that controls three Pauli rotations in a random circuit on two qubits (black), a trigonometric polynomial of degree $3$, with its values at the $7$ points $2\pi k/7$ (black dots), its values at the $5$ points $2\pi k/5$ (red squares), and the trigonometric polynomial of degree $2$ through the latter (red, dashed).}\label{fig:ch07:alias}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\aliasfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item A parameter $x$ that controls three Pauli rotations, which do not commute, in a random circuit on two qubits: $f$ (black) has degree $3$.
+    \item Its $7$ values at $\frac{2\pi k}7$ (black dots) determine it.
+    \item Its $5$ values at $\frac{2\pi k}5$ (red squares), read as degree $2$, give another trigonometric polynomial (red, dashed), off by up to $1.29$: at these points $e^{3ix} = e^{-2ix}$.
+    \item The bound on the degree must be correct.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{The error of the reconstruction}
+\onp{\footnotesize}
+\begin{lem}\label{lem:ch07:grid}
+If the values in \eqref{eq:ch07:dft} are replaced by real estimates with errors of absolute value at most $\eta$, then the resulting trigonometric polynomial $\hat C$ is real, and $|\hat C(\boldsymbol\theta)-C(\boldsymbol\theta)|\le\sqrt{|\mathcal G|}\,\eta$ for every $\boldsymbol\theta$. In particular, $|\min\hat C-\min C|\le\sqrt{|\mathcal G|}\,\eta$.
+\end{lem}
+\ona{\emph{Proof.} The errors $e(\boldsymbol\phi)$ of the values change the coefficients by $\hat c_{\boldsymbol\ell}-c_{\boldsymbol\ell} = |\mathcal G|^{-1}\sum_{\boldsymbol\phi}e(\boldsymbol\phi)e^{-i\boldsymbol\ell^\top\boldsymbol\phi}$. By the identity behind \eqref{eq:ch07:interp}, applied in each coordinate, the $|\mathcal G|$ vectors $(e^{-i\boldsymbol\ell^\top\boldsymbol\phi})_{\boldsymbol\phi\in\mathcal G}$ are orthogonal, each of squared norm $|\mathcal G|$. By Parseval's identity, $\sum_{\boldsymbol\ell}|\hat c_{\boldsymbol\ell}-c_{\boldsymbol\ell}|^2 = |\mathcal G|^{-1}\sum_{\boldsymbol\phi}e(\boldsymbol\phi)^2\le\eta^2$, and by the Cauchy--Schwarz inequality, $\sum_{\boldsymbol\ell}|\hat c_{\boldsymbol\ell}-c_{\boldsymbol\ell}|\le\sqrt{|\mathcal G|}\,\eta$, which bounds $|\hat C(\boldsymbol\theta)-C(\boldsymbol\theta)|$ at every $\boldsymbol\theta$. Since the estimates are real, $\hat c_{-\boldsymbol\ell} = \overline{\hat c_{\boldsymbol\ell}}$. Finally, if $C$ is least at $\boldsymbol\theta^*$ and $\hat C$ at $\hat{\boldsymbol\theta}$, then $\min\hat C-\min C\le\hat C(\boldsymbol\theta^*)-C(\boldsymbol\theta^*)$ and $\min C-\min\hat C\le C(\hat{\boldsymbol\theta})-\hat C(\hat{\boldsymbol\theta})$. \qed}
+\onp{Proof: Parseval's identity for \eqref{eq:ch07:dft} and the Cauchy--Schwarz inequality.}
+
+\ona{\citet{sakos2026global} bound each coefficient by the largest error, which gives $|\mathcal G|\eta$ in place of $\sqrt{|\mathcal G|}\,\eta$. If $O$ has spectral width $w$, a measured value lies in an interval of length $w$, and by Hoeffding's inequality the mean of $M$ such values differs from its expectation by more than $\eta$ with probability at most $2e^{-2M\eta^2/w^2}$ \citep{hoeffding1963probability}. By the union bound, all the $|\mathcal G|$ estimates are within $\eta$ with probability at least $1-\delta$ if}
+\onp{By Hoeffding's inequality and the union bound, all the estimates are within $\eta$ with probability at least $1-\delta$ with}
+\begin{equation}\label{eq:ch07:hoeffding}
+    M\ge\frac{w^2}{2\eta^2}\ln\frac{2|\mathcal G|}{\delta}
+\end{equation}
+\ona{copies are measured at each point.}
+\onp{copies at each point, where $w$ is the spectral width of $O$ \citep{hoeffding1963probability}.}
+\end{frame}
+
+% The same cost from 7 estimates with 1000 copies each: the reconstruction and the band of the lemma
+\mode<all>{\gdef\noisyfig#1{\begin{axis}[#1,width=\alW,height=\alH,clip=false,axis lines=left,xmin=-3.1416,xmax=3.1416,ymin=-3.2,ymax=5.6,xtick={-3.1416,-1.5708,0,1.5708,3.1416},xticklabels={$-\pi$,$-\frac\pi2$,$0$,$\frac\pi2$,$\pi$},xlabel={$x$},ylabel={$f(x)$},no markers,thick]
+  \addplot[fill=gray!22,draw=none] table[x=x,y=y] {figures/ch07/trig_band.dat} -- cycle;
+  \addplot[black] table[x=x,y=f] {figures/ch07/trig_shared.dat};
+  \addplot[blue!70!black,densely dashed] table[x=x,y=fhat] {figures/ch07/trig_shared.dat};
+  \addplot[only marks,mark=*,mark size=1.5pt,blue!70!black,error bars/.cd,y dir=both,y explicit] table[x=x,y=est,y error=se] {figures/ch07/trig_samples7.dat};
+  \fill[black] (axis cs:1.298,-2.362) circle (1.8pt);
+  \ona{\node[note,anchor=west] (e1) at (axis cs:3.5,5.2) {estimates from $1000$ copies each,\\with their standard errors (blue);\\the largest error is $\eta = 0.22$};
+  \draw[notearrow] (e1.west) to[bend right=15] (axis cs:0.1,3.55);
+  \node[note,anchor=west] (e2) at (axis cs:3.5,2.4) {the reconstruction $\hat f$ (dashed) stays\\in the band $f\pm\sqrt7\,\eta = f\pm0.59$ of\\Lemma~\ref{lem:ch07:grid} (grey); in fact, within\\$0.24$ of $f$};
+  \draw[notearrow] (e2.west) to[bend left=10] (axis cs:2.3,1.9);
+  \node[note,anchor=west] (e3) at (axis cs:3.5,-1.4) {the minimiser moves from $1.298$\\to $1.307$, the minimum from\\$-2.362$ to $-2.396$};
+  \draw[notearrow] (e3.west) to[bend left=15] (axis cs:1.42,-2.38);}
+\end{axis}}}
+\begin{frame}\ft{The reconstruction from estimates}
+\ona{Figure~\ref{fig:ch07:noisy} shows the lemma at work on the function of Fig.~\ref{fig:ch07:alias}. Each of the $7$ values is estimated from $1000$ copies, measured in the eigenbasis of the observable, whose spectral width is $12.8$; the standard errors are between $0.11$ and $0.16$, and the largest error is $\eta = 0.22$. The reconstruction $\hat f$ is guaranteed to lie within $\sqrt7\,\eta = 0.59$ of $f$, and it lies within $0.24$. Its minimum, $-2.396$ at $1.307$, is close to that of $f$, $-2.362$ at $1.298$. The bound of the lemma is attained only when the errors at the grid conspire, and the typical error is closer to $\eta$ than to $\sqrt{|\mathcal G|}\,\eta$.}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\noisyfig{}\end{tikzpicture}
+\caption{The function $f$ of Fig.~\ref{fig:ch07:alias} (black), its estimates at the $7$ points $2\pi k/7$ from $1000$ copies each, with their standard errors (blue), the reconstruction $\hat f$ from the estimates (blue, dashed), the band $f\pm\sqrt7\,\eta$ of Lemma~\ref{lem:ch07:grid} (grey), and the minimiser of $f$ (black dot).}\label{fig:ch07:noisy}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\noisyfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item The function of the previous slide (black), estimated at the $7$ points from $1000$ copies each (blue, with standard errors $0.11$ to $0.16$).
+    \item The largest error is $\eta = 0.22$; the lemma keeps $\hat f$ (dashed) within $\sqrt7\,\eta = 0.59$ of $f$ (grey band), and it stays within $0.24$.
+    \item The minimiser moves from $1.298$ to $1.307$, the minimum from $-2.362$ to $-2.396$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% The landscape of the worked example over one period, and the 9 x 5 grid whose values determine it
+\mode<all>{\gdef\gridfig#1{\begin{axis}[#1,width=\grW,height=\grH,view={0}{90},xmin=0,xmax=3.1416,ymin=0,ymax=3.1416,xtick={0,0.7854,1.5708,2.3562,3.1416},xticklabels={$0$,$\frac\pi4$,$\frac\pi2$,$\frac{3\pi}4$,$\pi$},ytick={0,0.7854,1.5708,2.3562,3.1416},yticklabels={$0$,$\frac\pi4$,$\frac\pi2$,$\frac{3\pi}4$,$\pi$},xlabel={$\beta$},ylabel={$\gamma$},colormap={pale}{rgb255(0cm)=(205,205,230); rgb255(1cm)=(250,250,250)},point meta min=-3,point meta max=-1,enlargelimits=false,axis on top,clip=false]
+  \addplot3[surf,shader=interp,domain=0:3.1416,y domain=0:3.1416,samples=61] {-2+sin(deg(4*x))*sin(deg(2*y))};
+  \addplot3[only marks,mark=*,mark size=1.3pt,black,domain=0:2.7925,y domain=0:2.5133,samples=9,samples y=5] (x,y,0);
+  \foreach \b/\g in {0.3927/2.3562,1.9635/2.3562,1.1781/0.7854,2.7489/0.7854} {\edef\tmp{\noexpand\fill[red!75!black] (axis cs:\b,\g,0) circle (2pt);}\tmp}
+  \ona{\node[note,anchor=west] (q1) at (axis cs:3.45,2.95,0) {the $45$ points $(\frac{\pi k}9,\frac{\pi m}5)$:\\$9$ values in $\beta$, for $R = 4$ in $2\beta$,\\and $5$ in $\gamma$, for $R = 2$ in $2\gamma$};
+  \draw[notearrow] (q1.west) to[bend right=15] (axis cs:2.83,2.51,0);
+  \node[note,anchor=west] (q2) at (axis cs:3.45,1.75,0) {from the values at the\\grid, \eqref{eq:ch07:dft} gives $F$\\everywhere: $-2+\sin4\beta\sin2\gamma$};
+  \draw[notearrow] (q2.west) to[bend left=10] (axis cs:2.45,1.45,0);
+  \node[note,anchor=west] (q3) at (axis cs:3.45,0.55,0) {the four minimisers (red)\\lie between the points of\\the grid};
+  \draw[notearrow] (q3.west) to[bend left=15] (axis cs:2.8,0.83,0);}
+\end{axis}}}
+\begin{frame}\ft{The grid of the worked example}
+\ona{Figure~\ref{fig:ch07:grid} shows the energy $F(\beta,\gamma) = -2+\sin4\beta\sin2\gamma$ of the worked example over one period, $[0,\pi)^2$, which suffices since all its frequencies are even. In $y = 2\beta$ and $x = 2\gamma$ the degrees are at most $4$ and $2$, the grid has $9\cdot5 = 45$ points, and \eqref{eq:ch07:dft} recovers $F$ from its values there. Of the $45$ coefficients, only the constant $-2$ and the four with $\boldsymbol\ell = (\pm2,\pm1)$, of absolute value $\frac14$, are not zero. With estimates from $1000$ copies at each point, $45\,000$ copies in all, about as many as three iterations of the worked example of \Chap~\chref{C.VQE}, the median over $200$ simulated runs of the largest error at the grid is $0.090$, and that of the largest error of $\hat F$ over the torus is $0.108$, well within the bound $\sqrt{45}\cdot0.090 = 0.60$ of Lemma~\ref{lem:ch07:grid}. The median error of the minimum of $\hat F$ is $0.037$, and its minimiser lies within $0.023$ of one of the four minimisers of $F$.}
+\ona{\gdef\grW{0.42\linewidth}\gdef\grH{0.42\linewidth}}\onp{\gdef\grW{5.4cm}\gdef\grH{5.4cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\gridfig{}\end{tikzpicture}
+\caption{The energy $F(\beta,\gamma) = -2+\sin4\beta\sin2\gamma$ of the worked example of \Chap~\chref{C.VQE} over one period, darker being lower, with the $45$ points of the grid whose values determine it (black) and its four minimisers, where $F = -3$ (red).}\label{fig:ch07:grid}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\gridfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.25em}
+    \item $F = -2+\sin4\beta\sin2\gamma$ over one period, $[0,\pi)^2$; darker is lower.
+    \item The $45$ points $(\frac{\pi k}9,\frac{\pi m}5)$ (black): degree $4$ in $2\beta$ and $2$ in $2\gamma$. Their values give $F$ everywhere.
+    \item With $1000$ copies at each point, medians over $200$ runs: the largest error is $0.090$ at the grid and $0.108$ over the torus, against the bound $\sqrt{45}\cdot0.090 = 0.60$.
+    \item The minimum of $\hat F$ is within $0.037$ of $-3$, and its minimiser within $0.023$ of one of the four minimisers (red).
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{Minimising a trigonometric polynomial}
+\onp{\footnotesize}
+\ona{After the reconstruction, training is a classical problem, the minimisation of a known trigonometric polynomial over the torus $[-\pi,\pi)^d$. The \emph{sum-of-squares hierarchy} bounds its minimum from below. Writing $z_j = e^{i\theta_j}$, every polynomial $p$ in $z_1,\dots,z_d$ gives a non-negative function $|p|^2$, and so every $\lambda$ with}
+\begin{equation}\label{eq:ch07:sos}
+    C(\boldsymbol\theta)-\lambda = \sum_i\big|p_i(e^{i\theta_1},\dots,e^{i\theta_d})\big|^2,\qquad p_i\ \text{a polynomial of degree at most $r_j$ in $z_j$},
+\end{equation}
+\ona{is a lower bound on $\min C$. The largest such $\lambda$, which we denote $C^*_{\boldsymbol r}$, is computed by semidefinite programming: if $v$ is the vector of the $\prod_j(r_j+1)$ monomials of these degrees, the right-hand side is $v^\dagger Qv$ for a Hermitian positive semidefinite matrix $Q$, and \eqref{eq:ch07:sos} is a system of linear equations in $\lambda$ and the entries of $Q$, one for each frequency \citep{dumitrescu2007positive,josz2018lasserre}.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item $C^*_{\boldsymbol r}\le\min C$, and $C^*_{\boldsymbol r}$ increases with $\boldsymbol r$. In one variable it is exact at $r = R$: by the Fej\'er--Riesz theorem, a non-negative real trigonometric polynomial $f$ of degree $R$ is $|p(e^{ix})|^2$ for a polynomial $p$ of degree $R$ \citep{dumitrescu2007positive}.
+    \item In several variables it need not be exact, but $\min C-C^*_{\boldsymbol r} = \mathcal O(1/r^2)$ for $r_j = r$ and every $C$, and the gap decays exponentially in $r$ if $C$ has finitely many global minimisers, with invertible Hessians \citep{bach2023exponential}. When a condition on the ranks of the solution of the dual problem holds, the minimisers can be read off from it \citep{sakos2026global}.
+    \item The worked example: $F+3 = \frac14|e^{2i\gamma}+e^{4i\beta}|^2+\frac14|1-e^{2i(2\beta+\gamma)}|^2$, of degrees $2$ in $e^{2i\beta}$ and $1$ in $e^{2i\gamma}$. The hierarchy is exact at its lowest level, and the minimisers are where both terms vanish. For $\hat F$ from one simulated run, $C^*_{\boldsymbol r}$ at the lowest level, $(4,2)$, equals $\min\hat F = -3.046$.
+\end{itemize}
+\end{frame}
+
+% The zero sets of the two squares of the certificate F + 3 = |...|^2/4 + |...|^2/4, and the minimisers where they cross
+\mode<all>{\gdef\certfig#1{\begin{axis}[#1,width=\grW,height=\grH,view={0}{90},xmin=0,xmax=3.1416,ymin=0,ymax=3.1416,xtick={0,0.7854,1.5708,2.3562,3.1416},xticklabels={$0$,$\frac\pi4$,$\frac\pi2$,$\frac{3\pi}4$,$\pi$},ytick={0,0.7854,1.5708,2.3562,3.1416},yticklabels={$0$,$\frac\pi4$,$\frac\pi2$,$\frac{3\pi}4$,$\pi$},xlabel={$\beta$},ylabel={$\gamma$},colormap={pale}{rgb255(0cm)=(205,205,230); rgb255(1cm)=(250,250,250)},point meta min=-3,point meta max=-1,enlargelimits=false,axis on top,clip=false]
+  \addplot3[surf,shader=interp,domain=0:3.1416,y domain=0:3.1416,samples=61] {-2+sin(deg(4*x))*sin(deg(2*y))};
+  \draw[blue!70!black,very thick] (axis cs:0,1.5708,0) -- (axis cs:0.7854,3.1416,0);
+  \draw[blue!70!black,very thick] (axis cs:0.7854,0,0) -- (axis cs:2.3562,3.1416,0);
+  \draw[blue!70!black,very thick] (axis cs:2.3562,0,0) -- (axis cs:3.1416,1.5708,0);
+  \draw[red!75!black,very thick] (axis cs:0,3.1416,0) -- (axis cs:1.5708,0,0);
+  \draw[red!75!black,very thick] (axis cs:1.5708,3.1416,0) -- (axis cs:3.1416,0,0);
+  \foreach \b/\g in {0.3927/2.3562,1.9635/2.3562,1.1781/0.7854,2.7489/0.7854} {\edef\tmp{\noexpand\fill[black,draw=white] (axis cs:\b,\g,0) circle (2.2pt);}\tmp}
+  \ona{\node[note,anchor=west] (k1) at (axis cs:3.45,2.95,0) {$\frac14|e^{2i\gamma}+e^{4i\beta}|^2$ vanishes\\where $4\beta-2\gamma\equiv\pi\pmod{2\pi}$ (blue)};
+  \draw[notearrow] (k1.west) to[bend right=15] (axis cs:2.95,1.18,0);
+  \node[note,anchor=west] (k2) at (axis cs:3.45,1.75,0) {$\frac14|1-e^{2i(2\beta+\gamma)}|^2$ vanishes\\where $2\beta+\gamma\equiv0\pmod\pi$ (red)};
+  \draw[notearrow] (k2.west) to[bend left=10] (axis cs:2.2,1.9,0);
+  \node[note,anchor=west] (k3) at (axis cs:3.45,0.45,0) {$F = -3$ where both vanish, at the\\four minimisers; elsewhere $F+3>0$};
+  \draw[notearrow] (k3.west) to[bend left=15] (axis cs:2.82,0.76,0);}
+\end{axis}}}
+\begin{frame}\ft{The certificate for the worked example}
+\ona{Figure~\ref{fig:ch07:cert} shows the certificate $F+3 = \frac14|e^{2i\gamma}+e^{4i\beta}|^2+\frac14|1-e^{2i(2\beta+\gamma)}|^2$ of the previous frame. Each term is non-negative, and vanishes on a family of parallel lines on the torus: the first where $e^{4i\beta} = -e^{2i\gamma}$, that is, $4\beta-2\gamma\equiv\pi\pmod{2\pi}$, and the second where $2\beta+\gamma\equiv0\pmod\pi$. The two families cross at the four points $(\frac\pi8,\frac{3\pi}4)$, $(\frac{3\pi}8,\frac\pi4)$, $(\frac{5\pi}8,\frac{3\pi}4)$ and $(\frac{7\pi}8,\frac\pi4)$, where $F = -3$, and everywhere else $F>-3$. The identity thus proves the minimum and locates the minimisers without any search; finding such an identity is what the semidefinite program \eqref{eq:ch07:sos} does.}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\certfig{}\end{tikzpicture}
+\caption{The certificate $F+3 = \frac14|e^{2i\gamma}+e^{4i\beta}|^2+\frac14|1-e^{2i(2\beta+\gamma)}|^2$ for the worked example of \Chap~\chref{C.VQE}, over one period of $F$, darker being lower: the lines where the first term vanishes (blue), those where the second vanishes (red), and the four minimisers, where both vanish (black).}\label{fig:ch07:cert}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\certfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $F+3 = \frac14|e^{2i\gamma}+e^{4i\beta}|^2+\frac14|1-e^{2i(2\beta+\gamma)}|^2$, over one period; darker is lower.
+    \item The first term vanishes where $4\beta-2\gamma\equiv\pi\pmod{2\pi}$ (blue), the second where $2\beta+\gamma\equiv0\pmod\pi$ (red).
+    \item Both vanish at the four minimisers (black), where $F = -3$; elsewhere $F>-3$.
+    \item The identity proves the minimum without search; the semidefinite program finds such identities.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{Global optimisation for a constant number of parameters}
+\onp{\footnotesize}
+\begin{thm}[\citet{sakos2026global}]\label{thm:ch07:fpras}
+Consider circuits \eqref{eq:ch07:shared} on $n$ qubits whose generators have eigenvalues that differ by integers, with a fixed number $d$ of parameters, and with $K$, the widths $\Delta_k$ and $\|O\|$ bounded by polynomials in $n$. There is an algorithm that, for all $\epsilon,\delta>0$, measures copies of the states of a set of circuits fixed in advance and returns, with probability at least $1-\delta$, a number within $\epsilon$ of $\min C$, in time and with a number of copies polynomial in $n$, $1/\epsilon$ and $\log(1/\delta)$.
+\end{thm}
+\ona{\emph{Proof (sketch).} Let $\Delta_{\max} = \max_k\Delta_k$. Each $R_j\le K\Delta_{\max}$, so that $|\mathcal G|\le(2K\Delta_{\max}+1)^d$, a polynomial in $n$ for fixed $d$. By Lemma~\ref{lem:ch07:grid} and \eqref{eq:ch07:hoeffding} with $\eta = \epsilon/(2\sqrt{|\mathcal G|})$, the reconstruction $\hat C$ satisfies $|\min\hat C-\min C|\le\epsilon/2$ with probability at least $1-\delta$, from $|\mathcal G|M = \mathcal O(|\mathcal G|^2w^2\epsilon^{-2}\log(|\mathcal G|/\delta))$ copies, where $w\le2\|O\|$. The explicit constants of \citet{bach2023exponential} give a level $r$, polynomial in $n$ and $1/\epsilon$, at which $\hat C^*_{\boldsymbol r}$ is within $\epsilon/2$ of $\min\hat C$, and the semidefinite program then has matrices of order $(r+1)^d$, polynomial for fixed $d$. \qed}
+\onp{Proof: Lemma and \eqref{eq:ch07:hoeffding} with $\eta = \epsilon/(2\sqrt{|\mathcal G|})$, $|\mathcal G|\le(2K\max_k\Delta_k+1)^d$; the rate of \citet{bach2023exponential} with explicit constants.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item The device is used once, on $|\mathcal G|$ circuits fixed in advance, and the number of copies is known before the first is measured. The optimisation is then classical.
+    \item The worked example, with $\epsilon = 0.1$, $\delta = 0.05$ and $w = 4$: $\eta = 0.0075$, and $M\approx1.1\times10^6$ copies at each point, $4.9\times10^7$ in all; with the bound of \citet{sakos2026global}, $2.2\times10^9$. The simulated errors with $1000$ copies at each point are far smaller than the guarantee requires.
+    \item The effort grows exponentially with $d$, through $|\mathcal G|$ and the order of the semidefinite program. The gradient methods of this \chap{} scale polynomially with $d$, but find only stationary points.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{What a constant number of parameters cannot express}
+\onp{\footnotesize}
+\ona{The theorem limits the problems that such circuits can encode. In the \emph{gap version} of training, one is given a circuit as in Theorem~\ref{thm:ch07:fpras} and rationals $a<b$, with $b-a$ at least the inverse of a polynomial in $n$, and asked to decide whether $\min C\le a$ or $\min C\ge b$, it being promised that one of the two holds. Running the algorithm with $\epsilon = (b-a)/3$ and $\delta = \frac13$, and comparing its result with $\frac12(a+b)$, decides this with probability at least $\frac23$ in polynomial time, with a quantum computer in place of the device. The gap version therefore lies in $\mathbf{BQP}$, and the following is a consequence.}
+\onp{The gap version: given a circuit as in the theorem and $b-a\ge1/\mathrm{poly}(n)$, decide whether $\min C\le a$ or $\min C\ge b$. The algorithm with $\epsilon = (b-a)/3$ decides it on a quantum computer: it is in $\mathbf{BQP}$.}
+\begin{cor}[\citet{sakos2026global}]\label{cor:ch07:bqp}
+If MaxCut, in its decision version, reduces in polynomial time to the gap version of training circuits with a fixed number of parameters, then $\mathbf{NP}\subseteq\mathbf{BQP}$.
+\end{cor}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item This does not contradict \Chap~\chref{C.VQE}. There, training is $\mathbf{NP}$-hard with a number of parameters that grows with the instance; the reduction of Bittel and Kliesch with a single parameter uses frequencies $m^{-j}$, which, rescaled to integers, give a degree exponential in the size of the instance.
+    \item Unless $\mathbf{NP}\subseteq\mathbf{BQP}$, training is thus tractable for a constant number of parameters and $\mathbf{NP}$-hard when their number grows linearly with $n$; for $d$ of the order of $\log n$, the question is open \citep{sakos2026global}.
+\end{itemize}
+\end{frame}
+
+\section{Noise}\label{sec:ch07:noise}
+
+\begin{frame}\ft{Shot noise and stochastic gradients}
+\onp{\footnotesize}
+\ona{Each estimate in \eqref{eq:ch07:grad} is unbiased, and so the estimated gradient is an unbiased estimate of $\nabla C$, with a variance of $(\sigma_+^2+\sigma_-^2)/(4M)$ in each component for $M$ copies at each point. Gradient descent with such estimates is stochastic gradient descent, whose analysis does not require accurate gradients, only unbiased ones of bounded variance. \citet{sweke2020stochastic} show that the guarantees of stochastic gradient descent apply to variational algorithms for any number of copies at each point, down to a single one, and that the terms of the observable and the shifts of the general rule may themselves be sampled, which gives a doubly stochastic method.}
+\begin{itemize}\setlength\itemsep{0.25em}
+    \item Unbiased, with variance $(\sigma_+^2+\sigma_-^2)/(4M)$ per component: stochastic gradient descent applies, for any $M\ge1$ \citep{sweke2020stochastic}.
+    \item More copies reduce the variance, not the bias; fewer copies per step allow more steps for the same $N$.
+    \item Unbiasedness does not help on a barren plateau (\Chap~\chref{C.VQE}): if the partial derivatives are of order $2^{-n/2}$, of the order of $2^n$ copies are needed to determine even their signs.
+    \item The number of steps, as a function of $\sigma^2$, $M$ and the bias of the device, is the subject of \Chap~\chref{C.IterationComplexity}.
+\end{itemize}
+\end{frame}
+
+% The ideal energy of one gate of the worked example and the energy after global depolarisation with p = 0.3
+\mode<all>{\gdef\noisefig#1{\begin{axis}[#1,width=\nzW,height=\nzH,clip=false,axis lines=left,xmin=-3.1416,xmax=3.1416,ymin=-2.25,ymax=-1.82,xtick={-3.1416,-1.5708,0,1.5708,3.1416},xticklabels={$-\pi$,$-\frac\pi2$,$0$,$\frac\pi2$,$\pi$},ytick={-2.2,-2.1,-2,-1.9},xlabel={$\phi$},ylabel={energy},samples=150,domain=-3.1416:3.1416,no markers,thick]
+  \addplot[blue!70!black] {-2.03868+0.19471*sin(deg(x-0.1))};
+  \addplot[red!70!black] {0.7*(-2.03868+0.19471*sin(deg(x-0.1)))-0.6};
+  \addplot[gray,densely dotted,thin] {-2};
+  \addplot[green!40!black,domain=-0.9:0.7] {-2.0774+0.1908*(x+0.1)};
+  \addplot[green!40!black,domain=-0.9:0.7] {-2.05418+0.13356*(x+0.1)};
+  \fill[black] (axis cs:-0.1,-2.0774) circle (1.6pt); \fill[black] (axis cs:-0.1,-2.05418) circle (1.6pt);
+  \draw[gray,densely dashed,thin] (axis cs:-1.4708,-2.25) -- (axis cs:-1.4708,-2.15);
+  \ona{\node[note,anchor=west] (z1) at (axis cs:3.5,-1.86) {ideal: slope $0.191$\\at $\phi_0 = -0.1$};
+  \draw[notearrow] (z1.west) to[bend right=15] (axis cs:0.72,-1.925);
+  \node[note,anchor=west] (z2) at (axis cs:3.5,-2.0) {depolarised, $p = 0.3$:\\shrunk towards $-2$, the\\value of the maximally\\mixed state; slope $0.134$};
+  \draw[notearrow] (z2.west) to[bend left=10] (axis cs:2.2,-1.92);
+  \node[note,anchor=west] (z3) at (axis cs:3.5,-2.2) {the minimiser $-1.471$\\does not move};
+  \draw[notearrow] (z3.west) to[bend left=10] (axis cs:-1.4,-2.235);}
+\end{axis}}}
+\begin{frame}\ft{Noise in the device}
+\onp{\footnotesize}
+\begin{propn}\label{propn:ch07:noise}
+Suppose that the gate $R_P(\theta)$ is applied exactly, and that every other operation of the circuit, including the preparation of the state and the measurement, is replaced by a quantum channel that does not depend on $\theta$. Then the expectation measured by the device is a sinusoid in $\theta$, and \eqref{eq:ch07:psr} gives its derivative exactly.
+\end{propn}
+\ona{\emph{Proof.} The measured expectation is $\tilde f(\theta) = \Tr\big[\mathcal E_2^\dagger(O)\,R_P(\theta)\,\mathcal E_1(\rho)\,R_P(\theta)^\dagger\big]$, where $\mathcal E_1$ and $\mathcal E_2$ are the channels before and after the gate, and $\mathcal E_2^\dagger$ is the adjoint of $\mathcal E_2$. This is $f$ with the mixed state $\mathcal E_1(\rho)$ and the observable $\mathcal E_2^\dagger(O)$, and Lemma~\ref{lem:ch07:freq} holds for mixed states, which are convex combinations of pure ones. \qed}
+
+\ona{The rule thus gives the gradient of the cost that the device actually computes, which differs from the ideal one. If the state is depolarised before the measurement with probability $p$, the measured cost is $(1-p)C + p\Tr(O)/2^n$: the gradient is multiplied by $1-p$, and the minimisers do not move (Fig.~\ref{fig:ch07:noise}). An asymmetric read-out of one qubit, which reports $1$ for $0$ with probability $q_0$ and $0$ for $1$ with probability $q_1$, maps $\braket Z$ to $(1-q_0-q_1)\braket Z + q_1-q_0$, again an affine map. For a product $Z_iZ_j$ of two such qubits, however, the measured value $(1-q_0-q_1)^2\braket{Z_iZ_j} + (q_1-q_0)(1-q_0-q_1)(\braket{Z_i}+\braket{Z_j}) + (q_1-q_0)^2$ mixes in other terms, and the minimisers move. If the noise of the gate itself depends on $\theta$, as when the duration of a pulse grows with the angle, the proposition does not apply, and the rule is biased even for the noisy cost. These are the biases of \Chap~\chref{C.IterationComplexity}.}
+\ona{\gdef\nzW{0.5\linewidth}\gdef\nzH{0.36\linewidth}}\onp{\gdef\nzW{6.2cm}\gdef\nzH{5.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\noisefig{}\end{tikzpicture}
+\caption{The energy of the worked example of \Chap~\chref{C.VQE} as a function of the angle $\phi$ of the gate $R_Z$ of edge $12$, as in Fig.~\ref{fig:ch07:psr}, without noise (blue) and with global depolarisation with probability $p = 0.3$ before the measurement (red), with their tangents at $\phi_0 = -0.1$ (green). The rule gives the slope of the red curve exactly.}\label{fig:ch07:noise}\end{figure}}
+\onp{Proof: the channels before and after the gate act as a mixed state and as an observable, and the lemma on frequencies holds for mixed states.}
+\onp{\begin{itemize}\setlength\itemsep{0.2em}
+    \item The rule gives the gradient of the cost that the device computes, not of the ideal cost.
+    \item Depolarisation before the measurement: $(1-p)C + p\Tr(O)/2^n$. The gradient is multiplied by $1-p$; the minimisers stay.
+    \item Asymmetric read-out maps $\braket Z$ to $(1-q_0-q_1)\braket Z + q_1-q_0$, but mixes $\braket{Z_i}$ and $\braket{Z_j}$ into $\braket{Z_iZ_j}$: the minimisers move.
+    \item Gate noise that depends on $\theta$ biases the rule even for the noisy cost (\Chap~\chref{C.IterationComplexity}).
+\end{itemize}}
+\end{frame}
+
+\begin{frame}\ft{Depolarisation, pictured}
+\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\noisefig{}\end{tikzpicture}\end{column}
+\begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item The energy of the worked example as a function of the angle $\phi$ of the gate $R_Z$ of edge $12$, as before (blue).
+    \item With global depolarisation, $p = 0.3$, before the measurement (red): the curve shrinks by $0.7$ towards $-2$, the energy of the maximally mixed state (dotted).
+    \item The slopes at $\phi_0 = -0.1$ (green): $0.191$ and $0.7\cdot0.191 = 0.134$. The rule measures the second exactly.
+    \item The minimiser $-1.471$ (dashed) does not move.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\section{Minimisation along one coordinate}\label{sec:ch07:coord}
+
+\begin{frame}\ft{Minimising along one coordinate}
+\onp{\footnotesize}
+\ona{The values that give the derivative give more. A sinusoid $a + b\cos\theta + c\sin\theta$ has three coefficients, and three values determine it, together with its minimiser.}
+\begin{propn}[\citet{nakanishi2020sequential,ostaszewski2021structure}]\label{propn:ch07:roto}
+Let $f(\theta) = a + b\cos\theta + c\sin\theta$ be non-constant, and let $f_0 = f(\theta_0)$ and $f_\pm = f(\theta_0\pm\frac\pi2)$. Then $f$ is least at
+\begin{equation}\label{eq:ch07:roto}
+    \theta^* = \theta_0 + \pi - \operatorname{atan2}\big(f_--f_+,\ 2f_0-f_+-f_-\big)\pmod{2\pi},
+\end{equation}
+where $f(\theta^*) = \frac12(f_++f_-) - \frac12\sqrt{(2f_0-f_+-f_-)^2+(f_+-f_-)^2}$.
+\end{propn}
+\ona{\emph{Proof.} Write $f(\theta) = a + A\cos(\theta-\varphi)$ with $A>0$. Then $f_\pm = a\mp A\sin(\theta_0-\varphi)$, so that $a = \frac12(f_++f_-)$, $2f_0-f_+-f_- = 2A\cos(\theta_0-\varphi)$ and $f_--f_+ = 2A\sin(\theta_0-\varphi)$. Hence $\theta_0-\varphi$ is the $\operatorname{atan2}$ in \eqref{eq:ch07:roto}, $A$ is half the square root, and the minimum $a - A$ is attained at $\theta^* = \varphi+\pi$. \qed}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item Sweeping over the coordinates, $\theta_j\leftarrow\theta_j^*$, is a coordinate descent method with exact line minimisation, at two or three circuits for each coordinate. In exact arithmetic the cost never increases.
+    \item Like every coordinate method, it may stop at a stationary point that is minimal along each coordinate but is a saddle point, as $x^2+y^2-3xy$ is at the origin.
+    \item For a coordinate with $R$ frequencies, $2R+1$ values determine the trigonometric polynomial, which is then minimised classically \citep{Wierichs2021}. \citet{koczor2022quantum} build a model of the cost in all the coordinates near a point from shifted values, and descend on the model.
+\end{itemize}
+\end{frame}
+
+% One step of exact minimisation along the angle phi of one gate of the worked example
+\mode<all>{\gdef\rotofig#1{\begin{axis}[#1,width=\roW,height=\roH,clip=false,axis lines=left,xmin=-3.1416,xmax=3.1416,ymin=-2.25,ymax=-1.82,xtick={-3.1416,-1.5708,0,1.5708,3.1416},xticklabels={$-\pi$,$-\frac\pi2$,$0$,$\frac\pi2$,$\pi$},ytick={-2.2,-2.1,-2,-1.9},xlabel={$\phi$},ylabel={energy},samples=150,domain=-3.1416:3.1416,no markers,thick]
+  \addplot[blue!70!black] {-2.03868+0.19471*sin(deg(x-0.1))};
+  \addplot[gray,densely dashed,thin] {-2.03868};
+  \fill[black] (axis cs:-0.1,-2.0774) circle (1.8pt);
+  \fill[red!75!black] (axis cs:1.4708,-1.8479) circle (1.8pt); \fill[red!75!black] (axis cs:-1.6708,-2.2295) circle (1.8pt);
+  \fill[green!40!black] (axis cs:-1.4708,-2.2334) circle (2pt);
+  \draw[-{Stealth[length=5pt]},very thick,green!40!black] (axis cs:-0.15,-2.082) to[bend left=35] (axis cs:-1.42,-2.226);
+  \ona{\node[note,anchor=west] (r1) at (axis cs:3.5,-1.87) {three values: at $\phi_0 = -0.1$\\(black) and at $\phi_0\pm\frac\pi2$ (red)};
+  \draw[notearrow] (r1.west) to[bend right=10] (axis cs:1.55,-1.85);
+  \node[note,anchor=west] (r2) at (axis cs:3.5,-2.01) {$a = \frac12(f_++f_-) = -2.039$};
+  \draw[notearrow] (r2.west) to[bend left=10] (axis cs:2.6,-2.039);
+  \node[note,anchor=west] (r3) at (axis cs:3.5,-2.17) {the step to $\phi^* = -1.471$,\\where $f = -2.233$, the\\least value along $\phi$};
+  \draw[notearrow] (r3.west) to[bend left=15] (axis cs:-1.35,-2.24);}
+\end{axis}}}
+\begin{frame}\ft{One step along a coordinate, pictured}
+\ona{Figure~\ref{fig:ch07:roto} shows one step for the gate of Fig.~\ref{fig:ch07:psr}. The three values $f_0 = -2.077$ and $f_\pm = -1.848$, $-2.230$ give $\phi^* = -1.471$ by \eqref{eq:ch07:roto}, where the energy is $-2.233$. The minimum $-3$ of the worked example requires all the angles to change together, and a step along a single angle cannot reach it.}
+\ona{\gdef\roW{0.5\linewidth}\gdef\roH{0.36\linewidth}}\onp{\gdef\roW{6.2cm}\gdef\roH{5.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\rotofig{}\end{tikzpicture}
+\caption{One step of exact minimisation along the angle $\phi$ of the gate $R_Z$ of edge $12$ in the worked example of \Chap~\chref{C.VQE}, from $\phi_0 = -0.1$. The values at $\phi_0$ and $\phi_0\pm\frac\pi2$ determine the sinusoid (blue) and its minimiser (green).}\label{fig:ch07:roto}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\rotofig{}\end{tikzpicture}\end{column}
+\begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item The energy of the worked example as a function of the angle $\phi$ of the gate $R_Z$ of edge $12$, as before (blue).
+    \item Three values: $f_0 = -2.077$ at $\phi_0 = -0.1$ (black), and $f_\pm = -1.848$, $-2.230$ at $\phi_0\pm\frac\pi2$ (red).
+    \item $a = \frac12(f_++f_-) = -2.039$ (dashed), and the closed form gives $\phi^* = -1.471$ (green), where $f = -2.233$.
+    \item The circuits of the derivative, with one more at $\phi_0$, give the exact minimiser along the coordinate; the minimum $-3$ needs all the angles.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\section{Derivative-free estimators}\label{sec:ch07:dfo}
+
+\begin{frame}\ft{Simultaneous perturbation}
+\onp{\footnotesize}
+\ona{The estimators of the previous sections require at least two circuits for each parameter. The estimator of simultaneous perturbation stochastic approximation (SPSA) \citep{spall1992multivariate}, used in \Chap~\chref{C.QAOA}, perturbs all the parameters at once, along a random vector $\boldsymbol\Delta$ with independent components uniform on $\{\pm1\}$, and uses two circuits whatever the number $d$ of parameters:}
+\begin{equation}\label{eq:ch07:spsa}
+    \hat g_i = \frac{\hat C(\boldsymbol\theta+c\boldsymbol\Delta)-\hat C(\boldsymbol\theta-c\boldsymbol\Delta)}{2c\,\Delta_i},\qquad i = 1,\dots,d.
+\end{equation}
+\begin{lem}[\citet{spall1992multivariate}]\label{lem:ch07:spsa}
+If $C$ is three times continuously differentiable and each value is estimated from $M$ copies, then $\mathbb E\,\hat{\boldsymbol g} = \nabla C(\boldsymbol\theta) + \mathcal O(c^2)$ and
+\begin{equation}\label{eq:ch07:spsamse}
+    \mathbb E\,\|\hat{\boldsymbol g}-\nabla C(\boldsymbol\theta)\|^2 = (d-1)\,\|\nabla C(\boldsymbol\theta)\|^2 + d\,\frac{\sigma_+^2+\sigma_-^2}{4c^2M} + \mathcal O(c^2).
+\end{equation}
+\end{lem}
+\ona{\emph{Proof.} By Taylor's theorem, $\frac1{2c}[C(\boldsymbol\theta+c\boldsymbol\Delta)-C(\boldsymbol\theta-c\boldsymbol\Delta)] = \nabla C^\top\boldsymbol\Delta + \mathcal O(c^2)$. Since $1/\Delta_i = \Delta_i$, the noiseless part of $\hat g_i$ is $\sum_j\partial_jC\,\Delta_j\Delta_i + \mathcal O(c^2)$, whose mean is $\partial_iC + \mathcal O(c^2)$, as $\mathbb E\,\Delta_j\Delta_i = \delta_{ij}$. Its deviation $\sum_{j\ne i}\partial_jC\,\Delta_j\Delta_i$ has the second moment $\sum_{j\ne i}(\partial_jC)^2$, since the products $\Delta_j\Delta_i$, $j\ne i$, are independent signs; summed over $i$, this gives $(d-1)\|\nabla C\|^2$. The shot noise contributes $(\sigma_+^2+\sigma_-^2)/(4c^2M)$ to each component, independently of the rest. \qed}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item An estimate is a gradient only on average. Each one lies along the random diagonal $\boldsymbol\Delta$, and its error is of the order of $\sqrt d$ times the gradient.
+    \item The bias of order $c^2$ calls for a small $c$, the shot noise for a large one, as for the central difference.
+\end{itemize}
+\end{frame}
+
+% SPSA on the landscape of the worked example at (0.2, -0.3), c = 0.1: steps -0.08 g for the two diagonals
+\mode<all>{\gdef\spsafig#1{\begin{axis}[#1,width=\spW,height=\spH,view={0}{90},xmin=0,xmax=0.5,ymin=-0.65,ymax=0,xtick={0,0.1,0.2,0.3,0.4,0.5},ytick={-0.6,-0.4,-0.2,0},xlabel={$\beta$},ylabel={$\gamma$},colormap={pale}{rgb255(0cm)=(205,205,230); rgb255(1cm)=(250,250,250)},point meta min=-3,point meta max=-2,enlargelimits=false,axis on top,clip=false]
+  \addplot3[surf,shader=interp,domain=0:0.5,y domain=-0.65:0,samples=41] {-2+sin(deg(4*x))*sin(deg(2*y))};
+  \draw[blue!70!black,densely dashed,thin] (axis cs:0.06,-0.44,0) -- (axis cs:0.34,-0.16,0);
+  \draw[red!75!black,densely dashed,thin] (axis cs:0.06,-0.16,0) -- (axis cs:0.34,-0.44,0);
+  \draw[blue!70!black,thick] (axis cs:0.3,-0.2,0) circle (1.8pt); \draw[blue!70!black,thick] (axis cs:0.1,-0.4,0) circle (1.8pt);
+  \draw[red!75!black,thick] (axis cs:0.3,-0.4,0) circle (1.8pt); \draw[red!75!black,thick] (axis cs:0.1,-0.2,0) circle (1.8pt);
+  \draw[-{Stealth[length=5pt]},very thick,blue!70!black] (axis cs:0.2,-0.3,0) -- (axis cs:0.2334,-0.2666,0);
+  \draw[-{Stealth[length=5pt]},very thick,red!75!black] (axis cs:0.2,-0.3,0) -- (axis cs:0.4068,-0.5068,0);
+  \draw[-{Stealth[length=5pt]},very thick,black] (axis cs:0.2,-0.3,0) -- (axis cs:0.3201,-0.3866,0);
+  \draw[-{Stealth[length=5pt]},thick,green!40!black,densely dashed] (axis cs:0.2,-0.3,0) -- (axis cs:0.3259,-0.3947,0);
+  \fill[black] (axis cs:0.2,-0.3,0) circle (1.8pt);
+  \node[note,anchor=west] (p1) at (axis cs:0.56,-0.05,0) {$\boldsymbol\Delta = (1,1)$: the values at the\\blue points differ little, and\\the step is short};
+  \draw[notearrow] (p1.west) to[bend right=15] (axis cs:0.24,-0.262,0);
+  \node[note,anchor=west] (p2) at (axis cs:0.56,-0.25,0) {$\boldsymbol\Delta = (1,-1)$: the step\\along the other diagonal};
+  \draw[notearrow] (p2.west) to[bend left=10] (axis cs:0.4,-0.49,0);
+  \node[note,anchor=west] (p3) at (axis cs:0.56,-0.45,0) {the mean of the two (black),\\and the step along the\\gradient (green, dashed)};
+  \draw[notearrow] (p3.west) to[bend left=15] (axis cs:0.325,-0.392,0);
+  \node[note,anchor=west] (p4) at (axis cs:0.56,-0.62,0) {two circuits for each\\estimate, whatever $d$};
+\end{axis}}}
+\begin{frame}\ft{Simultaneous perturbation, pictured}
+\ona{Figure~\ref{fig:ch07:spsa} shows the estimator on the landscape $F(\beta,\gamma) = -2+\sin4\beta\sin2\gamma$ of the worked example, at the point $(0.2,-0.3)$, where $F = -2.405$ and $\nabla F = (-1.574,1.184)$, with $c = 0.1$ and without shot noise. With $d = 2$ there are two diagonals, since $\boldsymbol\Delta$ and $-\boldsymbol\Delta$ give the same estimate. Along $(1,1)$ the values are $-2.363$ and $-2.279$, and the estimate is $(-0.418,-0.418)$; along $(1,-1)$ they are $-2.669$ and $-2.152$, and the estimate is $(-2.585,2.585)$. Their mean, $(-1.501,1.083)$, differs from the gradient by $(0.072,-0.101)$, the bias of order $c^2$ of Lemma~\ref{lem:ch07:spsa}. The squared error of a single estimate, averaged over the two diagonals, is $3.44$, against $(d-1)\|\nabla F\|^2 = 3.88$ to order $c^2$.}
+\ona{\gdef\spW{0.38\linewidth}\gdef\spH{0.44\linewidth}}\onp{\gdef\spW{4.6cm}\gdef\spH{5.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\spsafig{}\end{tikzpicture}
+\caption{Simultaneous perturbation on the landscape of the worked example at $(\beta,\gamma) = (0.2,-0.3)$ (black dot), with $c = 0.1$. The circles are the points $\boldsymbol\theta\pm c\boldsymbol\Delta$ for $\boldsymbol\Delta = (1,1)$ (blue) and $(1,-1)$ (red); the arrows are the steps $-0.08\,\hat{\boldsymbol g}$ for the two estimates, for their mean (black), and for the gradient (green, dashed). Darker is lower; the minimum $-3$ is at $(\pi/8,-\pi/4)\approx(0.39,-0.79)$, below the figure.}\label{fig:ch07:spsa}\end{figure}}
+\onp{\begin{center}\begin{tikzpicture}\spsafig{}\end{tikzpicture}\end{center}}
+\end{frame}
+
+\begin{frame}\ft{Gaussian smoothing}
+\onp{\footnotesize}
+\ona{The two-point estimator \citep{duchi2015optimal,Nesterov2015} perturbs along a Gaussian direction $\boldsymbol u\sim\mathcal N(0,\one_d)$ and compares with the unperturbed point,}
+\begin{equation}\label{eq:ch07:2pfa}
+    \hat{\boldsymbol g} = \frac{\hat C(\boldsymbol\theta+c\boldsymbol u)-\hat C(\boldsymbol\theta)}{c}\,\boldsymbol u.
+\end{equation}
+\begin{lem}\label{lem:ch07:smooth}
+Without shot noise, $\mathbb E\,\hat{\boldsymbol g} = \nabla C_c(\boldsymbol\theta)$, the gradient of the \emph{Gaussian smoothing} $C_c(\boldsymbol\theta) = \mathbb E_{\boldsymbol u}C(\boldsymbol\theta+c\boldsymbol u)$. If $C = \sum_{\boldsymbol\omega}c_{\boldsymbol\omega}e^{i\boldsymbol\omega^\top\boldsymbol\theta}$ is a Hermitian trigonometric polynomial, then
+\begin{equation}\label{eq:ch07:smoothtrig}
+    C_c(\boldsymbol\theta) = \sum_{\boldsymbol\omega}c_{\boldsymbol\omega}\,e^{-c^2\|\boldsymbol\omega\|^2/2}\,e^{i\boldsymbol\omega^\top\boldsymbol\theta}.
+\end{equation}
+\end{lem}
+\ona{\emph{Proof.} The standard Gaussian density $\varphi$ satisfies $\nabla\varphi(\boldsymbol u) = -\boldsymbol u\varphi(\boldsymbol u)$. Writing $C_c(\boldsymbol\theta) = c^{-d}\int C(\boldsymbol v)\varphi((\boldsymbol v-\boldsymbol\theta)/c)\,d\boldsymbol v$ and differentiating under the integral gives $\nabla C_c(\boldsymbol\theta) = \frac1c\mathbb E[C(\boldsymbol\theta+c\boldsymbol u)\boldsymbol u]$, and $\mathbb E[C(\boldsymbol\theta)\boldsymbol u] = 0$. The second claim follows from $\mathbb E\,e^{ic\boldsymbol\omega^\top\boldsymbol u} = e^{-c^2\|\boldsymbol\omega\|^2/2}$, the characteristic function of the Gaussian. \qed}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item The estimator is unbiased for the smoothed cost, not for the cost. For $L$-smooth $C$, $|C_c-C|\le\frac{c^2}2Ld$ and $\|\nabla C_c-\nabla C\|\le\frac c2L(d+3)^{3/2}$ \citep{Nesterov2015}.
+    \item Smoothing damps the frequency $\boldsymbol\omega$ by $e^{-c^2\|\boldsymbol\omega\|^2/2}$. In the worked example, with frequencies $(\pm4,\pm2)$, $F_c = -2+e^{-10c^2}(F+2)$: the landscape is flattened, but its minimisers do not move. At $(0.2,-0.3)$ with $c = 0.2$, the mean of $2\times10^5$ estimates is $(-1.060,0.801)$, and $\nabla F_c = (-1.055,0.794)$.
+\end{itemize}
+\end{frame}
+
+% Gaussian smoothing of f = -cos x - 0.45 cos(4x - 1) for c = 0, 0.25, 0.5
+\mode<all>{\gdef\smoothfig#1{\begin{axis}[#1,width=\smW,height=\smH,clip=false,axis lines=left,xmin=-3.1416,xmax=3.1416,ymin=-1.6,ymax=1.6,xtick={-3.1416,-1.5708,0,1.5708,3.1416},xticklabels={$-\pi$,$-\frac\pi2$,$0$,$\frac\pi2$,$\pi$},xlabel={$\theta$},ylabel={cost},samples=200,domain=-3.1416:3.1416,no markers,thick]
+  \addplot[black] {-cos(deg(x))-0.45*cos(deg(4*x-1))};
+  \addplot[blue!70!black] {-0.9692*cos(deg(x))-0.2729*cos(deg(4*x-1))};
+  \addplot[red!75!black] {-0.8825*cos(deg(x))-0.0609*cos(deg(4*x-1))};
+  \fill[black] (axis cs:-2.852,0.514) circle (1.5pt); \fill[black] (axis cs:-1.186,-0.762) circle (1.5pt);
+  \fill[black] (axis cs:0.22,-1.423) circle (1.5pt); \fill[black] (axis cs:1.674,-0.272) circle (1.5pt);
+  \fill[red!75!black] (axis cs:0.129,-0.929) circle (1.8pt);
+  \ona{\node[note,anchor=west] (m1) at (axis cs:3.5,1.2) {$c = 0$ (black): four local\\minima, the least at $0.22$};
+  \draw[notearrow] (m1.west) to[bend right=20] (axis cs:1.75,-0.22);
+  \node[note,anchor=west] (m2) at (axis cs:3.5,0.25) {$c = 0.25$ (blue): the\\frequency $4$ damped by\\$e^{-8c^2} = 0.61$, the\\frequency $1$ by $0.97$};
+  \draw[notearrow] (m2.west) to[bend left=10] (axis cs:2.6,0.75);
+  \node[note,anchor=west] (m3) at (axis cs:3.5,-0.85) {$c = 0.5$ (red): one\\minimum, moved from\\$0.22$ to $0.13$};
+  \draw[notearrow] (m3.west) to[bend left=15] (axis cs:0.2,-0.95);}
+\end{axis}}}
+\begin{frame}\ft{Smoothing removes high frequencies}
+\ona{Figure~\ref{fig:ch07:smooth} illustrates \eqref{eq:ch07:smoothtrig} in one variable, for $f(\theta) = -\cos\theta-0.45\cos(4\theta-1)$, which has four local minima. The smoothing damps the frequency $4$ by $e^{-8c^2}$ and the frequency $1$ by $e^{-c^2/2}$; at $c = 0.25$ all four minima remain, and at $c = 0.5$ only one does, at $0.13$ instead of $0.22$. A method that follows the two-point estimator thus minimises a function with fewer local minima than the cost, but with minimisers that are displaced by an amount that grows with $c$.}
+\ona{\gdef\smW{0.5\linewidth}\gdef\smH{0.36\linewidth}}\onp{\gdef\smW{6.2cm}\gdef\smH{5.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\smoothfig{}\end{tikzpicture}
+\caption{The Gaussian smoothing $f_c$ of $f(\theta) = -\cos\theta-0.45\cos(4\theta-1)$ for $c = 0$ (black), $0.25$ (blue) and $0.5$ (red), with the local minima of $f$ (black dots) and the minimum of $f_{0.5}$ (red dot).}\label{fig:ch07:smooth}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\smoothfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $f(\theta) = -\cos\theta-0.45\cos(4\theta-1)$ (black) has four local minima (dots), the least at $0.22$.
+    \item Smoothing damps the frequency $4$ by $e^{-8c^2}$ and the frequency $1$ by $e^{-c^2/2}$.
+    \item $c = 0.25$ (blue): $0.61$ and $0.97$; all four minima remain.
+    \item $c = 0.5$ (red): one minimum, moved from $0.22$ to $0.13$.
+    \item Fewer local minima, but displaced minimisers.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\mode<all>{\gdef\esttab#1#2#3#4#5{{\setlength\tabcolsep{4pt}\begin{tabular}{@{}>{\raggedright\arraybackslash}p{#1\linewidth}>{\raggedright\arraybackslash}p{#2\linewidth}>{\raggedright\arraybackslash}p{#3\linewidth}>{\raggedright\arraybackslash}p{#4\linewidth}>{\raggedright\arraybackslash}p{#5\linewidth}@{}}\toprule
+estimator & circuits for one estimate & bias, without device noise & mean squared error, $N$ copies in all & choices \\\midrule
+central difference & $2d$ & $\mathcal O(h^2)$ & $\approx d^2\sigma^2/(Nh^2)$, plus the bias & step $h$ \\
+parameter-shift rule & $2d$ & none & $\le d^2\sigma^2/N$ & none \\
+general rule, $R$ frequencies & $2Rd$ & none & $\le R^2d^2\sigma^2/N$, with copies allocated optimally & none \\
+stochastic rule & $2d$, at random fractions $t$ & none & larger, by the variance over $t$ & none \\
+SPSA & $2$ & $\mathcal O(c^2)$ & $\approx(d-1)\|\nabla C\|^2 + d\sigma^2/(c^2N)$ & $c$, the law of $\boldsymbol\Delta$ \\
+two-point & $2$ & $\nabla C_c-\nabla C = \mathcal O(cd^{3/2})$ & of the order of $d\|\nabla C\|^2 + d\sigma^2/(c^2N)$ & $c$ \\\bottomrule
+\end{tabular}}}}
+\begin{frame}\ft{The estimators compared}
+\ona{Table~\ref{tab:ch07:est} collects the estimators of this \chap{}, for $d$ parameters, $N$ copies in all divided equally among the circuits unless stated otherwise, and $\sigma^2$ a bound on the variance of a single measured value. The rules are exact in the absence of noise, and their variance grows with $d^2$ for a given $N$, since each of the $2d$ circuits receives only $N/(2d)$ copies. The derivative-free estimators use two circuits, but their error contains the term $(d-1)\|\nabla C\|^2$, which does not decrease with $N$. Which choice reaches a given accuracy with fewer copies, or fewer circuits, depends on how the estimates are used over many iterations; this is the question of \Chap~\chref{C.IterationComplexity}, where all of them reach the same rate of convergence to stationary points, and the bias of the device sets a floor that is lowest for the parameter-shift rule.}
+\onp{\begin{center}\scriptsize\esttab{0.16}{0.14}{0.17}{0.31}{0.12}\end{center}}
+\ona{\begin{table}[htb]\centering\caption{Estimators of the gradient of a cost of $d$ parameters, with $N$ measured copies in all and variance at most $\sigma^2$ for a single measured value.}\label{tab:ch07:est}\footnotesize\esttab{0.16}{0.14}{0.17}{0.31}{0.12}\end{table}}
+\onp{\footnotesize Exact rules: variance $\propto d^2/N$. Two-circuit estimators: an error $\approx d\|\nabla C\|^2$ that does not decrease with $N$. The trade-off over many iterations: \Chap~\chref{C.IterationComplexity}.}
+\end{frame}
+
+\section{Conclusions}
 
 \begin{frame}\ft{A short history}
-\ona{The rule has several origins and many refinements; \citet{kungurtsev2022iteration} trace them as follows.}
-\begin{description}\setlength\itemsep{0.15em}
-    \item[2005, 2017] gradients of expectation values in quantum optimal control (Khaneja et al.; Li et al.), as first-order approximations.
-    \item[2018] the ``original'' PSR with two shifted evaluations, for quantum machine learning (Mitarai et al.; Schuld et al.), exact for Pauli generators.
-    \item[2019] generic gates via decomposition into simpler gates (Crooks).
-    \item[2021] generators with general eigenspectra (Mari et al.); higher-order derivatives (Izmaylov et al.); a \emph{stochastic} PSR for generators that do not commute with the rest of the layer (Banchi and Crooks); a general PSR via Fourier analysis with fewer evaluations for gates with many eigenvalues (Wierichs et al.); four-term rules for fermionic Hamiltonians (Kottmann et al.).
-    \item[2022] classical computation of quantum gradients from evaluations at nearby points (Koczor and Benjamin).
+\onp{\scriptsize}
+\ona{The rule and its variants have several origins; the following list, after \citet{kungurtsev2022iteration} and \citet{Wierichs2021}, gives the main steps.}
+\begin{description}\setlength\itemsep{0.1em}
+    \item[2005, 2017] Gradients of expectations with respect to control parameters in quantum optimal control \citep{Khaneja2005,Li_2017}.
+    \item[2018] The rule for Pauli rotations, in quantum circuit learning \citep{Mitarai_2018}; a larger class of circuits whose derivatives are obtained without ancillas \citep{Theis2018}.
+    \item[2019] The rule on hardware, compared with measurements with an ancilla \citep{schuld2019evaluating}; gates decomposed into gates to which the rule applies \citep{Crooks2019}.
+    \item[2020] Exact minimisation along one coordinate \citep{nakanishi2020sequential}; stochastic gradient descent with few copies \citep{sweke2020stochastic}.
+    \item[2021] Higher derivatives \citep{Mari_2021}; the stochastic rule \citep{Banchi_2021}; a rule with four values for fermionic excitations \citep{Kottmann2021}; algebraic extensions to general unitaries \citep{izmaylov2021analytic}; coordinate minimisation with structure optimisation \citep{ostaszewski2021structure}; rules of least variance \citep{Theis2021}.
+    \item[2022] The general rule for arbitrary spectra \citep{Wierichs2021}; models of the cost from shifted values \citep{koczor2022quantum}.
+    \item[2023] With single copies, the scaling of backpropagation cannot be achieved \citep{abbas2023backpropagation}.
+    \item[2026] Global optimisation of the cost as a trigonometric polynomial, for a constant number of parameters \citep{sakos2026global}.
 \end{description}
-\ona{Whichever variant is used, the ingredients are the same: finitely many shifted evaluations combined linearly, all of them exact in the absence of noise.}
 \end{frame}
 
-\begin{frame}\ft{Noise}
-\ona{Exactness is a statement about expectations. In practice each shifted evaluation is a sample mean over shots, so the PSR gradient is a \emph{stochastic} gradient with variance $\sigma^2/\text{shots}$, exactly as in stochastic gradient descent; and if the device is biased, e.g., by asymmetric read-out (\Chap~\chref{C.IterationComplexity}), the gradient is biased by at most}
-\begin{equation}\label{eq:ch07:bias}
-    b = L\,\max_i\sup_\xi\big|O_i(\theta_i \pm \tfrac\pi2,\xi) - O_i(\theta_i \pm \tfrac\pi2)\big|,
-\end{equation}
-\ona{the number of layers times the worst per-evaluation bias. The large shift is what keeps the PSR usable under noise where finite differences fail: the two evaluations are far apart compared with the noise.}
-\onp{PSR under noise: an unbiased stochastic gradient with shot-noise variance; device bias enters linearly in the number of layers.}
-\end{frame}
-
-\section{Derivative-free alternatives}
-
-\begin{frame}\ft{Zero-order optimization}
-\ona{Methods that use only function values fall into two classes: mesh-based methods that compare evaluations along predefined directions, and model-based methods that approximate derivatives from evaluations and then run a gradient-type iteration. Two model-based classics, each using a random direction $\boldsymbol\Delta_k$ and a perturbation $c_k \to 0$:}
-\begin{align}
-    \text{SPSA \citep{spall1992multivariate}:}\quad & [\boldsymbol g_k]_i \sim \frac{F(\boldsymbol\theta_k + c_k\boldsymbol\Delta_k,\xi_k^1) - F(\boldsymbol\theta_k - c_k\boldsymbol\Delta_k,\xi_k^2)}{2c_k[\boldsymbol\Delta_k]_i}, \label{eq:ch07:spsa}\\
-    \text{Two-point (2PFA) \citep{duchi2015optimal}:}\quad & \boldsymbol g_k \sim \frac{F(\boldsymbol\theta_k + c_k\boldsymbol\Delta_k,\xi_k^1) - F(\boldsymbol\theta_k,\xi_k^2)}{c_k}\,\boldsymbol\Delta_k, \label{eq:ch07:2pfa}
-\end{align}
-\ona{followed by $\boldsymbol\theta_{k+1} = \boldsymbol\theta_k - \alpha_k\boldsymbol g_k$. Two evaluations per iteration regardless of the dimension, versus $2L$ for the PSR, which is why SPSA is popular for VQAs.}
-\end{frame}
-
-\begin{frame}\ft{The two-point estimator is a smoothed gradient}
-\ona{The two-point estimator \eqref{eq:ch07:2pfa} is an unbiased estimate of the gradient of the Gaussian smoothing}
-\begin{equation}\label{eq:ch07:smooth}
-    f_c(\boldsymbol\theta) = \mathbb E_{\boldsymbol\Delta\sim\mathcal N(0,\one)}\,f(\boldsymbol\theta + c\boldsymbol\Delta),
-\end{equation}
-\ona{which for $L$-smooth $f$ in dimension $p$ satisfies}
-\begin{equation}
-    |f_c - f| \le \tfrac{c^2}{2}Lp,\qquad \|\nabla f_c - \nabla f\| \le \tfrac c2 L(p+3)^{3/2}.
-\end{equation}
+\begin{frame}\ft{Conclusions}
+\onp{\footnotesize}
 \begin{itemize}\setlength\itemsep{0.2em}
-    \item Smoothing introduces a bias of order $c$ in the gradient and $c^2$ in the value, growing with the dimension.
-    \item Smaller $c$ reduces that bias but amplifies the shot noise by $1/c$: a trade-off analysed in \Chap~\chref{C.IterationComplexity}.
-    \item Existing guarantees for SPSA and 2PFA assume unbiased function evaluations, or strong convexity; neither holds for VQAs.
+    \item For a gate generated by a Pauli string, the cost is a sinusoid in the angle, and two circuits with the angle shifted by $\pm\frac\pi2$ give its derivative exactly; $2d$ circuits give the gradient of $d$ parameters, and about $2d^2$ the Hessian.
+    \item A generator with $R$ frequencies requires $2R$ circuits. The weights of the general rule, which is the interpolation formula of M.~Riesz, are the least possible, and the variance for $N$ copies is at most $R^2\sigma^2/N$; the general rule saves circuits, not copies.
+    \item Shot noise makes the estimates random but leaves them unbiased. Noise that does not depend on the angle leaves the rule exact for the cost that the device computes, which is not the ideal cost.
+    \item The cost is a trigonometric polynomial, given by its values on a grid. With a constant number of parameters, it is minimised to any accuracy in polynomial time, and the circuits cannot encode $\mathbf{NP}$-hard problems unless $\mathbf{NP}\subseteq\mathbf{BQP}$.
+    \item The same values give the exact minimum along one coordinate.
+    \item Simultaneous perturbation and Gaussian smoothing use two circuits whatever $d$, at the price of a bias of order $c^2$ or of a smoothed cost, and of an error of the order of $d\|\nabla C\|^2$. How these trade-offs play out over many iterations is the subject of \Chap~\chref{C.IterationComplexity}.
 \end{itemize}
 \end{frame}
 
-\begin{frame}\ft{Summary}
-\begin{center}\ona{\small}\onp{\scriptsize}
-\begin{tabular}{lccc}\toprule
- & evaluations/iteration & exact w/o noise & tunable knobs \\\midrule
-finite differences & $2L$ & no & $h$ (fails under noise) \\
-parameter-shift rule & $2L$ & yes & shift $s$ \\
-SPSA & $2$ & no & $c_k$, law of $\boldsymbol\Delta_k$ \\
-two-point approximation & $2$ & no & $c_k$ \\
-COBYLA & $1$ & --- & trust radius \\\bottomrule
-\end{tabular}
-\end{center}
-\ona{The next \chap{} quantifies how these choices interact with biased noise: all achieve the same rate of convergence to stationarity, but the PSR has the smallest bias floor, SPSA is the most tunable, and the two-point approximation is the option of last resort.}
+\ona{\section*{Exercises}}
+
+\begin{frame}\ft{Exercises}
+\onp{\footnotesize}
+\begin{exe}[Shifts other than $\frac\pi2$]\label{exe:ch07:shift}
+Derive \eqref{eq:ch07:psrs} for a Pauli rotation from \ona{Lemma~\ref{lem:ch07:comm}}\onp{the commutator lemma}, by writing $R_P(\pm s)$ in terms of $\one$ and $P$. Show that applying \eqref{eq:ch07:psr} twice gives $f''(\theta) = \frac14[f(\theta+\pi)-2f(\theta)+f(\theta-\pi)]$, and that this agrees with \eqref{eq:ch07:hessdiag}.
+\end{exe}
+\begin{exe}[The worked example]\label{exe:ch07:c4}
+From $F(\beta,\gamma) = -2+\sin4\beta\sin2\gamma$, compute the four values in \eqref{eq:ch07:c4gamma} at $(0.1,-0.1)$ and confirm $\partial F/\partial\gamma = 0.763$. Write down the shifts and weights for $\partial F/\partial\beta$ with $R = 4$. Since $F$ depends on $\gamma$ only through $\sin2\gamma$ here, two circuits would suffice; explain why an optimizer cannot use this in general.
+\end{exe}
+\end{frame}
+
+\begin{frame}\ft{Exercises, continued}
+\onp{\footnotesize}
+\begin{exe}[Bernstein's inequality]\label{exe:ch07:bernstein}
+Deduce from \ona{Theorem~\ref{thm:ch07:general}}\onp{the general rule} that $|f'(x)|\le R\max|f|$ for every real trigonometric polynomial $f$ of degree $R$, with equality for $f = \sin Rx$ at $x = 0$. Verify $\sum_\mu2|y_\mu| = R$ numerically for $R = 1,\dots,5$.
+\end{exe}
+\begin{exe}[A certificate of the minimum]\label{exe:ch07:sos}
+For $R = 1$, write $f(x) = a_0 + A\cos(x-\varphi)$ with $A = \sqrt{a_1^2+b_1^2}$, and show that $f(x)-(a_0-A) = |p(e^{ix})|^2$ for $p(z) = \sqrt{A/2}\,(1+e^{-i\varphi}z)$. Verify that $F+3 = \frac14|e^{2i\gamma}+e^{4i\beta}|^2+\frac14|1-e^{2i(2\beta+\gamma)}|^2$ for the worked example, and find from it all the minimisers of $F$ in $[0,\pi)^2$.
+\end{exe}
+\end{frame}
+
+\begin{frame}\ft{Exercises, continued}
+\onp{\footnotesize}
+\begin{exe}[Over-rotation]\label{exe:ch07:over}
+A device implements $e^{-i(1+\epsilon)\theta P/2}$ when asked for $R_P(\theta)$. Show that \eqref{eq:ch07:psr}, applied to the requested angle, returns $\cos\frac{\pi\epsilon}2$ times the derivative of the ideal cost at $(1+\epsilon)\theta$, and find the relative error with respect to the derivative of the cost that the device computes, to first order in $\epsilon$.
+\end{exe}
+\begin{exe}[The bias of simultaneous perturbation]\label{exe:ch07:spsabias}
+For $d = 2$ and $\boldsymbol\Delta$ uniform on $\{\pm1\}^2$, show that $\mathbb E\,\hat g_1 = \partial_1C + \frac{c^2}6(\partial_{111}C + 3\partial_{122}C) + \mathcal O(c^4)$. For $F = -2+\sin4\beta\sin2\gamma$ at $(0.2,-0.3)$ and $c = 0.1$, compute both components of the bias and compare them with $(0.072,-0.101)$.
+\end{exe}
+\end{frame}
+
+\begin{frame}\ft{Exercises, continued}
+\onp{\footnotesize}
+\begin{exe}[Exact minimisation]\label{exe:ch07:roto}
+Verify \ona{Proposition~\ref{propn:ch07:roto}}\onp{the closed form of the minimiser} for the values $-2.077$, $-1.848$ and $-2.230$ of the gate of edge $12$\ona{ in Fig.~\ref{fig:ch07:roto}}. Show that the origin is a stationary point of $x^2+y^2-3xy$ that is minimal along both coordinates but is not a local minimiser.
+\end{exe}
+\begin{exe}[Smoothing]\label{exe:ch07:smooth}
+Show that $F_c = -2+e^{-10c^2}(F+2)$ for the worked example, and find, numerically, the least $c$ for which the smoothing of $-\cos\theta-0.45\cos(4\theta-1)$ has a single local minimum.
+\end{exe}
 \end{frame}
 
 \begin{frame}[allowframebreaks]\ft{References}
