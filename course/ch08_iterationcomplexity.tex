@@ -6,10 +6,10 @@
 \thispagestyle{empty}
 
 \ona{ \setcounter{chapter}{7} } % ONE LESS
-\lecture{Iteration Complexity of QAOA with the Parameter-Shift Rule}{Lect08}
-\chapter{Iteration Complexity of QAOA with the Parameter-Shift Rule}\label{C.IterationComplexity}
+\lecture{Iteration Complexity of QAOA}{Lect08}
+\chapter{Iteration Complexity of QAOA}\label{C.IterationComplexity}
 
-\ona{The optimizer of a variational algorithm is an iterative method, and this \chap{} asks how many iterations it needs. \Chap~\chref{C.VQE} showed that no polynomial-time method can guarantee the global minimum, nor even a point near a local minimum, and we therefore ask for a point at which the gradient is small. For gradient descent with the parameter-shift rule of \Chap~\chref{C.PSR}, and with the derivative-free estimators described there, we bound the number of iterations after which the expected squared norm of the gradient falls below a given $\epsilon$. The estimates of a quantum computer are noisy, which the theory of stochastic gradient descent accommodates, and they are also \emph{biased}: the noise of the device shifts the mean of an estimate, however many copies are measured. Following \citet{kungurtsev2022iteration}, we show that the bias does not change the rate of convergence, but sets a floor below which the guarantee cannot go, and we show that no method can remove this floor. We state the results with the constants that our proofs give, which differ in places from those of \citet{kungurtsev2022iteration}. The numbers quoted in this \chap{} are computed by \texttt{code/ch08\_figures.py}, on the worked example of \Chap~\chref{C.VQE}.}
+\ona{The optimizer of a variational algorithm is an iterative method, and this \chap{} asks how many iterations it needs. \Chap~\chref{C.VQE} showed that no polynomial-time method can guarantee the global minimum, nor even a point near a local minimum, and we therefore ask for a point at which the gradient is small. For gradient descent with the parameter-shift rule of \Chap~\chref{C.PSR}, and with the derivative-free estimators described there, we bound the number of iterations after which the expected squared norm of the gradient falls below a given $\epsilon$. The estimates of a quantum computer are noisy, which the theory of stochastic gradient descent accommodates, and they are also \emph{biased}: the noise of the device shifts the mean of an estimate, however many copies are measured. Following \citet{kungurtsev2022iteration}, we show that the bias does not change the rate of convergence, but sets a floor below which the guarantee cannot go, and we show that no method can remove this floor. We make the constants explicit for QAOA of depth $p$, run the derivative-free estimators on the worked example, and show that decreasing steps remove the noise, but not the bias. We state the results with the constants that our proofs give, which differ in places from those of \citet{kungurtsev2022iteration}. The numbers quoted in this \chap{} are computed by \texttt{code/ch08\_figures.py}, on the worked example of \Chap~\chref{C.VQE}.}
 
 % \L is redefined in declarns.tex; the T1 encoding has the letter at position 138
 \mode<all>{\gdef\Loj{{\fontencoding{T1}\selectfont\char138}ojasiewicz}}
@@ -28,9 +28,12 @@ Let $\epsilon>0$. A random point $\hat{\boldsymbol\theta}$ is an \emph{$\epsilon
 \end{defn}
 \begin{itemize}\setlength\itemsep{0.2em}
     \item The global minimum cannot be guaranteed: training VQA is $\mathbf{NP}$-hard even for circuits that can be simulated classically, and so is finding a point near a local minimum (\Chap~\chref{C.VQE}).
+    \item For a constant number of parameters, the algorithm of \citet{sakos2026global} (\Chap~\chref{C.PSR}) gives the global minimum and a global minimiser, to within $\epsilon$; first-order methods give only first-order $\epsilon$-critical points.
     \item A small gradient is necessary at a minimum, and it is not sufficient: maxima and saddle points are stationary too. The bounds of this \chap{} say nothing about the value of $C$; good starting points are the subject of \Chaps~\chref{C.WSRounded}--\chref{C.WSContinuous}.
     \item The expectation is over the measurements and over any randomness of the method.
 \end{itemize}
+
+\ona{The guarantees of this \chap{} are thus weaker in kind than that of \citet{sakos2026global}. For a constant number of parameters, their algorithm, described in \Chap~\chref{C.PSR}, reconstructs the cost from its values on a grid and approximates its global minimum to within $\epsilon$; a global minimiser, to within $\epsilon$ in value, can then be found classically, by evaluating the reconstruction on a sufficiently fine grid, whose size is polynomial when $d$ is constant. The first-order methods of this \chap{} guarantee only first-order $\epsilon$-critical points, the $\epsilon$-stationary points of Definition~\ref{defn:ch08:stationary}, which may lie near saddle points or poor local minima; in exchange, their cost grows polynomially with $d$, and not exponentially.}
 \end{frame}
 
 \begin{frame}\ft{Bounds on the derivatives of the cost}
@@ -51,27 +54,132 @@ For a circuit of $d$ Pauli rotations, $R_j = 1$ and $W\le w/2$, where $w = \lamb
 \end{itemize}
 \end{frame}
 
-% the energy of one gate of the worked example (Lecture 7), f(phi) = -2.03868 + 0.19471 sin(phi - 0.1),
-% with the parabola of the descent lemma at phi_0 = -0.1, L = 0.19471, and the step to its vertex
+\begin{frame}\ft{The constants of QAOA}
+\onp{\scriptsize}
+\ona{For QAOA the degrees in Lemma~\ref{lem:ch08:derivs} follow from the spectra of the two Hamiltonians. We use the conventions of the worked example of \Chap~\chref{C.VQE}. For MaxCut on a graph with $n$ vertices, $m$ edges and the maximum cut $c^*$, the cost Hamiltonian has the eigenvalues $-c(x)$, minus the cuts; layer $k$ applies the $m$ gates $e^{-i\gamma_kZ_iZ_j/2}$, each a gate $R_Z(\gamma_k)$ between two CNOTs, and then the $n$ gates $R_X(2\beta_k) = e^{-i\beta_kX_i}$.}
+\begin{cor}\label{cor:ch08:qaoa}
+The cost $F_p$ of QAOA of depth $p$ satisfies, for all angles $(\boldsymbol\beta,\boldsymbol\gamma)\in\R^{2p}$,
+\begin{equation}\label{eq:ch08:qaoa}
+    \|\nabla F_p\|\le\sqrt{p\,(c^{*2}+4n^2)}\;\frac{c^*}2,\qquad\|\nabla^2F_p\|\le p\,(c^{*2}+4n^2)\,\frac{c^*}2,
+\end{equation}
+and the parameter-shift rule, applied to each gate, gives its gradient from $2p(m+n)$ circuits.
+\end{cor}
+\ona{\emph{Proof.} The gates of a layer commute, and $\gamma_k$ enters through $e^{-i\gamma_kH}$ with $H = \frac12\sum_{ij\in E}Z_iZ_j$, whose eigenvalues $\frac m2-c(x)$ differ by integers and span an interval of length $c^*$; $\beta_k$ enters through $e^{-i\beta_k\sum_iX_i}$, whose generator has the eigenvalues $-n,\dots,n$. By the lemma on frequencies of \Chap~\chref{C.PSR}, $F_p$ has degree at most $c^*$ in each $\gamma_k$ and $2n$ in each $\beta_k$, so that $\|\boldsymbol R\|^2 = p\,(c^{*2}+4n^2)$; the range of $F_p$ lies in $[-c^*,0]$, so that $W\le c^*/2$. Lemma~\ref{lem:ch08:derivs} gives \eqref{eq:ch08:qaoa}. Each of the $p(m+n)$ gates requires two circuits. \qed}
+\onp{Proof: the generators of $\gamma_k$ and $\beta_k$ have spectra of widths $c^*$ and $2n$; the lemma on derivatives with $W = c^*/2$.}
+\begin{itemize}\setlength\itemsep{0.15em}
+    \item The constants are polynomial in $p$, $n$ and $m$. With $C(\boldsymbol\theta_0)-C^*\le c^*$, the iteration counts of the following sections are polynomial as well.
+    \item For the worked example, $p = 1$ and $c^* = n = m = 4$: $\|\nabla^2F\|\le160$, the bound from the spectra quoted above.
+\end{itemize}
+\end{frame}
+
+% the largest norm of the Hessian of QAOA of depth p found by a local search, with the bounds of the corollary
+\mode<all>{\gdef\qaoafig#1{\begin{axis}[#1,width=\qaW,height=\qaH,ymode=log,xmin=0.6,xmax=6.4,ymin=8,ymax=3e4,xtick={1,2,3,4,5,6},xlabel={depth $p$},ylabel={$\|\nabla^2F_p\|$},clip=false,thick]
+  \addplot[red!75!black,densely dashed,no markers] table[x=p,y=rhessb] {figures/ch08/qaoa_constants.dat};
+  \addplot[blue!70!black,densely dashed,no markers] table[x=p,y=chessb] {figures/ch08/qaoa_constants.dat};
+  \addplot[red!75!black,mark=square*,mark size=1.5pt] table[x=p,y=rhess] {figures/ch08/qaoa_constants.dat};
+  \addplot[blue!70!black,mark=*,mark size=1.6pt] table[x=p,y=chess] {figures/ch08/qaoa_constants.dat};
+  \ona{\node[note,anchor=west] (q1) at (axis cs:6.9,1.5e4) {the bound $1780p$ for the $3$-regular\\graph of \Chap~\chref{C.Annealing}, $c^* = 10$, $n = 8$};
+  \draw[notearrow] (q1.west) to[bend right=10] (axis cs:5.5,9900);
+  \node[note,anchor=west] (q2) at (axis cs:6.9,1.6e3) {the bound $160p$ for the $4$-cycle,\\$c^* = n = 4$ (blue, dashed)};
+  \draw[notearrow] (q2.west) to[bend right=10] (axis cs:5.5,890);
+  \node[note,anchor=west] (q3) at (axis cs:6.9,250) {the largest values found by a\\local search from $2000$ random\\angles (squares, dots): lower\\bounds on the maxima};
+  \draw[notearrow] (q3.west) to[bend left=10] (axis cs:5.2,307.2);
+  \node[note,anchor=west] (q4) at (axis cs:6.9,25) {both grow with $p$; the bounds\\exceed them by factors of\\$6$ to $45$};
+  \draw[notearrow] (q4.west) to[bend left=10] (axis cs:4.2,99.8);}
+\end{axis}}}
+\begin{frame}\ft{The constants of QAOA, pictured}
+\ona{Figure~\ref{fig:ch08:qaoa} compares the bound \eqref{eq:ch08:qaoa} on the curvature with the largest value of $\|\nabla^2F_p\|$ that a local search finds, from $2000$ random angles in $[-\pi,\pi]^{2p}$, for the $4$-cycle and for the $3$-regular graph on $8$ vertices of \Chap~\chref{C.Annealing}, with $c^* = 10$ and $m = 12$, and $p = 1,\dots,6$; the derivatives are computed exactly. On the $4$-cycle the values found grow from $16$ at $p = 1$, the largest curvature of the worked example, to $157$ at $p = 6$; on the $3$-regular graph from $39$ to $413$. A search can only underestimate the maximum, but the bounds, $160p$ and $1780p$, exceed the values found by factors between $6$ and $45$. Bernstein's inequality, on which they rest, is attained by $\sin Rx$ alone, and the cost of QAOA spreads its weight over many frequencies. The step $1/L$ that the bound allows is correspondingly cautious; Fig.~\ref{fig:ch08:steps} below shows what a larger step does.}
+\ona{\gdef\qaW{0.46\linewidth}\gdef\qaH{0.36\linewidth}}\onp{\gdef\qaW{6.2cm}\gdef\qaH{5.4cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\qaoafig{}\end{tikzpicture}
+\caption{The bound \eqref{eq:ch08:qaoa} on $\|\nabla^2F_p\|$ (dashed) and the largest value found by a local search (solid), against the depth $p$, for QAOA on the $4$-cycle (blue) and on the $3$-regular graph of \Chap~\chref{C.Annealing} (red).}\label{fig:ch08:qaoa}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\qaoafig{}\end{tikzpicture}\end{column}
+\begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item The bound $p(c^{*2}+4n^2)c^*/2$ (dashed): $160p$ for the $4$-cycle (blue), $1780p$ for the $3$-regular graph of \Chap~\chref{C.Annealing} (red).
+    \item The largest $\|\nabla^2F_p\|$ found by a local search from $2000$ random angles (solid): $16$ to $157$, and $39$ to $413$.
+    \item Both grow with $p$; the bounds exceed the values found by factors of $6$ to $45$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% the worked example near the start theta_0 = (0.1, -0.1): level curves of F (grey) and the level F(theta_0) (blue), the
+% gradient, the tangent, and the disc on which the paraboloid F(theta_0) + grad F^T h + (L/2)|h|^2, L = 20, is at most
+% F(theta_0) (red), centred at the step theta_1 = theta_0 - grad F / L of gradient descent
+\mode<all>{\gdef\discfig#1{\begin{axis}[#1,width=\dkW,height=\dkW,scale only axis,axis equal image,clip mode=individual,xmin=0.03,xmax=0.23,ymin=-0.23,ymax=-0.03,xtick={0.05,0.1,0.15,0.2},ytick={-0.2,-0.15,-0.1,-0.05},xticklabel style={/pgf/number format/fixed},yticklabel style={/pgf/number format/fixed},xlabel={$\beta$},ylabel={$\gamma$},unbounded coords=jump,no markers]
+  \fill[red!75!black,opacity=0.12] (axis cs:0.136597,-0.138166) circle[radius=0.052877];
+  \addplot[gray,thin] table[x=beta,y=l0] {figures/ch08/descent_plane.dat};
+  \addplot[gray,thin] table[x=beta,y=l1] {figures/ch08/descent_plane.dat};
+  \addplot[gray,thin] table[x=beta,y=l3] {figures/ch08/descent_plane.dat};
+  \addplot[gray,thin] table[x=beta,y=l4] {figures/ch08/descent_plane.dat};
+  \addplot[gray,thin] table[x=beta,y=l5] {figures/ch08/descent_plane.dat};
+  \addplot[gray,thin] table[x=beta,y=l6] {figures/ch08/descent_plane.dat};
+  \addplot[gray,thin] table[x=beta,y=l7] {figures/ch08/descent_plane.dat};
+  \addplot[blue!70!black,thick] table[x=beta,y=l2] {figures/ch08/descent_plane.dat};
+  \draw[red!75!black,thick] (axis cs:0.136597,-0.138166) circle[radius=0.052877];
+  \draw[black,densely dotted,semithick] (axis cs:0.05669,-0.14153) -- (axis cs:0.14331,-0.05847);
+  \draw[-{Stealth[length=5pt]},green!40!black,thick] (axis cs:0.1,-0.1) -- (axis cs:0.063403,-0.061834);
+  \draw[-{Stealth[length=5pt]},black,thick] (axis cs:0.1,-0.1) -- (axis cs:0.136597,-0.138166);
+  \fill[black] (axis cs:0.1,-0.1) circle (1.6pt);
+  \fill[red!75!black] (axis cs:0.136597,-0.138166) circle (1.6pt);
+  \node[font=\scriptsize,anchor=south,inner sep=2pt] at (axis cs:0.1,-0.1) {$\boldsymbol\theta_0$};
+  \node[font=\scriptsize,anchor=north,inner sep=2.5pt,red!75!black] at (axis cs:0.136597,-0.138166) {$\boldsymbol\theta_1$};
+  \node[font=\tiny,red!75!black] at (axis cs:0.1366,-0.172) {$F\le F(\boldsymbol\theta_0)$};
+  \node[font=\scriptsize,anchor=south west,inner sep=1pt,green!40!black] at (axis cs:0.0634,-0.0618) {$\nabla F/L$};
+  \node[font=\scriptsize,anchor=north east,inner sep=1pt,blue!70!black] at (axis cs:0.229,-0.052) {$F(\boldsymbol\theta_0)$};
+  \ona{\node[note,anchor=south west] (d0) at (axis cs:0.03,-0.024) {the disc touches the blue curve at $\boldsymbol\theta_0$ and\\lies below it: no point of it is worse than $\boldsymbol\theta_0$};
+  \draw[notearrow] ([xshift=2.6cm]d0.south west) to[bend left=20] (axis cs:0.102,-0.098);
+  \node[note,anchor=west] (d3) at (axis cs:0.245,-0.012) {$\nabla F(\boldsymbol\theta_0)/L$ (green): uphill, at right\\angles to the level curve and to its tangent\\(dotted)};
+  \draw[notearrow] (d3.west) to[bend right=20] (axis cs:0.085,-0.084);
+  \node[note,anchor=west] (d1) at (axis cs:0.245,-0.05) {level curves of $F$ (grey) near the saddle\\point at the origin; $F$ falls to the lower right};
+  \draw[notearrow] (d1.west) to[bend right=15] (axis cs:0.2,-0.077);
+  \node[note,anchor=west] (d2) at (axis cs:0.245,-0.085) {the level curve $F = F(\boldsymbol\theta_0) = -2.077$\\(blue); below it, $F<F(\boldsymbol\theta_0)$};
+  \draw[notearrow] (d2.west) to[bend left=15] (axis cs:0.215,-0.0515);
+  \node[note,anchor=west] (d4) at (axis cs:0.245,-0.126) {the paraboloid $F(\boldsymbol\theta_0)+\nabla F(\boldsymbol\theta_0)^\top\boldsymbol h+\frac L2\|\boldsymbol h\|^2$,\\$L = 20$, lies above $F$; where it is at most\\$F(\boldsymbol\theta_0)$, a disc (red), so is $F$};
+  \draw[notearrow] (d4.west) to[bend right=10] (axis cs:0.182,-0.15);
+  \node[note,anchor=west] (d5) at (axis cs:0.245,-0.173) {its centre $\boldsymbol\theta_1 = \boldsymbol\theta_0-\nabla F(\boldsymbol\theta_0)/L$, a step\\of gradient descent, where the paraboloid\\is least, $0.028$ below $F(\boldsymbol\theta_0)$; $F(\boldsymbol\theta_1)$\\is $0.064$ below};
+  \draw[notearrow] (d5.west) to[bend left=12] (axis cs:0.14,-0.14);
+  \node[note,anchor=west] (d6) at (axis cs:0.245,-0.222) {the radius, the length of the step,\\$\|\nabla F(\boldsymbol\theta_0)\|/L = 0.053$: the larger $L$,\\the smaller the disc};
+  \draw[notearrow] (d6.west) to[bend left=25] (axis cs:0.121,-0.122);}
+\end{axis}}}
+\begin{frame}\ft{A disc of guaranteed descent}
+\ona{A bound on the curvature confines the cost near every point. Figure~\ref{fig:ch08:disc} shows the worked example of \Chap~\chref{C.VQE}, $F(\beta,\gamma) = -2+\sin4\beta\sin2\gamma$, near the point $\boldsymbol\theta_0 = (0.1,-0.1)$ from which the iterations of this \chap{} start, where $F = -2.077$ and $\nabla F = (-0.732,0.763)$. By Lemma~\ref{lem:ch08:derivs}, $\|\nabla^2F\|\le L = 20$. Along every line through $\boldsymbol\theta_0$, the cost therefore rises above its tangent by at most $\frac L2\|\boldsymbol h\|^2$, where $\boldsymbol h$ is the displacement, and $F$ lies below the paraboloid $F(\boldsymbol\theta_0)+\nabla F(\boldsymbol\theta_0)^\top\boldsymbol h+\frac L2\|\boldsymbol h\|^2$. The level curves of the paraboloid are circles about $\boldsymbol\theta_1 = \boldsymbol\theta_0-\nabla F(\boldsymbol\theta_0)/L = (0.137,-0.138)$, and the circle through $\boldsymbol\theta_0$, of radius $\|\nabla F(\boldsymbol\theta_0)\|/L = 0.053$, bounds a disc on which the paraboloid, and hence $F$, does not exceed $F(\boldsymbol\theta_0)$. The disc touches the level curve of $F$ through $\boldsymbol\theta_0$ and lies on its lower side. At the centre the paraboloid is least, $F(\boldsymbol\theta_0)-\|\nabla F(\boldsymbol\theta_0)\|^2/(2L) = F(\boldsymbol\theta_0)-0.028$, and $F(\boldsymbol\theta_1) = -2.142$ is lower by $0.064$. The step from $\boldsymbol\theta_0$ to $\boldsymbol\theta_1$ is a step of gradient descent with $\alpha = 1/L$. The descent lemma states this in general.}
+\ona{\gdef\dkW{0.4\linewidth}}\onp{\gdef\dkW{4.5cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\discfig{}\end{tikzpicture}
+\caption{The descent lemma in the plane, on the worked example near $\boldsymbol\theta_0 = (0.1,-0.1)$: level curves of $F$ (grey), the level curve $F = F(\boldsymbol\theta_0)$ (blue), the scaled gradient $\nabla F(\boldsymbol\theta_0)/L$ (green), the tangent (dotted), and the disc on which the paraboloid of the descent lemma with $L = 20$ is at most $F(\boldsymbol\theta_0)$ (red), centred at the step $\boldsymbol\theta_1$ of gradient descent with $\alpha = 1/L$.}\label{fig:ch08:disc}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\begin{tikzpicture}\discfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item The worked example near $\boldsymbol\theta_0 = (0.1,-0.1)$: level curves of $F$ (grey); $F = F(\boldsymbol\theta_0)$ in blue.
+    \item The curvature is at most $L = 20$, so $F$ lies below the paraboloid $F(\boldsymbol\theta_0)+\nabla F(\boldsymbol\theta_0)^\top\boldsymbol h+\frac L2\|\boldsymbol h\|^2$.
+    \item The paraboloid is at most $F(\boldsymbol\theta_0)$ on a disc (red) of radius $\|\nabla F(\boldsymbol\theta_0)\|/L = 0.053$, touching the blue curve at $\boldsymbol\theta_0$: no point of it is worse.
+    \item Its centre $\boldsymbol\theta_1 = \boldsymbol\theta_0-\nabla F/L$ is a step of gradient descent: $0.028$ lower guaranteed, $0.064$ attained.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% the energy of one gate of the worked example (Lecture 7), f(phi) = -2.03868 + 0.19471 sin(phi - 0.1), with the tangent
+% and the parabola of the descent lemma at phi_0 = -0.1 (L = 0.19471), the step to the vertex phi_1, and the parabola at phi_1
+% with the second step to phi_2
 \mode<all>{\gdef\descfig#1{\begin{axis}[#1,width=\dsW,height=\dsH,clip=false,axis lines=left,xmin=-3.1416,xmax=3.1416,ymin=-2.26,ymax=-1.82,xtick={-3.1416,-1.5708,0,1.5708,3.1416},xticklabels={$-\pi$,$-\frac\pi2$,$0$,$\frac\pi2$,$\pi$},ytick={-2.2,-2.1,-2,-1.9},xlabel={$\phi$},ylabel={energy},samples=150,no markers,thick]
+  \addplot[green!40!black,densely dashed,semithick,domain=-1.03:0.9] {-2.07736+0.19083*(x+0.1)};
   \addplot[blue!70!black,domain=-3.1416:3.1416] {-2.03868+0.19471*sin(deg(x-0.1))};
   \addplot[red!75!black,domain=-2.9:0.6] {-2.07736+0.19083*(x+0.1)+0.097355*(x+0.1)^2};
+  \addplot[red!75!black,semithick,densely dotted,domain=-2.3:-0.35] {-2.21871+0.074158*(x+1.08007)+0.097355*(x+1.08007)^2};
   \draw[gray,densely dashed,thin] (axis cs:-1.4708,-2.26) -- (axis cs:-1.4708,-2.2334);
-  \draw[gray,densely dotted,thin] (axis cs:-1.0801,-2.07736) -- (axis cs:-0.1,-2.07736);
-  \draw[black,thin] (axis cs:-1.0801,-2.07736) -- (axis cs:-1.0801,-2.2187);
+  \draw[gray,densely dotted,thin] (axis cs:-1.08007,-2.07736) -- (axis cs:-0.1,-2.07736);
+  \draw[red!75!black,thin,|-|] (axis cs:-1.17,-2.07736) -- (axis cs:-1.17,-2.17088);
+  \draw[blue!70!black,thin,|-|] (axis cs:-0.99,-2.07736) -- (axis cs:-0.99,-2.21871);
   \fill[black] (axis cs:-0.1,-2.07736) circle (1.6pt);
-  \fill[red!75!black] (axis cs:-1.0801,-2.1709) circle (1.6pt);
-  \fill[blue!70!black] (axis cs:-1.0801,-2.2187) circle (1.6pt);
+  \fill[red!75!black] (axis cs:-1.08007,-2.17088) circle (1.6pt);
+  \fill[blue!70!black] (axis cs:-1.08007,-2.21871) circle (1.6pt);
+  \fill[blue!70!black] (axis cs:-1.46093,-2.23338) circle (1.6pt);
   \node[font=\scriptsize,anchor=south west,inner sep=1pt] at (axis cs:-0.1,-2.07736) {$\phi_0$};
-  \node[font=\scriptsize,anchor=north west,inner sep=1pt] at (axis cs:-1.0801,-2.2187) {$\phi_1$};
-  \ona{\node[note,anchor=west] (s1) at (axis cs:3.5,-1.86) {the parabola of curvature\\$L = 0.195$ lies above $f$,\\since $|f''|\le L$};
-  \draw[notearrow] (s1.west) to[bend right=15] (axis cs:0.5,-1.93);
-  \node[note,anchor=west] (s2) at (axis cs:3.5,-2.0) {its vertex $\phi_1 = -1.080$,\\one step of length\\$f'(\phi_0)/L = 0.98$};
-  \draw[notearrow] (s2.west) to[bend left=12] (axis cs:-1.0,-2.168);
-  \node[note,anchor=west] (s3) at (axis cs:3.5,-2.13) {decrease guaranteed by\\the lemma: $0.094$;\\actual decrease: $0.141$};
-  \draw[notearrow] (s3.west) to[bend left=12] (axis cs:-1.03,-2.2);
-  \node[note,anchor=west] (s4) at (axis cs:3.5,-2.24) {the minimiser $-1.471$};
-  \draw[notearrow] (s4.west) to[bend left=8] (axis cs:-1.42,-2.25);}
+  \node[font=\scriptsize,anchor=north west,inner sep=1pt] at (axis cs:-1.08007,-2.21871) {$\phi_1$};
+  \node[font=\scriptsize,anchor=north east,inner sep=1pt] at (axis cs:-1.46093,-2.23338) {$\phi_2$};
+  \ona{\node[note,anchor=west] (s1) at (axis cs:3.5,-1.85) {the tangent at $\phi_0$ (green, dashed) plus\\$\frac L2(\phi-\phi_0)^2$: the parabola of curvature\\$L = 0.195$ (red), above $f$ since $|f''|\le L$};
+  \draw[notearrow] (s1.west) to[bend right=12] (axis cs:0.52,-1.925);
+  \node[note,anchor=west] (s2) at (axis cs:3.5,-1.965) {its vertex $\phi_1 = -1.080$, one step\\of length $f'(\phi_0)/L = 0.98$};
+  \draw[notearrow] (s2.west) to[bend right=8] (axis cs:-1.03,-2.165);
+  \node[note,anchor=west] (s3) at (axis cs:3.5,-2.06) {decrease guaranteed by the lemma:\\$0.094$ (red bar); actual: $0.141$ (blue)};
+  \draw[notearrow] (s3.west) to[bend left=6] (axis cs:-0.96,-2.12);
+  \node[note,anchor=west] (s4) at (axis cs:3.5,-2.19) {the parabola at $\phi_1$ (dotted), close to $f$:\\a second step to $\phi_2 = -1.461$, near the\\minimiser $-1.471$ (dashed), which gains\\$0.0147$ against $0.0141$ guaranteed};
+  \draw[notearrow] (s4.west) to[bend left=12] (axis cs:-1.4,-2.236);}
 \end{axis}}}
 \begin{frame}\ft{The descent lemma}
 \onp{\footnotesize}
@@ -85,20 +193,20 @@ In particular, the step $\boldsymbol\theta' = \boldsymbol\theta-\frac1L\nabla C(
 \ona{\emph{Proof.} With $\boldsymbol h = \boldsymbol\theta'-\boldsymbol\theta$, Taylor's theorem with the integral form of the remainder gives $C(\boldsymbol\theta')-C(\boldsymbol\theta)-\nabla C(\boldsymbol\theta)^\top\boldsymbol h = \int_0^1(1-t)\,\boldsymbol h^\top\nabla^2C(\boldsymbol\theta+t\boldsymbol h)\boldsymbol h\,dt\le\frac L2\|\boldsymbol h\|^2$. The right-hand side of \eqref{eq:ch08:descent} is least at $\boldsymbol\theta' = \boldsymbol\theta-\nabla C(\boldsymbol\theta)/L$, where it equals $C(\boldsymbol\theta)-\|\nabla C(\boldsymbol\theta)\|^2/(2L)$. \qed}
 \onp{Proof: Taylor's theorem with the integral form of the remainder; the right-hand side is least at $\boldsymbol\theta-\nabla C/L$.}
 
-\ona{We call $L$ the \emph{smoothness constant} of $C$; it is a Lipschitz constant of $\nabla C$, and by Lemma~\ref{lem:ch08:derivs} it may be taken to be $dw/2$ for every circuit of $d$ Pauli rotations. The lemma says that the cost lies below a parabola that touches it at $\boldsymbol\theta$, and minimising the parabola in place of the cost gives a step of gradient descent with $\alpha = 1/L$. Figure~\ref{fig:ch08:descent} shows this for the energy of the worked example as a function of the angle $\phi$ of one gate, as in \Chap~\chref{C.PSR}, $f(\phi) = -2.039+0.195\sin(\phi-0.1)$, for which $L = 0.195$. From $\phi_0 = -0.1$, where $f = -2.077$ and $f' = 0.191$, the step reaches the vertex $\phi_1 = -1.080$ of the parabola. The lemma guarantees a decrease of $f'(\phi_0)^2/(2L) = 0.094$, and the actual decrease is $0.141$. Two further steps leave an error of $2\cdot10^{-7}$ with respect to the minimiser $-1.471$ (Exercise~\ref{exe:ch08:gate1}).}
+\ona{We call $L$ the \emph{smoothness constant} of $C$; it is a Lipschitz constant of $\nabla C$, and by Lemma~\ref{lem:ch08:derivs} it may be taken to be $dw/2$ for every circuit of $d$ Pauli rotations. The lemma says that the cost lies below a parabola that touches it at $\boldsymbol\theta$, and minimising the parabola in place of the cost gives a step of gradient descent with $\alpha = 1/L$. Figure~\ref{fig:ch08:descent} shows this for the energy of the worked example as a function of the angle $\phi$ of one gate, as in \Chap~\chref{C.PSR}, $f(\phi) = -2.039+0.195\sin(\phi-0.1)$, for which $L = 0.195$. From $\phi_0 = -0.1$, where $f = -2.077$ and $f' = 0.191$, the step reaches the vertex $\phi_1 = -1.080$ of the parabola. The lemma guarantees a decrease of $f'(\phi_0)^2/(2L) = 0.094$, and the actual decrease is $0.141$. The lemma is then applied afresh at $\phi_1$, with a new parabola whose vertex $\phi_2 = -1.461$ is nearly the minimiser $-1.471$; this step gains $0.0147$, against $0.0141$ guaranteed, since $f$ is nearly a parabola of curvature $L$ near its minimum. A third step leaves an error of $2\cdot10^{-7}$ (Exercise~\ref{exe:ch08:gate1}).}
 \ona{\gdef\dsW{0.5\linewidth}\gdef\dsH{0.36\linewidth}}\onp{\gdef\dsW{6.2cm}\gdef\dsH{5.2cm}}
 \ona{\begin{figure}[htb]\centering\begin{tikzpicture}\descfig{}\end{tikzpicture}
-\caption{The descent lemma for the energy $f$ of the worked example of \Chap~\chref{C.VQE} as a function of the angle $\phi$ of the gate $R_Z$ of edge $12$ (blue), with the parabola of \eqref{eq:ch08:descent} at $\phi_0 = -0.1$ (red) and one step of gradient descent with $\alpha = 1/L$, to the vertex of the parabola.}\label{fig:ch08:descent}\end{figure}}
+\caption{The descent lemma for the energy $f$ of the worked example of \Chap~\chref{C.VQE} as a function of the angle $\phi$ of the gate $R_Z$ of edge $12$ (blue): the tangent at $\phi_0 = -0.1$ (green, dashed), the parabola of \eqref{eq:ch08:descent} there (red), one step of gradient descent with $\alpha = 1/L$ to its vertex, with the decrease guaranteed (red bar) and attained (blue bar), and the parabola at $\phi_1$ (red, dotted) with the second step.}\label{fig:ch08:descent}\end{figure}}
 \end{frame}
 
 \begin{frame}\ft{A step of gradient descent on one gate}
 \onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\descfig{}\end{tikzpicture}\end{column}
 \begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
-    \item The energy of the worked example as a function of the angle $\phi$ of one gate (blue), $f(\phi) = -2.039+0.195\sin(\phi-0.1)$, with $L = 0.195$.
-    \item The parabola of the lemma at $\phi_0 = -0.1$ (red) lies above $f$.
-    \item One step of gradient descent, of length $f'(\phi_0)/L = 0.98$, reaches its vertex $\phi_1 = -1.080$.
-    \item Guaranteed decrease $0.094$; actual decrease $0.141$.
-    \item The minimiser is $-1.471$ (dashed); two more steps leave an error of $2\cdot10^{-7}$.
+    \item One gate (blue): $f(\phi) = -2.039+0.195\sin(\phi-0.1)$, $L = 0.195$.
+    \item The parabola at $\phi_0 = -0.1$ (red): the tangent (green) plus $\frac L2(\phi-\phi_0)^2$, above $f$.
+    \item The step to its vertex $\phi_1 = -1.080$: guaranteed $0.094$ (red bar), actual $0.141$ (blue bar).
+    \item A new parabola at $\phi_1$ (dotted): the step to $\phi_2 = -1.461$ gains $0.0147$, against $0.0141$.
+    \item Minimiser $-1.471$ (dashed); a third step leaves $2\cdot10^{-7}$.
 \end{itemize}\end{column}\end{columns}}
 \end{frame}
 
@@ -115,12 +223,140 @@ Let $\|\nabla^2C\|\le L$. Gradient descent with exact gradients and the step $1/
 \ona{\emph{Proof.} By Lemma~\ref{lem:ch08:descent}, $\|\nabla C(\boldsymbol\theta_k)\|^2\le2L\,(C(\boldsymbol\theta_k)-C(\boldsymbol\theta_{k+1}))$. Summed over $k<K$, the right-hand side telescopes to $2L\,(C(\boldsymbol\theta_0)-C(\boldsymbol\theta_K))\le2L\,(C(\boldsymbol\theta_0)-C^*)$. \qed}
 \onp{Proof: each step decreases $C$ by at least $\|\nabla C(\boldsymbol\theta_k)\|^2/(2L)$, and the decreases add up to at most $C(\boldsymbol\theta_0)-C^*$.}
 
-\ona{Hence $\lceil2L(C(\boldsymbol\theta_0)-C^*)/\epsilon\rceil$ iterations give a point with $\|\nabla C\|^2\le\epsilon$. For a circuit of $d$ Pauli rotations, $L\le dw/2$ and $C(\boldsymbol\theta_0)-C^*\le w$, so that $dw^2/\epsilon$ iterations suffice, whatever the circuit; the number grows linearly with the number of parameters, through the smoothness constant. For general smooth functions the order cannot be improved: \citet{carmon2020lower} show that, in sufficiently high dimension, every method that uses gradients requires a number of iterations of the order of $L(C(\boldsymbol\theta_0)-C^*)/\epsilon$ in the worst case. Their functions are not costs of circuits, and the lower bound does not transfer to them directly. In the worked example, gradient descent with the step $1/20$ from $(0.1,-0.1)$ reaches the minimum $-3$ to six digits within $200$ iterations.}
+\ona{The right-hand side of \eqref{eq:ch08:gd} involves three quantities. The first, $L$, is the smoothness constant of Lemma~\ref{lem:ch08:descent}: a bound on the curvature of $C$ in every direction or, equivalently, a Lipschitz constant of the gradient, $\|\nabla C(\boldsymbol\theta)-\nabla C(\boldsymbol\theta')\|\le L\,\|\boldsymbol\theta-\boldsymbol\theta'\|$. It sets the step, and with it the decrease that a step can be guaranteed to achieve. The second, $C(\boldsymbol\theta_0)-C^*$, is the height of the starting point above the infimum. The level set $\{\boldsymbol\theta:C(\boldsymbol\theta) = C(\boldsymbol\theta_0)\}$ bounds the sublevel set $\{\boldsymbol\theta:C(\boldsymbol\theta)\le C(\boldsymbol\theta_0)\}$, which the iterates never leave, since each step decreases $C$; the height is a budget that the decreases share. The third, $K$, is the number of iterations among which the budget is divided. Figure~\ref{fig:ch08:gdmap} shows the three on the worked example.}
+
+\ona{Hence $\lceil2L(C(\boldsymbol\theta_0)-C^*)/\epsilon\rceil$ iterations give a point with $\|\nabla C\|^2\le\epsilon$. For a circuit of $d$ Pauli rotations, $L\le dw/2$ and $C(\boldsymbol\theta_0)-C^*\le w$, so that $dw^2/\epsilon$ iterations suffice, whatever the circuit; the number grows linearly with the number of parameters, through the smoothness constant. For QAOA of depth $p$, Corollary~\ref{cor:ch08:qaoa} and $C(\boldsymbol\theta_0)-C^*\le c^*$ give $p\,(c^{*2}+4n^2)\,c^{*2}/\epsilon$. For general smooth functions the order cannot be improved: \citet{carmon2020lower} show that, in sufficiently high dimension, every method that uses gradients requires a number of iterations of the order of $L(C(\boldsymbol\theta_0)-C^*)/\epsilon$ in the worst case. Their functions are not costs of circuits, and the lower bound does not transfer to them directly. In the worked example, gradient descent with the step $1/20$ from $(0.1,-0.1)$ reaches the minimum $-3$ to six digits within $200$ iterations.}
 \begin{itemize}\setlength\itemsep{0.2em}
+    \item On the right: $L$ bounds the curvature, a Lipschitz constant of $\nabla C$; $C(\boldsymbol\theta_0)-C^*$ is the height of the start above the infimum, a budget for the decreases; the iterates stay in the sublevel set $\{C\le C(\boldsymbol\theta_0)\}$; $K$ counts the iterations.
     \item $2L(C(\boldsymbol\theta_0)-C^*)/\epsilon$ iterations; at most $dw^2/\epsilon$ for $d$ Pauli rotations.
     \item The order is the best possible for general smooth functions \citep{carmon2020lower}.
     \item The bound holds for the least gradient among the iterates, not for the last iterate, and says nothing about the value.
 \end{itemize}
+\end{frame}
+
+% (a) gradient descent with the step 1/20 from theta_0 = (0.1, -0.1) in the cell of the minimiser (pi/8, -pi/4), with the
+% level curves F = -2.25, -2.5, -2.75, -2.9 (grey), the boundary of the sublevel set of theta_0 (blue) and the steps -grad F / L (arrows);
+% (b) F(theta_k) (black) and the decreases |grad F(theta_k)|^2 / (2L) that the descent lemma guarantees (red)
+\mode<all>{\gdef\gdmapfig#1{\begin{axis}[#1,width=\gmW,height=\gmH,scale only axis,axis equal image,clip mode=individual,xmin=0,xmax=0.7854,ymin=-1.5708,ymax=0,xtick={0,0.3927,0.7854},xticklabels={$0$,$\frac\pi8$,$\frac\pi4$},ytick={-1.5708,-0.7854,0},yticklabels={$-\frac\pi2$,$-\frac\pi4$,$0$},xlabel={$\beta$},ylabel={$\gamma$},no markers]
+  \addplot[blue!70!black,thick] table[x=b0,y=g0] {figures/ch08/gd_levels.dat};
+  \addplot[gray,thin] table[x=b1,y=g1] {figures/ch08/gd_levels.dat};
+  \addplot[gray,thin] table[x=b2,y=g2] {figures/ch08/gd_levels.dat};
+  \addplot[gray,thin] table[x=b3,y=g3] {figures/ch08/gd_levels.dat};
+  \addplot[gray,thin] table[x=b4,y=g4] {figures/ch08/gd_levels.dat};
+  \addplot[black,semithick,-{Stealth[length=3.5pt]},quiver={u=\thisrow{dbeta},v=\thisrow{dgamma}},restrict expr to domain={\thisrow{k}}{0:9}] table[x=beta,y=gamma] {figures/ch08/gd_path.dat};
+  \addplot[black,only marks,mark=*,mark size=0.9pt,restrict expr to domain={\thisrow{k}}{0:10}] table[x=beta,y=gamma] {figures/ch08/gd_path.dat};
+  \addplot[green!50!black,semithick] table[x=sb,y=sg] {figures/ch08/gd_estimators.dat};
+  \addplot[red!75!black,thin] table[x=tb,y=tg] {figures/ch08/gd_estimators.dat};
+  \addplot[green!40!black,only marks,mark=*,mark size=1pt,each nth point=8] table[x=sb,y=sg] {figures/ch08/gd_estimators.dat};
+  \addplot[red!75!black,only marks,mark=square*,mark size=0.9pt,each nth point=8] table[x=tb,y=tg] {figures/ch08/gd_estimators.dat};
+  \fill[black] (axis cs:0.3927,-0.7854) circle (1.8pt);
+  \draw[black,fill=white] (axis cs:0,0) circle (1.8pt); \draw[black,fill=white] (axis cs:0.7854,0) circle (1.8pt);
+  \draw[black,fill=white] (axis cs:0,-1.5708) circle (1.8pt); \draw[black,fill=white] (axis cs:0.7854,-1.5708) circle (1.8pt);
+  \node[font=\scriptsize,anchor=south east,inner sep=1pt] at (axis cs:0.1,-0.1) {$\boldsymbol\theta_0$};
+  \node[font=\scriptsize,anchor=north,inner sep=3pt] at (axis cs:0.3927,-0.7854) {$C^*$};
+  \ona{\node[note,anchor=west] (a1) at (axis cs:0.95,-0.05) {the start $\boldsymbol\theta_0 = (0.1,-0.1)$, at the level\\$C(\boldsymbol\theta_0) = F(\boldsymbol\theta_0) = -2.077$, near the saddle point at\\the origin (circles: saddle points, $\nabla F = \boldsymbol 0$);\\the gradient is small, the first steps short};
+  \draw[notearrow] (a1.west) to[bend right=15] (axis cs:0.11,-0.09);
+  \node[note,anchor=west] (a2) at (axis cs:0.95,-0.33) {the sublevel set $\{F\le F(\boldsymbol\theta_0)\}$, inside\\the level curve of $\boldsymbol\theta_0$ (blue): each\\step decreases $F$, and no iterate leaves it};
+  \draw[notearrow] (a2.west) to[bend right=10] (axis cs:0.62,-0.3);
+  \node[note,anchor=west] (a5) at (axis cs:0.95,-0.6) {each arrow is a step $-\nabla F(\boldsymbol\theta_k)/L$: long where\\the gradient is large. $L$, a Lipschitz constant\\of $\nabla F$, bounds how fast the arrows can\\change from point to point};
+  \draw[notearrow] (a5.west) to[bend right=10] (axis cs:0.27,-0.29);
+  \node[note,anchor=west] (a3) at (axis cs:0.95,-0.9) {the minimum $C^* = -3$ at $(\pi/8,-\pi/4)$: the\\start lies $C(\boldsymbol\theta_0)-C^* = 0.923$ above it};
+  \draw[notearrow] (a3.west) to[bend left=10] (axis cs:0.41,-0.8);
+  \node[note,anchor=west] (a4) at (axis cs:0.95,-1.18) {near the minimiser the level curves are\\ellipses, closest together along $\beta$, where\\the curvature is $16$, and twice as far apart\\along $\gamma$, where it is $4$; $L = 20$ exceeds both};
+  \draw[notearrow] (a4.west) to[bend left=12] (axis cs:0.535,-0.85);
+  \node[note,anchor=west] (a6) at (axis cs:0.95,-1.47) {$K = 10$ steps (dots) bring $F$ within $0.037$\\of $C^*$; the iterates crowd towards it};
+  \draw[notearrow] (a6.west) to[bend left=15] (axis cs:0.4,-0.66);
+  \node[note,anchor=west] (a7) at (axis cs:0.95,-1.74) {simultaneous perturbation (green): exact values,\\$c = 0.1$, step $1/40$, two circuits for each iteration,\\a bead every $16$ circuits, the cost of one exact\\gradient; it steps along the diagonals, and comes\\within $0.05$ of the minimiser after $60$ circuits,\\against $240$ for gradient descent};
+  \draw[notearrow] (a7.west) to[bend right=20] (axis cs:0.415,-0.548);
+  \node[note,anchor=west] (a8) at (axis cs:0.95,-2.1) {the two-point estimator (red), step $1/80$: random\\directions and lengths; $134$ circuits, and then\\it jitters about the minimiser};
+  \draw[notearrow] (a8.west) to[bend left=10] (axis cs:0.145,-0.54);}
+\end{axis}}
+\gdef\gdbudgetfig#1{\begin{axis}[#1,width=\gbW,height=\gbH,scale only axis,clip mode=individual,axis lines=left,xmin=0,xmax=12,ymin=-3.06,ymax=-2,xtick={0,2,4,6,8,10,12},ytick={-3,-2.8,-2.6,-2.4,-2.2,-2},yticklabel style={/pgf/number format/fixed,/pgf/number format/precision=1},xlabel={iteration $k$},ylabel={$F(\boldsymbol\theta_k)$},no markers]
+  \draw[gray,densely dashed] (axis cs:0,-2.07737) -- (axis cs:12,-2.07737);
+  \draw[gray,densely dashed] (axis cs:0,-3) -- (axis cs:12,-3);
+  \addplot[black,thick,const plot] table[x=k,y=F,restrict x to domain=0:12] {figures/ch08/gd_path.dat};
+  \addplot[red!75!black,only marks,mark=none,error bars/.cd,y dir=minus,y explicit,error mark=none,error bar style={line width=2.5pt,red!75!black}] table[x expr=\thisrow{k}+0.5,y=F,y error expr=\thisrow{F}-\thisrow{guar},restrict x to domain=0:11.6] {figures/ch08/gd_path.dat};
+  \draw[decorate,decoration={brace,amplitude=5pt},thick] (axis cs:12.3,-2.07737) -- (axis cs:12.3,-3);
+  \node[font=\scriptsize,anchor=south west,inner sep=1pt] at (axis cs:0.1,-2.07737) {$C(\boldsymbol\theta_0)$};
+  \node[font=\scriptsize,anchor=south east,inner sep=1pt] at (axis cs:11.9,-3) {$C^*$};
+  \ona{\node[note,anchor=west] (b3) at (axis cs:13.6,-2.53) {the height $C(\boldsymbol\theta_0)-C^* = 0.923$:\\a budget that the decreases share};
+  \draw[notearrow] (b3.west) -- (axis cs:12.8,-2.539);
+  \node[note,anchor=west] (b1) at (axis cs:13.6,-2.06) {the decrease that the descent lemma\\guarantees, $\|\nabla F(\boldsymbol\theta_k)\|^2/(2L)$ (red):\\$0.028$ in the first step, where the\\gradient is small};
+  \draw[notearrow] (b1.west) to[bend right=12] (axis cs:0.75,-2.09);
+  \node[note,anchor=west] (b2) at (axis cs:13.6,-2.27) {the decrease attained, $0.064$, a drop of\\the staircase $F(\boldsymbol\theta_k)$ (black)};
+  \draw[notearrow] (b2.west) to[bend right=8] (axis cs:1.15,-2.11);
+  \node[note,anchor=west] (b4) at (axis cs:13.6,-2.76) {large gradients give large guaranteed\\decreases, which add up to at most $0.923$:\\$\sum_{k<K}\|\nabla F(\boldsymbol\theta_k)\|^2\le2L\,(C(\boldsymbol\theta_0)-C^*) = 36.9$};
+  \draw[notearrow] (b4.west) to[bend left=15] (axis cs:3.75,-2.43);
+  \node[note,anchor=west] (b5) at (axis cs:13.6,-3.0) {near $C^*$ the gradients, and the decreases,\\vanish: $40$ guaranteed decreases add up\\to $0.469$};
+  \draw[notearrow] (b5.west) to[bend left=10] (axis cs:9.6,-2.95);
+  \node[note,anchor=north west] (b6) at (axis cs:0,-3.3) {divided among $K$ steps, the least and the average of $\|\nabla F(\boldsymbol\theta_k)\|^2$ are at most $36.9/K$:\\at $K = 10$, the average is $1.79$, against $3.69$};
+  \draw[notearrow] ([xshift=6.2cm]b6.north west) to[bend right=25] (axis cs:10,-2.97);}
+\end{axis}}}
+\begin{frame}\ft{Gradient descent, pictured}
+\ona{Figure~\ref{fig:ch08:gdmap} shows gradient descent with the step $1/L = 1/20$ on the worked example from $\boldsymbol\theta_0 = (0.1,-0.1)$, in the cell $0\le\beta\le\pi/4$, $-\pi/2\le\gamma\le0$ of the minimiser $(\pi/8,-\pi/4)$, at which $C^* = -3$. The start lies at the height $C(\boldsymbol\theta_0)-C^* = 0.923$ above the minimum, close to the saddle point at the origin, where the gradient is small, and the first steps are short. Near the minimiser the level curves are ellipses, closer together along $\beta$, where the curvature is $16$, than along $\gamma$, where it is $4$; the bound $L = 20$ of Lemma~\ref{lem:ch08:derivs} exceeds both. Panel (b) shows the proof of Theorem~\ref{thm:ch08:gd} at work. By Lemma~\ref{lem:ch08:descent}, each step decreases $F$ by at least $\|\nabla F(\boldsymbol\theta_k)\|^2/(2L)$; the first decreases it by $0.064$, against $0.028$ guaranteed. The decreases cannot add up to more than the height $0.923$, and so $\sum_{k<K}\|\nabla F(\boldsymbol\theta_k)\|^2\le2L\,(F(\boldsymbol\theta_0)-F^*) = 36.9$ for every $K$; the guaranteed decreases of the first $40$ steps add up to $0.469$. After $K = 10$ steps, the average of $\|\nabla F(\boldsymbol\theta_k)\|^2$ is $1.79$, against the bound $3.69$, and $F$ is within $0.037$ of the minimum.}
+
+\ona{Panel (a) also compares gradient descent with the two derivative-free estimators of \Chap~\chref{C.PSR}, with exact values and $c = 0.1$. For an estimate $\boldsymbol g$ with $\mathbb E\,\boldsymbol g\approx\nabla F(\boldsymbol\theta)$, the descent lemma gives $\mathbb E\,F(\boldsymbol\theta-\alpha\boldsymbol g)\le F(\boldsymbol\theta)-\alpha\|\nabla F(\boldsymbol\theta)\|^2+\frac L2\alpha^2\,\mathbb E\|\boldsymbol g\|^2$, and the guaranteed decrease is largest at $\alpha = \|\nabla F\|^2/(L\,\mathbb E\|\boldsymbol g\|^2)$, where it is that of gradient descent, $\|\nabla F\|^2/(2L)$, divided by $\mathbb E\|\boldsymbol g\|^2/\|\nabla F\|^2$. As $c\to0$, this ratio is $d = 2$ for simultaneous perturbation, by the second moment computed in \Chap~\chref{C.PSR}, and $d+2 = 4$ for the two-point estimator, since $\mathbb E\,u_i^4 = 3$; at $\boldsymbol\theta_0$ with $c = 0.1$ it is $1.74$ and $5.14$. We take the steps $1/40$ and $1/80$. Each iteration takes two circuits, against the $16$ circuits of the shift rule for an exact gradient, so that per circuit the guaranteed decreases are $4$ and $2$ times that of gradient descent; the beads mark every $16$ circuits. Simultaneous perturbation steps along the diagonals, and comes within $0.05$ of the minimiser after $30$ iterations, or $60$ circuits, with the median $33$ iterations over $1000$ runs; the two-point estimator, with random directions and lengths, after $67$ iterations, or $134$ circuits, with the median $73$; gradient descent after $15$ iterations, or $240$ circuits. Near the minimiser, the forward difference of the two-point estimator does not vanish: it carries the curvature $\frac c2\boldsymbol u^\top\nabla^2F(\boldsymbol\theta)\boldsymbol u$, and the iterates jitter about the minimiser, with $\mathbb E\,F-C^* = 0.047$ after $400$ iterations. Simultaneous perturbation, a central difference, has $\mathbb E\,F-C^*<10^{-4}$ after $80$ iterations.}
+\ona{\gdef\gmW{0.25\linewidth}\gdef\gmH{0.5\linewidth}\gdef\gbW{0.42\linewidth}\gdef\gbH{0.3\linewidth}}\onp{\gdef\gmW{2.9cm}\gdef\gmH{5.8cm}\gdef\gbW{4.6cm}\gdef\gbH{4.6cm}}
+\ona{\begin{figure}[htbp]\centering\begin{tikzpicture}\gdmapfig{name=gma}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.6cm]gma.north west) {(a)};
+\gdbudgetfig{at={(gma.south west)},anchor=north west,yshift=-4.2cm,name=gmb}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.6cm]gmb.north west) {(b)};
+\end{tikzpicture}
+\caption{Gradient descent with the step $1/L = 1/20$ on the worked example from $\boldsymbol\theta_0 = (0.1,-0.1)$. (a) The steps $-\nabla F(\boldsymbol\theta_k)/L$ (arrows) in the cell of the minimiser $(\pi/8,-\pi/4)$, with the level curve $F = F(\boldsymbol\theta_0)$ that bounds the sublevel set (blue), the level curves $F = -2.25$, $-2.5$, $-2.75$ and $-2.9$ (grey), the saddle points (circles), and the paths of simultaneous perturbation (green, step $1/40$) and of the two-point estimator (red, step $1/80$) with exact values and $c = 0.1$, with a bead every $16$ circuits. (b) The values $F(\boldsymbol\theta_k)$ (black), the decreases guaranteed by the descent lemma (red), and the height $C(\boldsymbol\theta_0)-C^*$ that they share.}\label{fig:ch08:gdmap}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.4\textwidth}\centering\begin{tikzpicture}\gdmapfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.58\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item From $\boldsymbol\theta_0 = (0.1,-0.1)$, step $1/L = 1/20$: arrows $-\nabla F(\boldsymbol\theta_k)/L$; $K = 10$ steps bring $F$ within $0.037$ of $C^*$.
+    \item The level curve $C = C(\boldsymbol\theta_0) = -2.077$ (blue) bounds the sublevel set; $C^* = -3$ lies $0.923$ below.
+    \item $L = 20$ bounds the curvature, $16$ along $\beta$ and $4$ along $\gamma$ at the minimiser.
+    \item SPSA (green, step $1/40$) and two-point (red, $1/80$): exact values, $c = 0.1$, two circuits each; a dot every $16$ circuits, one exact gradient.
+    \item SPSA moves along the diagonals: within $0.05$ of the minimiser after $60$ circuits, against $240$.
+    \item Two-point: $134$ circuits; its forward difference keeps the curvature, and it jitters.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{The decreases share a budget}
+\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\gdbudgetfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $F(\boldsymbol\theta_k)$ (black) falls from $C(\boldsymbol\theta_0)$ towards $C^*$.
+    \item Red: the decrease $\|\nabla F(\boldsymbol\theta_k)\|^2/(2L)$ that the descent lemma guarantees; $0.028$ in the first step, against $0.064$ attained.
+    \item The decreases add up to at most the height $C(\boldsymbol\theta_0)-C^* = 0.923$ (brace), so $\sum_{k<K}\|\nabla F(\boldsymbol\theta_k)\|^2\le2L(C(\boldsymbol\theta_0)-C^*) = 36.9$.
+    \item Divided among $K$ steps: after $K = 10$, the average of $\|\nabla F\|^2$ is $1.79$, the bound $3.69$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% the ratio (1/2)|grad F|^2 / (F - F*) on the cell of the minimiser of the worked example, on a logarithmic colour scale
+% that is white at mu = 0.61 (red below, blue above), with the sublevel set of theta_0 (blue curve)
+\mode<all>{\gdef\plmapfig#1{\begin{axis}[#1,width=\pmW,height=\pmH,scale only axis,view={0}{90},clip mode=individual,xmin=0,xmax=0.7854,ymin=-1.5708,ymax=0,xtick={0,0.3927,0.7854},xticklabels={$0$,$\frac\pi8$,$\frac\pi4$},ytick={-1.5708,-0.7854,0},yticklabels={$-\frac\pi2$,$-\frac\pi4$,$0$},xlabel={$\beta$},ylabel={$\gamma$},enlargelimits=false,axis on top,colormap={plr}{rgb255(0cm)=(178,24,43); rgb255(1cm)=(239,138,98); rgb255(2cm)=(253,219,199); rgb255(3cm)=(247,247,247); rgb255(4cm)=(209,229,240); rgb255(5cm)=(103,169,207); rgb255(6cm)=(33,102,172)},point meta min=-1.7,point meta max=1.27,colorbar horizontal,colorbar style={at={(0.5,\pmC)},anchor=north,height=0.15cm,font=\tiny,xtick={-1.5,-1,0,1},xticklabels={$0.03$,$0.1$,$1$,$10$}}]
+  \addplot3[surf,shader=interp,mesh/cols=32,point meta=explicit] table[x=beta,y=gamma,z expr=0,meta=lr] {figures/ch08/pl_ratio.dat};
+  \addplot3[blue!70!black,thick] table[x=b0,y=g0,z expr=0] {figures/ch08/gd_levels.dat};
+  \fill[black] (axis cs:0.1,-0.1,0) circle (1.5pt);
+  \fill[black] (axis cs:0.3927,-0.7854,0) circle (1.8pt);
+  \node[font=\scriptsize,anchor=north west,inner sep=1.5pt] at (axis cs:0.1,-0.1,0) {$\boldsymbol\theta_0$};
+  \ona{\node[note,anchor=west] (p1) at (axis cs:0.95,-0.04,0) {at the saddle points in the corners, $\nabla F = \boldsymbol 0$\\while $F-F^* = 1$: the ratio vanishes (red), and\\no $\mu>0$ serves on a set that contains one};
+  \draw[notearrow] (p1.west) to[bend right=15] (axis cs:0.76,-0.02,0);
+  \draw[notearrow] (p1.west) to[bend right=20] (axis cs:0.03,-0.02,0);
+  \node[note,anchor=west] (p2) at (axis cs:0.95,-0.36,0) {on the sublevel set of $\boldsymbol\theta_0$ (inside the blue\\curve), which excludes them, the ratio is at\\least $\mu = 0.61$: least on its boundary near\\$\boldsymbol\theta_0$, where it comes closest to a saddle point};
+  \draw[notearrow] (p2.west) to[bend right=20] (axis cs:0.115,-0.115,0);
+  \node[note,anchor=west] (p3) at (axis cs:0.95,-0.72,0) {near the minimiser, $F-F^*\approx\frac12\boldsymbol h^\top\nabla^2F\boldsymbol h$ and\\$\nabla F\approx\nabla^2F\boldsymbol h$: the ratio lies between $4$ and $16$,\\the eigenvalues of the Hessian, by direction};
+  \draw[notearrow] (p3.west) to[bend right=10] (axis cs:0.41,-0.78,0);
+  \node[note,anchor=west] (p4) at (axis cs:0.95,-1.05,0) {on the edges $F = -2$, and the ratio is\\$8\sin^22\gamma$: at most $8$, half-way along};
+  \draw[notearrow] (p4.west) to[bend left=10] (axis cs:0.775,-0.79,0);
+  \node[note,anchor=west] (p5) at (axis cs:0.95,-1.38,0) {where the ratio is at least $\mu$, a step $-\nabla F/L$\\removes at least the fraction $\mu/L$ of the\\height $F-F^*$: the condition of the proposition};
+  \draw[notearrow] (p5.west) to[bend left=15] (axis cs:0.3,-1.2,0);}
+\end{axis}}}
+\begin{frame}\ft{The gradient against the height}
+\ona{Theorem~\ref{thm:ch08:gd} bounds the gradient, not the value. The two are linked where the gradient is large compared with the height above the minimum. Figure~\ref{fig:ch08:plmap} shows the ratio $\frac12\|\nabla F\|^2/(F-F^*)$ of the two on the cell of the worked example. At the saddle points in the corners, $\nabla F = \boldsymbol 0$ while $F-F^* = 1$, and the ratio vanishes; on the edges, where $F = -2$, it is $8\sin^22\gamma$, at most $8$. Near the minimiser, $F-F^*\approx\frac12\boldsymbol h^\top\nabla^2F\boldsymbol h$ and $\nabla F\approx\nabla^2F\boldsymbol h$, where $\boldsymbol h$ is the displacement, and the ratio lies between the eigenvalues $4$ and $16$ of the Hessian, according to the direction of $\boldsymbol h$. On the sublevel set $\{F\le F(\boldsymbol\theta_0)\}$, which excludes the saddle points, the ratio is at least $0.61$, and it is least on the boundary near $\boldsymbol\theta_0$, where the set comes closest to the saddle point at the origin. Where the ratio is at least $\mu$, a step with $\alpha = 1/L$ removes at least the fraction $\mu/L$ of the height $F-F^*$, by Lemma~\ref{lem:ch08:descent}. This is the condition of the following proposition.}
+\ona{\gdef\pmW{0.25\linewidth}\gdef\pmH{0.5\linewidth}\gdef\pmC{-0.14}}\onp{\gdef\pmW{2.5cm}\gdef\pmH{5cm}\gdef\pmC{-0.2}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\plmapfig{}\end{tikzpicture}
+\caption{The ratio $\frac12\|\nabla F\|^2/(F-F^*)$ on the cell of the minimiser $(\pi/8,-\pi/4)$ of the worked example, on a logarithmic scale that is white at $0.61$, red below and blue above, with the sublevel set $\{F\le F(\boldsymbol\theta_0)\}$ of $\boldsymbol\theta_0 = (0.1,-0.1)$ (blue curve).}\label{fig:ch08:plmap}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.4\textwidth}\centering\begin{tikzpicture}\plmapfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.58\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item The ratio $\frac12\|\nabla F\|^2/(F-F^*)$ on the cell of the worked example; white at $0.61$, red below, blue above.
+    \item At the saddle points (corners) it vanishes: $\nabla F = \boldsymbol 0$ while $F-F^* = 1$.
+    \item On the sublevel set of $\boldsymbol\theta_0$ (blue curve) it is at least $0.61$, least near $\boldsymbol\theta_0$, closest to a saddle point.
+    \item Near the minimiser it lies between $4$ and $16$, the eigenvalues of the Hessian.
+    \item Where it is at least $\mu$, a step $-\nabla F/L$ removes the fraction $\mu/L$ of $F-F^*$ or more.
+\end{itemize}\end{column}\end{columns}}
 \end{frame}
 
 \begin{frame}\ft{Linear convergence near a minimiser}
@@ -143,6 +379,62 @@ for some $\mu>0$. Then gradient descent with the step $1/L$ satisfies $C(\boldsy
 \end{itemize}
 \end{frame}
 
+
+% (a) the PL inequality for the sinusoid of one gate, in the error e = phi - phi^*: (1/2) f'^2 = (1/2) A^2 sin^2 e against
+% mu (f - f^*) = mu A (1 - cos e), with mu = A (1 + cos e0) / 2 for e0 = 2; (b) gradient descent on the worked example
+\mode<all>{\gdef\plfig#1{\begin{axis}[#1,width=\plW,height=\plH,clip=false,axis lines=left,xmin=-3.1416,xmax=3.1416,ymin=0,ymax=0.025,xtick={-3.1416,-2,0,2,3.1416},xticklabels={$-\pi$,$-e_0$,$0$,$e_0$,$\pi$},ytick={0,0.01,0.02},yticklabels={$0$,$0.01$,$0.02$},scaled y ticks=false,xlabel={$e = \phi-\phi^*$},samples=150,domain=-3.1416:3.1416,no markers,thick]
+  \fill[green!40!black,opacity=0.08] (axis cs:-2,0) rectangle (axis cs:2,0.025);
+  \addplot[blue!70!black] {0.018956*sin(deg(x))^2};
+  \addplot[red!75!black] {0.011068*(1-cos(deg(x)))};
+  \fill[black] (axis cs:-2,0.015673) circle (1.5pt); \fill[black] (axis cs:2,0.015673) circle (1.5pt);
+  \ona{\node[note,anchor=west] (l1) at (axis cs:3.5,0.0235) {$\frac12f'(\phi)^2 = \frac12A^2\sin^2e$ (blue), for\\the gate of Fig.~\ref{fig:ch08:descent}, $A = 0.195$};
+  \draw[notearrow] (l1.west) to[bend right=15] (axis cs:-1.2,0.0175);
+  \node[note,anchor=west] (l2) at (axis cs:3.5,0.0165) {$\mu\,(f-f^*) = \mu A(1-\cos e)$ (red),\\with $\mu = A(1+\cos e_0)/2 = 0.057$};
+  \draw[notearrow] (l2.west) to[bend left=10] (axis cs:2.7,0.0215);
+  \node[note,anchor=west] (l3) at (axis cs:3.5,0.0095) {the inequality holds on $|e|\le e_0$,\\$e_0 = 2$ (shaded), a sublevel set;\\the two sides meet at $\pm e_0$ (dots)};
+  \draw[notearrow] (l3.west) to[bend left=10] (axis cs:1.2,0.004);
+  \node[note,anchor=west] (l4) at (axis cs:3.5,0.0025) {at the maximiser, $e = \pm\pi$, the left\\side vanishes: no $\mu>0$ serves on\\a set that contains it};
+  \draw[notearrow] (l4.west) to[bend left=10] (axis cs:3.12,0.0005);}
+\end{axis}}
+\gdef\plgdfig#1{\begin{axis}[#1,width=\plW,height=\plH,clip=false,axis lines=left,xmin=0,xmax=60,ymode=log,ymin=1e-12,ymax=3,ytick={1e-12,1e-9,1e-6,1e-3,1},xlabel={iteration $k$},ylabel={$F(\boldsymbol\theta_k)-F^*$},no markers,thick]
+  \addplot[red!75!black,densely dashed] table[x=k,y=bound] {figures/ch08/pl_gd.dat};
+  \addplot[blue!70!black,densely dotted] table[x=k,y=local] {figures/ch08/pl_gd.dat};
+  \addplot[black,mark=*,mark size=0.8pt] table[x=k,y=gap] {figures/ch08/pl_gd.dat};
+  \ona{\node[note,anchor=west] (g1) at (axis cs:66,0.5) {the bound $(1-\mu/L)^k(F_0-F^*)$ (red), with\\$\mu = 0.61$ on the sublevel set of the start,\\$L = 20$: a factor $0.970$ for each step};
+  \draw[notearrow] (g1.west) to[bend right=10] (axis cs:50,0.25);
+  \node[note,anchor=west] (g2) at (axis cs:66,2e-4) {gradient descent with the step $1/20$\\from $(0.1,-0.1)$ (black)};
+  \draw[notearrow] (g2.west) to[bend left=10] (axis cs:22,5e-4);
+  \node[note,anchor=west] (g3) at (axis cs:66,1e-8) {near the minimiser, the Hessian\\$\mathrm{diag}(16,4)$ gives $(1-4/20)^2 = 0.64$\\for each step (blue)};
+  \draw[notearrow] (g3.west) to[bend left=10] (axis cs:45,2e-9);}
+\end{axis}}}
+\begin{frame}\ft{Linear convergence, pictured}
+\ona{Figure~\ref{fig:ch08:pl} shows the inequality \eqref{eq:ch08:pl} and its consequence. In (a), for the sinusoid of a single gate, $\frac12f'^2$ exceeds $\mu(f-f^*)$ exactly on $|e|\le e_0$, where $e = \phi-\phi^*$ is the distance from the minimiser; the largest admissible $\mu$ decreases to $0$ as $e_0$ approaches $\pi$. In (b), gradient descent with the step $1/L = 1/20$ on the worked example converges linearly from the start. The least ratio $\frac12\|\nabla F\|^2/(F-F^*)$ on the sublevel set $\{F\le F(0.1,-0.1)\}$ of the minimiser $(\pi/8,-\pi/4)$ is $\mu = 0.61$, attained at the start itself, on the boundary of the set and close to the saddle point at the origin; Proposition~\ref{propn:ch08:pl} therefore guarantees the factor $1-\mu/L = 0.970$ for each step. Near the minimiser, where the Hessian is $\mathrm{diag}(16,4)$, the error in the slow direction is multiplied by $1-4/20$ in each step, and $F-F^*$ by $0.64$: after $30$ steps $F-F^*$ is $5.1\cdot10^{-6}$, against the guarantee $0.37$. The constant of the inequality describes the worst part of the set, here the neighbourhood of the saddle point.}
+\ona{\gdef\plW{0.46\linewidth}\gdef\plH{0.34\linewidth}}\onp{\gdef\plW{6.2cm}\gdef\plH{5.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\plfig{name=pla}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.5cm]pla.north west) {(a)};
+\plgdfig{at={(pla.south west)},anchor=north west,yshift=-1.6cm,name=plb}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.5cm]plb.north west) {(b)};
+\end{tikzpicture}
+\caption{(a) The two sides of the Polyak--\Loj{} inequality for the energy of one gate of the worked example, as functions of the distance $e$ from the minimiser, with $e_0 = 2$. (b) Gradient descent with the step $1/20$ on the worked example from $(0.1,-0.1)$ (black), the guarantee of Proposition~\ref{propn:ch08:pl} on the sublevel set of the start (red, dashed), and the rate $0.64$ set by the Hessian at the minimiser (blue, dotted).}\label{fig:ch08:pl}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\plfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item One gate, $f(\phi) = a-A\cos(\phi-\phi^*)$, $A = 0.195$, against the error $e = \phi-\phi^*$.
+    \item $\frac12f'^2 = \frac12A^2\sin^2e$ (blue) and $\mu(f-f^*)$ (red), with $\mu = A(1+\cos e_0)/2 = 0.057$ for $e_0 = 2$.
+    \item The inequality holds on $|e|\le e_0$ (shaded), a sublevel set; the sides meet at $\pm e_0$.
+    \item At the maximiser, $e = \pm\pi$, $f'=0$ while $f-f^*=2A$: no $\mu>0$ serves there.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{Linear convergence on the worked example}
+\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\plgdfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Gradient descent, step $1/20$, from $(0.1,-0.1)$: $F-F^*$ (black, logarithmic scale).
+    \item On the sublevel set of the start, $\mu = 0.61$, least near the saddle at the origin: the guarantee $(1-\mu/L)^k$ (red), $0.970$ per step.
+    \item Near the minimiser, Hessian $\mathrm{diag}(16,4)$: $0.64$ per step (blue).
+    \item After $30$ steps: $5.1\cdot10^{-6}$, against the guarantee $0.37$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
 \section{Noise and bias}\label{sec:ch08:bias}
 
 \begin{frame}\ft{Bias in the device}
@@ -163,25 +455,92 @@ for some $\mu>0$. Then gradient descent with the step $1/L$ satisfies $C(\boldsy
     \item Errors that depend on the angle, as when the duration of a pulse grows with it: the shift rule is then biased even for $\tilde C$.
 \end{itemize}
 \ona{More copies reduce the variance of an estimate, not its bias.}
+
+\ona{The bias affects the global method of Section~\ref{sec:ch08:complexity} as well as the gradient methods. By the lemma on the grid in \Chap~\chref{C.PSR}, values of $\tilde C$ reconstruct $C$ to within $\sqrt{|\mathcal G|}\,b$, where $|\mathcal G|$ is the number of points of the grid, and to within $b$ if $\tilde C$ is a trigonometric polynomial of the same degrees as $C$; for the gradient methods, the bias sets a floor below which $\epsilon$ cannot be taken, as the next two sections show.}
 \end{frame}
 
-% the Bell state on ibmq_santiago, 1000 shots (Kungurtsev et al. 2024, Fig. 9)
+% the model of the noise on the line gamma = -pi/4 of the worked example, on the device whose mixer is over-rotated by
+% delta = 0.05: C (black), C~ = E C^ (blue), the band C -+ b (dashed), the bias where it attains b (red), one estimate with
+% M = 1000 at each of 33 angles (dots), and at beta = 0.1 one standard deviation of an estimate for M = 10, 100, 1000
+\mode<all>{\gdef\noisemodelfig#1{\begin{axis}[#1,width=\nmW,height=\nmH,scale only axis,clip mode=individual,axis lines=left,xmin=0,xmax=0.7854,ymin=-3.08,ymax=-1.86,xtick={0,0.3927,0.7854},xticklabels={$0$,$\frac\pi8$,$\frac\pi4$},ytick={-3,-2.5,-2},yticklabel style={/pgf/number format/fixed},xlabel={$\beta$},ylabel={value at $(\beta,-\pi/4)$},no markers]
+  \addplot[gray,densely dashed] table[x=beta,y=lo] {figures/ch08/noise_model.dat};
+  \addplot[gray,densely dashed] table[x=beta,y=hi] {figures/ch08/noise_model.dat};
+  \addplot[black,thick] table[x=beta,y=C] {figures/ch08/noise_model.dat};
+  \addplot[blue!70!black,thick] table[x=beta,y=Ct] {figures/ch08/noise_model.dat};
+  \addplot[blue!70!black,only marks,mark=*,mark size=0.8pt] table[x=beta,y=est] {figures/ch08/noise_model_est.dat};
+  \addplot[blue!70!black,thin,only marks,mark=none,error bars/.cd,y dir=both,y explicit,error bar style={thin},error mark options={rotate=90,mark size=5pt}] table[x=beta,y=mean,y error=sd,restrict expr to domain={\coordindex}{0:0}] {figures/ch08/noise_model_bars.dat};
+  \addplot[blue!70!black,only marks,mark=none,error bars/.cd,y dir=both,y explicit,error bar style={line width=1.2pt},error mark options={rotate=90,mark size=3.5pt,line width=1.2pt}] table[x=beta,y=mean,y error=sd,restrict expr to domain={\coordindex}{1:1}] {figures/ch08/noise_model_bars.dat};
+  \addplot[blue!70!black,only marks,mark=none,error bars/.cd,y dir=both,y explicit,error bar style={line width=2.4pt},error mark options={rotate=90,mark size=2pt,line width=1.2pt}] table[x=beta,y=mean,y error=sd,restrict expr to domain={\coordindex}{2:2}] {figures/ch08/noise_model_bars.dat};
+  \fill[black] (axis cs:0.1,-2.3894) circle (1.3pt);
+  \draw[-{Stealth[length=4pt]},red!75!black,very thick] (axis cs:0.7729,-2.0500) -- (axis cs:0.7729,-1.9500);
+  \fill[black] (axis cs:0.3927,-3) circle (1.3pt); \fill[blue!70!black] (axis cs:0.3677,-3) circle (1.3pt);
+  \ona{\node[note,anchor=west] (m1) at (axis cs:0.87,-1.86) {the cost on the line $\gamma = -\pi/4$ through the\\minimiser (black), $C = -2-\sin4\beta$};
+  \draw[notearrow] (m1.west) to[bend right=12] (axis cs:0.66,-2.47);
+  \node[note,anchor=west] (m2) at (axis cs:0.87,-2.04) {the cost of the device, $\tilde C = \mathbb E\,\hat C$ (blue), the same\\for every $M$: its mixer over-rotates by $\delta = 0.05$,\\and $\tilde C(\beta) = C(\beta+\delta/2)$};
+  \draw[notearrow] (m2.west) to[bend left=10] (axis cs:0.69,-2.25);
+  \node[note,anchor=west] (m3) at (axis cs:0.87,-2.28) {the band $C\pm b$ (dashed), $b = 2\sin\delta = 0.10$: $\tilde C$\\stays in it at every angle, and the bias $\tilde C-C$\\attains $b$ at $\beta = (\pi-\delta)/4$ (red)};
+  \draw[notearrow] (m3.west) to[bend right=20] (axis cs:0.77,-2.0);
+  \node[note,anchor=west] (m4) at (axis cs:0.87,-2.52) {one estimate $\hat C$ with $M = 1000$ copies at each\\of $33$ angles (dots): in root mean square, $0.041$\\from $\tilde C$ and $0.081$ from $C$};
+  \draw[notearrow] (m4.west) to[bend left=10] (axis cs:0.618,-2.566);
+  \node[note,anchor=west] (m5) at (axis cs:0.87,-2.76) {the variance of a single value is at most $\sigma^2 = 2$:\\beyond about $\sigma^2/b^2 = 200$ copies the bias\\exceeds the noise};
+  \draw[notearrow] (m5.west) to[bend right=12] (axis cs:0.115,-2.448);
+  \node[note,anchor=west] (m6) at (axis cs:0.87,-2.96) {the minimiser moves by $\delta/2$, from $\pi/8$ (black)\\to $\pi/8-\delta/2$ (blue)};
+  \draw[notearrow] (m6.west) to[bend left=10] (axis cs:0.40,-2.99);
+  \node[note,anchor=north west] (m7) at (axis cs:-0.05,-3.32) {at $\beta = 0.1$, one standard deviation of $\hat C$ about $\tilde C$ for $M = 10$, $100$ and $1000$\\(bars, the thicker for more copies): $0.32$, $0.10$ and $0.032$; $\tilde C$ lies $0.090$ below $C$ (dot),\\and more copies narrow the bars without closing the gap};
+  \draw[notearrow] ([xshift=0.6cm]m7.north west) to[bend left=20] (axis cs:0.09,-2.79);}
+\end{axis}}}
+\begin{frame}\ft{Bias and noise, pictured}
+\ona{Figure~\ref{fig:ch08:model} shows \eqref{eq:ch08:device} and \eqref{eq:ch08:biasvar} on the line $\gamma = -\pi/4$ of the worked example, which passes through the minimiser $(\pi/8,-\pi/4)$ and on which $C = -2-\sin4\beta$. The device over-rotates each gate of the mixer by $\delta = 0.05$, applying $R_X(2\beta+\delta)$ in place of $R_X(2\beta)$; it computes $\tilde C(\beta) = C(\beta+\delta/2)$, a copy of $C$ moved by $\delta/2$, and its minimiser moves with it. The bias $\tilde C-C$ changes sign along the line, and its largest absolute value is $b = 2\sin\delta = 0.10$, attained at $\beta = (\pi-\delta)/4$. A single measured value has the variance at most $\sigma^2 = 2$, at every angle and on either device. The estimates with $M = 1000$ copies scatter about $\tilde C$, at a root-mean-square distance of $0.041$, and lie $0.081$ from $C$; where the bias is large, $92\%$ of them are closer to $\tilde C$ than to $C$. At $\beta = 0.1$ the bias is $-0.090$, and the standard deviation of an estimate is $0.32$, $0.10$ and $0.032$ for $M = 10$, $100$ and $1000$: the noise hides the bias for $M = 10$, matches it at $M = 124$, and is dominated by it for more copies. More copies narrow the scatter about $\tilde C$; they do not bring $\tilde C$ closer to $C$.}
+\ona{\gdef\nmW{0.4\linewidth}\gdef\nmH{0.42\linewidth}}\onp{\gdef\nmW{4.5cm}\gdef\nmH{5cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\noisemodelfig{}\end{tikzpicture}
+\caption{The model \eqref{eq:ch08:device}--\eqref{eq:ch08:biasvar} on the line $\gamma = -\pi/4$ of the worked example, for a device whose mixer is over-rotated by $\delta = 0.05$: the cost $C$ (black), the cost of the device $\tilde C$ (blue), the band $C\pm b$ (dashed), the bias where it attains $b$ (red), one estimate with $M = 1000$ copies at each of $33$ angles (dots), and at $\beta = 0.1$ one standard deviation of an estimate for $M = 10$, $100$ and $1000$ (bars).}\label{fig:ch08:model}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\noisemodelfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item The worked example on $\gamma = -\pi/4$: $C = -2-\sin4\beta$ (black).
+    \item A mixer over-rotated by $\delta = 0.05$: the device computes $\tilde C = \mathbb E\,\hat C = C(\beta+\delta/2)$ (blue), whatever $M$; the minimiser moves by $\delta/2$.
+    \item $|\tilde C-C|\le b = 2\sin\delta = 0.10$ (dashed band), attained at $(\pi-\delta)/4$ (red).
+    \item Dots: one estimate with $M = 1000$ at each of $33$ angles; in root mean square $0.041$ from $\tilde C$, $0.081$ from $C$.
+    \item Bars at $\beta = 0.1$: $(\mathrm{Var}\,\hat C)^{1/2} = 0.32$, $0.10$, $0.032$ for $M = 10$, $100$, $1000$, about $\tilde C$, $0.090$ below $C$ (dot).
+    \item $\sigma^2 = 2$: beyond $\sigma^2/b^2 = 200$ copies the bias dominates.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% the Bell state on ibmq_santiago, 1000 shots (Kungurtsev et al. 2024, Fig. 9): (a) the frequencies with one standard
+% error; (b) the estimates of <ZZ>, <Z x 1>, <1 x Z> minus the ideal values, with two standard errors for 1000 copies
+% and for 10^5 copies of the same device
 \mode<all>{\gdef\bellfig#1{\begin{axis}[#1,width=\blW,height=\blH,ybar,bar width=8pt,symbolic x coords={00,01,10,11},xtick=data,ymin=0,ymax=0.66,ytick={0,0.1,0.2,0.3,0.4,0.5,0.6},ylabel={frequency},xlabel={outcome},enlarge x limits=0.18,clip=false,legend style={font=\scriptsize,draw=none,fill=none,at={(0.5,1.02)},anchor=south},legend columns=2]
   \addplot[fill=gray!35,draw=gray] coordinates {(00,0.5) (01,0) (10,0) (11,0.5)};
-  \addplot[fill=blue!45,draw=blue!70!black] coordinates {(00,0.423) (01,0.012) (10,0.010) (11,0.555)};
+  \addplot[fill=blue!45,draw=blue!70!black,error bars/.cd,y dir=both,y explicit,error bar style={black,thin}] coordinates {(00,0.423) +- (0,0.0156) (01,0.012) +- (0,0.0034) (10,0.010) +- (0,0.0031) (11,0.555) +- (0,0.0157)};
   \legend{ideal,\texttt{ibmq\_santiago}}
   \ona{\node[note,anchor=south] (b1) at (rel axis cs:0.5,0.3) {$01$ and $10$ have\\probability zero, and\\occur in $2.2\%$ of\\the copies};
   \draw[notearrow] (b1.south) to[bend right=15] (axis cs:01,0.03);
   \draw[notearrow] (b1.south) to[bend left=15] (axis cs:10,0.03);
-  \node[note,anchor=west] (b2) at (rel axis cs:1.06,0.5) {$\braket{Z\otimes Z} = 0.956$, five\\standard errors below $1$};
-  \node[note,anchor=west] (b3) at (rel axis cs:1.06,0.25) {$\braket{Z}$ on either qubit $-0.13$,\\four standard errors\\from $0$};
-  \draw[notearrow] (b3.west) to[bend left=15] (axis cs:11,0.53);}
+  \node[note,anchor=west] (b2) at (rel axis cs:1.06,0.75) {one standard error (bars):\\$00$ falls short of $\frac12$ by $0.077$,\\five standard errors};
+  \draw[notearrow] (b2.west) to[bend right=25] (axis cs:00,0.445);
+  \node[note,anchor=west] (b3) at (rel axis cs:1.06,0.35) {$11$ exceeds $\frac12$ by $0.055$:\\more ones than zeros, and\\$\braket Z = -0.13$ on either qubit};
+  \draw[notearrow] (b3.west) to[bend left=15] (axis cs:11,0.56);}
+\end{axis}}
+\gdef\bellbfig#1{\begin{axis}[#1,width=\blW,height=\blH,clip=false,axis lines=left,xmin=0.4,xmax=3.6,ymin=-0.22,ymax=0.06,xtick={1,2,3},xticklabels={$\braket{Z\otimes Z}$,$\braket{Z\otimes\one}$,$\braket{\one\otimes Z}$},xticklabel style={font=\footnotesize},ytick={-0.2,-0.1,0},yticklabels={$-0.2$,$-0.1$,$0$},ylabel={estimate $-$ ideal value},only marks]
+  \draw[gray,thin] (axis cs:0.4,0) -- (axis cs:3.6,0);
+  \addplot[blue!70!black,mark=*,mark size=1.6pt,error bars/.cd,y dir=both,y explicit,error bar style={blue!70!black,thick}] coordinates {(0.88,-0.044) +- (0,0.0186) (1.88,-0.130) +- (0,0.0627) (2.88,-0.134) +- (0,0.0627)};
+  \addplot[red!75!black,mark=square*,mark size=1.3pt,error bars/.cd,y dir=both,y explicit,error bar style={red!75!black,thick}] coordinates {(1.12,-0.044) +- (0,0.0019) (2.12,-0.130) +- (0,0.0063) (3.12,-0.134) +- (0,0.0063)};
+  \ona{\node[note,anchor=west] (c1) at (axis cs:3.9,0.04) {$0$: the ideal values $1$, $0$, $0$};
+  \draw[notearrow] (c1.west) to[bend right=10] (axis cs:3.45,0.003);
+  \node[note,anchor=west] (c2) at (axis cs:3.9,-0.045) {two standard errors with $1000$\\copies (blue): $0$ lies outside\\every interval};
+  \draw[notearrow] (c2.west) to[bend left=10] (axis cs:2.92,-0.08);
+  \node[note,anchor=west] (c3) at (axis cs:3.9,-0.15) {with $10^5$ copies of the same device\\(red), the intervals shrink about\\the same values, not towards $0$};
+  \draw[notearrow] (c3.west) to[bend left=10] (axis cs:3.16,-0.134);}
 \end{axis}}}
-\begin{frame}\ft{A Bell state on a device}
-\ona{Figure~\ref{fig:ch08:bell} shows the bias on a device. \citet{kungurtsev2022iteration} prepared the state $(\ket{00}+\ket{11})/\sqrt2$ with a Hadamard gate and a CNOT on the device \texttt{ibmq\_santiago} and measured $1000$ copies. The outcomes $01$ and $10$, which have probability zero, occurred in $2.2\%$ of the copies. The estimate of $\braket{Z\otimes Z}$ is $0.956$ instead of $1$, with a standard error of $0.009$, and those of $\braket Z$ on either qubit are $-0.130$ and $-0.134$ instead of $0$, with a standard error of $0.031$. More copies would reduce the standard errors, not the deviations.}
+% in the handout only
+\begin{frame}<presentation:0>[noframenumbering]\ft{A Bell state on a device}
+\ona{Figure~\ref{fig:ch08:bell} shows the bias on a device. \citet{kungurtsev2022iteration} prepared the state $(\ket{00}+\ket{11})/\sqrt2$ with a Hadamard gate and a CNOT on the device \texttt{ibmq\_santiago} and measured $1000$ copies. The outcomes $01$ and $10$, which have probability zero, occurred in $2.2\%$ of the copies. The estimate of $\braket{Z\otimes Z}$ is $0.956$ instead of $1$, with a standard error of $0.009$, and those of $\braket Z$ on either qubit are $-0.130$ and $-0.134$ instead of $0$, with a standard error of $0.031$. More copies would reduce the standard errors, not the deviations. Panel (b) shows this: the intervals of two standard errors that $10^5$ copies of the same device would give are ten times narrower, and they are centred on the same biased values.}
 \ona{\gdef\blW{0.42\linewidth}\gdef\blH{0.32\linewidth}}\onp{\gdef\blW{5.6cm}\gdef\blH{5cm}}
-\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\bellfig{}\end{tikzpicture}
-\caption{The frequencies of the four outcomes for the Bell state $(\ket{00}+\ket{11})/\sqrt2$, prepared with a Hadamard gate and a CNOT, ideally (grey) and on \texttt{ibmq\_santiago} with $1000$ copies (blue), after \citet{kungurtsev2022iteration}.}\label{fig:ch08:bell}\end{figure}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\bellfig{name=bla}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.6cm,yshift=0.4cm]bla.north west) {(a)};
+\bellbfig{at={(bla.south west)},anchor=north west,yshift=-1.7cm,name=blb}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.6cm]blb.north west) {(b)};
+\end{tikzpicture}
+\caption{The Bell state $(\ket{00}+\ket{11})/\sqrt2$, prepared with a Hadamard gate and a CNOT, after \citet{kungurtsev2022iteration}. (a) The frequencies of the four outcomes, ideally (grey) and on \texttt{ibmq\_santiago} with $1000$ copies (blue), with one standard error. (b) The estimates minus the ideal values, with two standard errors for $1000$ copies (blue) and for $10^5$ copies of the same device (red).}\label{fig:ch08:bell}\end{figure}}
 \onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\begin{tikzpicture}\bellfig{}\end{tikzpicture}\end{column}
 \begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
     \item The Bell state $(\ket{00}+\ket{11})/\sqrt2$, from a Hadamard gate and a CNOT, on \texttt{ibmq\_santiago}, $1000$ copies \citep{kungurtsev2022iteration}.
@@ -233,6 +592,56 @@ $q_1-q_0$ & $0.0036$ & $0.0182$ & $0.0174$ & $0.1420$ & $0.0300$ & $0.0362$ & $0
 
 \section{Stochastic gradient descent}\label{sec:ch08:sgd}
 
+% estimates of grad F(theta_0) at theta_0 = (0.1, -0.1) on the device whose mixer is over-rotated by delta = 0.05, in the
+% plane of the gradients: grad F (black), the bias (red) with its bound 8 sin delta (dashed), 200 estimates by the shift
+% rule with M = 1000 (blue) with their root-mean-square radius (dashed), and the two estimates of simultaneous
+% perturbation with c = 0.1 and exact values (green), on the diagonals, with their mean (open circle)
+\mode<all>{\gdef\noisefig#1{\begin{axis}[#1,width=\nzW,height=\nzW,scale only axis,axis equal image,clip mode=individual,xmin=-1.75,xmax=0.45,ymin=-0.2,ymax=1.75,xtick={-1.5,-1,-0.5,0},ytick={0,0.5,1,1.5},xlabel={$\partial F/\partial\beta$},ylabel={$\partial F/\partial\gamma$},no markers]
+  \draw[gray,thin] (axis cs:-1.75,0) -- (axis cs:0.45,0); \draw[gray,thin] (axis cs:0,-0.2) -- (axis cs:0,1.75);
+  \draw[green!40!black,densely dotted] (axis cs:-0.2,-0.2) -- (axis cs:0.45,0.45);
+  \draw[green!40!black,densely dotted] (axis cs:-1.75,1.75) -- (axis cs:0.2,-0.2);
+  \draw[red!75!black,densely dashed] (axis cs:-0.73195,0.76331) circle[radius=0.39983];
+  \addplot[blue!70!black,only marks,mark=*,mark size=0.55pt] table[x=gb,y=gg] {figures/ch08/noise_estimates.dat};
+  \draw[blue!70!black,densely dashed,thick] (axis cs:-0.69739,0.93974) circle[radius=0.0991];
+  \draw[green!40!black,thin] (axis cs:0.19440,0.19440) -- (axis cs:-1.52520,1.52520);
+  \draw[-{Stealth[length=6pt]},black,very thick] (axis cs:0,0) -- (axis cs:-0.73195,0.76331);
+  \draw[-{Stealth[length=4pt]},red!75!black,very thick] (axis cs:-0.73195,0.76331) -- (axis cs:-0.69739,0.93974);
+  \fill[green!40!black] (axis cs:0.19440,0.19440) circle (2.2pt); \fill[green!40!black] (axis cs:-1.52520,1.52520) circle (2.2pt);
+  \draw[green!40!black,thick] (axis cs:-0.66540,0.85980) circle (2.4pt);
+  \node[font=\scriptsize,anchor=north east,inner sep=1.5pt] at (axis cs:0,0) {$\boldsymbol 0$};
+  \node[font=\scriptsize,anchor=north east,inner sep=1pt] at (axis cs:-0.42,0.40) {$\nabla F$};
+  \onp{\node[font=\scriptsize,anchor=east,inner sep=1pt,red!75!black] (bl) at (axis cs:-1.05,1.0) {bias};
+  \draw[-{Stealth[length=3pt]},red!75!black,thin] (bl.east) to[bend left=15] (axis cs:-0.725,0.86);}
+  \ona{\node[note,anchor=west] (e6) at (axis cs:0.65,1.68) {simultaneous perturbation, $c = 0.1$, exact\\values: $\boldsymbol\Delta = \pm(1,1)$ or $\pm(1,-1)$ gives one of\\two estimates (green), on the diagonals};
+  \draw[notearrow] (e6.west) to[bend right=15] (axis cs:-1.48,1.56);
+  \draw[notearrow] (e6.west) to[bend left=20] (axis cs:0.23,0.24);
+  \node[note,anchor=west] (e2) at (axis cs:0.65,1.3) {the bias (red): the mean of the estimates\\minus $\nabla F$, of norm $0.18$, the same for every\\estimate; the device computes $F(\beta+\delta/2,\gamma)$,\\with $\delta = 0.05$};
+  \draw[notearrow] (e2.west) to[bend right=15] (axis cs:-0.7,0.86);
+  \node[note,anchor=west] (e4) at (axis cs:0.65,0.93) {$200$ estimates by the shift rule (blue), with\\$M = 1000$ copies of each of the $16$ circuits};
+  \draw[notearrow] (e4.west) to[bend right=10] (axis cs:-0.6,0.97);
+  \node[note,anchor=west] (e5) at (axis cs:0.65,0.62) {their random error about the mean: root mean\\square $0.099$ (dashed); it falls as $1/\sqrt M$,\\the bias does not};
+  \draw[notearrow] (e5.west) to[bend left=12] (axis cs:-0.6,0.92);
+  \node[note,anchor=west] (e3) at (axis cs:-1.72,0.37) {the largest bias at\\any angles, $8\sin\delta$\\$= 0.40$: the mean lies\\in the dashed circle};
+  \draw[notearrow] (e3.north east) to[bend right=15] (axis cs:-1.05,0.6);
+  \node[note,anchor=west] (e7) at (axis cs:0.65,0.22) {the mean of the two green estimates (circle),\\$0.086$ from that of the shift rule; each lies\\$1.09$ from it, as far as the mean from $\boldsymbol 0$: an\\error that grows with the gradient, whatever $M$};
+  \draw[notearrow] (e7.west) to[bend right=25] (axis cs:-0.64,0.84);
+  \node[note,anchor=west] (e1) at (axis cs:-1.72,-0.03) {the gradient $\nabla F(\boldsymbol\theta_0)$ (black)\\at $\boldsymbol\theta_0 = (0.1,-0.1)$: what\\the method needs};
+  \draw[notearrow] (e1.east) to[bend right=20] (axis cs:-0.28,0.27);}
+\end{axis}}}
+\begin{frame}\ft{The parts of an estimate}
+\ona{An estimate of the gradient, obtained from circuits, differs from the gradient in more than one way. Figure~\ref{fig:ch08:noise} shows estimates of $\nabla F(\boldsymbol\theta_0)$ at $\boldsymbol\theta_0 = (0.1,-0.1)$ on the device whose mixer is over-rotated by $\delta = 0.05$, drawn in the plane of the gradients. The parameter-shift rule, with $M = 1000$ copies of each of the $16$ circuits, gives estimates scattered about a mean, $(-0.697,0.940)$, which is not the gradient $(-0.732,0.763)$: the device computes $F(\beta+\delta/2,\gamma)$, and the shift rule estimates the gradient of that cost. The difference of the mean and the gradient, of norm $0.18$, is the same for every estimate, and it does not depend on $M$; at other angles it is at most $8\sin\delta = 0.40$. The scatter about the mean has the mean square $0.0098$, which falls as $1/M$. Simultaneous perturbation with $c = 0.1$ shows an error of a third kind. Even with exact values, its estimate is one of two points on the diagonals, according to the signs in $\boldsymbol\Delta$. Their mean lies within $0.086$ of that of the shift rule, the difference being of the order of $c^2$, but each of them lies $1.09$ from it, as far as the mean lies from $\boldsymbol 0$. This error is proportional to the gradient, and more copies do not reduce it. The model below separates the three.}
+\ona{\gdef\nzW{0.47\linewidth}}\onp{\gdef\nzW{4.6cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\noisefig{}\end{tikzpicture}
+\caption{Estimates of the gradient of the worked example at $\boldsymbol\theta_0 = (0.1,-0.1)$ on a device whose mixer is over-rotated by $\delta = 0.05$, in the plane of the gradients: the gradient (black), the bias of the estimates (red) and its largest value over all angles (dashed circle), $200$ estimates by the parameter-shift rule with $M = 1000$ copies of each circuit (blue) and their root-mean-square distance from their mean (dashed), and the two estimates of simultaneous perturbation with $c = 0.1$ and exact values (green), with their mean (circle).}\label{fig:ch08:noise}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\begin{tikzpicture}\noisefig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Estimates of $\nabla F$ at $\boldsymbol\theta_0 = (0.1,-0.1)$, the mixer over-rotated by $\delta = 0.05$.
+    \item Black: the gradient. Red: the bias, the mean of the estimates minus the gradient, $0.18$; at most $8\sin\delta = 0.40$ at any angles (dashed).
+    \item Blue: $200$ estimates by the shift rule, $M = 1000$: a random error about the mean, root mean square $0.099$, falling as $1/\sqrt M$.
+    \item Green: simultaneous perturbation, $c = 0.1$, exact values: two estimates, each $1.09$ from their mean, as far as the mean from $\boldsymbol 0$; an error that grows with the gradient.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
 \begin{frame}\ft{Stochastic gradient descent with biased estimates}
 \onp{\scriptsize}
 \ona{We write the estimate of the gradient at $\boldsymbol\theta_k$ as}
@@ -243,7 +652,7 @@ $q_1-q_0$ & $0.0036$ & $0.0182$ & $0.0174$ & $0.1420$ & $0.0300$ & $0.0362$ & $0
 \begin{equation}\label{eq:ch08:assume}
     \|\boldsymbol\beta_k\|\le\zeta,\qquad\mathbb E\big[\|\boldsymbol\rho_k\|^2\,\big|\,\boldsymbol\theta_k\big]\le A\,\|\nabla C(\boldsymbol\theta_k)+\boldsymbol\beta_k\|^2+V.
 \end{equation}
-\ona{Shot noise contributes to $V$, which decreases with $M$; the constant $A$ allows an error that grows with the gradient, as for the derivative-free estimators; the bias $\zeta$ comes from the device.}
+\ona{Shot noise contributes to $V$, which decreases with $M$; the constant $A$ allows an error that grows with the gradient, as for the derivative-free estimators; the bias $\zeta$ comes from the device. In Figure~\ref{fig:ch08:noise}, $\boldsymbol\beta_k$ is the red arrow, of norm at most $\zeta = 8\sin\delta$, and $\boldsymbol\rho_k$ is the scatter of the blue points about their mean, with $A = 0$ and $V = 0.0098$ at $\boldsymbol\theta_0$; for simultaneous perturbation with exact values, $A = 1$ and $V = 0$.}
 \begin{thm}[\citet{ajalloeian2020convergence,kungurtsev2022iteration}]\label{thm:ch08:sgd}
 Let $\|\nabla^2C\|\le L$, and let the estimates satisfy \eqref{eq:ch08:assume}. With a constant step $\alpha\le1/((A+1)L)$, the iterates \eqref{eq:ch08:iter} satisfy
 \begin{equation}\label{eq:ch08:sgd}
@@ -291,78 +700,148 @@ Let $C$ be the cost of $d$ Pauli rotations, estimated by a device that satisfies
 \end{cor}
 \ona{\emph{Proof.} The $j$-th component of the estimate is $\frac12[\hat C(\boldsymbol\theta+\frac\pi2\boldsymbol e_j)-\hat C(\boldsymbol\theta-\frac\pi2\boldsymbol e_j)]$. By the parameter-shift rule its mean is $\partial_jC(\boldsymbol\theta)$ plus half the difference of the biases at the two points, which is at most $b$ in absolute value; hence $\|\boldsymbol\beta_k\|\le\sqrt d\,b$. Its variance is at most $\frac14(\sigma^2/M+\sigma^2/M)$, and the variances of the $d$ components add. \qed}
 
-\ona{This is the bound of \citet{kungurtsev2022iteration} for the parameter-shift rule, with the bias $\sqrt d\,b$ of the gradient in place of the bias $b$ of a value. Each iteration requires $2d$ circuits and $2dM$ copies. With $N$ copies in all, $K = N/(2dM)$, and the step of Corollary~\ref{cor:ch08:unbiased}, the noise term of \eqref{eq:ch08:rate} becomes $2d\,(2L(C(\boldsymbol\theta_0)-C^*)\sigma^2/N)^{1/2}$, which depends on $N$ alone: as far as the bound is concerned, and once $K$ is large enough for the first term, many iterations with few copies are as good as few iterations with many, down to $M = 1$ \citep{sweke2020stochastic}. What favours many copies is the time taken to submit a circuit (\Chap~\chref{C.PerIteration}). In QAOA, where an angle controls several gates, the chain rule of \Chap~\chref{C.PSR} adds the biases and the variances of the gates: in the worked example, $\zeta\le\sqrt{8^2+4^2}\,b = \sqrt{80}\,b$ and $V\le10\sigma^2/M$.}
+\ona{This is the bound of \citet{kungurtsev2022iteration} for the parameter-shift rule, with the bias $\sqrt d\,b$ of the gradient in place of the bias $b$ of a value. Each iteration requires $2d$ circuits and $2dM$ copies. With $N$ copies in all, $K = N/(2dM)$, and the step of Corollary~\ref{cor:ch08:unbiased}, the noise term of \eqref{eq:ch08:rate} becomes $2d\,(2L(C(\boldsymbol\theta_0)-C^*)\sigma^2/N)^{1/2}$, which depends on $N$ alone: as far as the bound is concerned, and once $K$ is large enough for the first term, many iterations with few copies are as good as few iterations with many, down to $M = 1$ \citep{sweke2020stochastic}. What favours many copies is the time taken to submit a circuit (\Chap~\chref{C.PerIteration}). In QAOA of depth $p$, $\gamma_k$ controls $m$ gates and $\beta_k$ controls $n$ gates with twice the angle; by the chain rule of \Chap~\chref{C.PSR}, the derivative with respect to $\gamma_k$ is the sum of those with respect to its gates, and that with respect to $\beta_k$ twice the sum. The biases and the variances of the gates add, and the estimate from the $2p(m+n)$ circuits of Corollary~\ref{cor:ch08:qaoa} has $\zeta\le\sqrt{p\,(m^2+4n^2)}\,b$ and $V\le p\,(m+4n)\,\sigma^2/(2M)$: in the worked example, $\zeta\le\sqrt{80}\,b$ and $V\le10\sigma^2/M$.}
 \begin{itemize}\setlength\itemsep{0.2em}
     \item The floor $db^2$ does not decrease with $K$, $M$ or $\alpha$.
     \item With $N$ copies in all, the noise term depends on $N$ alone: few copies per circuit suffice \citep{sweke2020stochastic}; the latency of a circuit favours many.
-    \item Worked example, with shared angles: $\zeta\le\sqrt{80}\,b$, $V\le10\sigma^2/M$.
+    \item QAOA of depth $p$, gate by gate: $\zeta\le\sqrt{p(m^2+4n^2)}\,b$, $V\le p(m+4n)\sigma^2/(2M)$; in the worked example $\sqrt{80}\,b$ and $10\sigma^2/M$.
 \end{itemize}
 \end{frame}
 
-% stochastic gradient descent on the worked example: running averages and the bounds of the theorem
-\mode<all>{\gdef\sgdcurves#1{%
-  \addplot[red!75!black] table[x=k,y=avg10] {figures/ch08/sgd_#1.dat};
-  \addplot[red!75!black,densely dashed,thin] table[x=k,y=bnd10] {figures/ch08/sgd_#1.dat};
-  \addplot[blue!70!black] table[x=k,y=avg100] {figures/ch08/sgd_#1.dat};
-  \addplot[blue!70!black,densely dashed,thin] table[x=k,y=bnd100] {figures/ch08/sgd_#1.dat};
-  \addplot[green!40!black] table[x=k,y=avg1000] {figures/ch08/sgd_#1.dat};
-  \addplot[green!40!black,densely dashed,thin] table[x=k,y=bnd1000] {figures/ch08/sgd_#1.dat};}
-\gdef\sgdA#1{\begin{axis}[#1,width=\sgW,height=\sgH,xmode=log,ymode=log,xmin=1,xmax=3000,ymin=0.003,ymax=50,xlabel={iterations $K$},ylabel={$\frac1K\sum_{k<K}\mathbb E\|\nabla F(\boldsymbol\theta_k)\|^2$},clip=false,no markers,thick]
-  \sgdcurves{unbiased}
-  \ona{\node[font=\scriptsize,red!75!black,anchor=west] at (axis cs:3000,0.54) {$M = 10$};
-  \node[font=\scriptsize,blue!70!black,anchor=west] at (axis cs:3000,0.062) {$M = 100$};
-  \node[font=\scriptsize,green!40!black,anchor=west] at (axis cs:3000,0.0118) {$M = 1000$};
-  \node[note,anchor=west] (u2) at (axis cs:30000,8) {dashed: the bounds,\\levelling off at\\$\alpha LV = 12/M$};
-  \draw[notearrow] (u2.west) to[bend right=15] (axis cs:1500,1.3);
-  \node[note,anchor=west] (u1) at (axis cs:30000,0.15) {solid: a decrease as $1/K$\\while the first term of\\the bound dominates, then\\a level that falls with $M$};
-  \draw[notearrow] (u1.west) to[bend left=10] (axis cs:150,0.12);}
+% stochastic gradient descent on the worked example, alpha = 1/20, from (0.1, -0.1): the iterates of the 200 runs after
+% K = 3000 steps for M = 10 (red), 100 (blue) and 1000 (green) copies of each circuit, in coordinates centred at the
+% minimiser (pi/8, -pi/4) of F (cross), with the level curves F = -2.99, -2.97, -2.94 and -2.9 (grey); (a) an ideal device;
+% (b) the device whose mixer is over-rotated by delta = 0.05, whose cost is least at (pi/8 - delta/2, -pi/4) (circle),
+% where grad F = (-4 sin 2 delta, 0), drawn at a quarter of its length
+\mode<all>{\gdef\sgdclouds#1{%
+  \addplot[gray,thin] table[x expr=\thisrow{b4}-0.392699,y expr=\thisrow{g4}+0.785398] {figures/ch08/gd_levels.dat};
+  \addplot[gray,thin] table[x expr=\thisrow{b5}-0.392699,y expr=\thisrow{g5}+0.785398] {figures/ch08/gd_levels.dat};
+  \addplot[gray,thin] table[x expr=\thisrow{b6}-0.392699,y expr=\thisrow{g6}+0.785398] {figures/ch08/gd_levels.dat};
+  \addplot[gray,thin] table[x expr=\thisrow{b7}-0.392699,y expr=\thisrow{g7}+0.785398] {figures/ch08/gd_levels.dat};
+  \addplot[red!75!black,only marks,mark=*,mark size=0.55pt] table[x expr=\thisrow{b10}-0.392699,y expr=\thisrow{g10}+0.785398] {figures/ch08/sgd_cloud_#1.dat};
+  \addplot[blue!70!black,only marks,mark=*,mark size=0.55pt] table[x expr=\thisrow{b100}-0.392699,y expr=\thisrow{g100}+0.785398] {figures/ch08/sgd_cloud_#1.dat};
+  \addplot[green!40!black,only marks,mark=*,mark size=0.55pt] table[x expr=\thisrow{b1000}-0.392699,y expr=\thisrow{g1000}+0.785398] {figures/ch08/sgd_cloud_#1.dat};
+  \draw[black,thick] (axis cs:-0.012,0) -- (axis cs:0.012,0); \draw[black,thick] (axis cs:0,-0.012) -- (axis cs:0,0.012);}
+\gdef\sgdA#1{\begin{axis}[#1,width=\sgW,height=\sgW,scale only axis,axis equal image,clip mode=individual,xmin=-0.17,xmax=0.17,ymin=-0.17,ymax=0.17,xtick={-0.1,0,0.1},ytick={-0.1,0,0.1},xlabel={$\beta-\pi/8$},ylabel={$\gamma+\pi/4$}]
+  \sgdclouds{unbiased}
+  \ona{\node[note,anchor=west] (u1) at (axis cs:0.21,0.15) {$M = 10$ (red): after $K = 3000$ steps the $200$ runs\\have not stopped; the noise keeps them in a\\cloud of root-mean-square size $0.04$, on which\\$\|\nabla F\|^2$ averages $0.44$};
+  \draw[notearrow] (u1.west) to[bend right=15] (axis cs:0.075,0.06);
+  \node[note,anchor=west] (u2) at (axis cs:0.21,0.07) {$M = 100$ (blue): ten times less noise, and a\\cloud $\sqrt{10}$ times smaller, $0.014$; $\|\nabla F\|^2$\\averages $0.051$};
+  \draw[notearrow] (u2.west) to[bend right=10] (axis cs:0.025,0.015);
+  \node[note,anchor=west] (u3) at (axis cs:0.21,0.0) {$M = 1000$ (green): $0.0047$, and $0.0059$};
+  \draw[notearrow] (u3.west) to[bend left=10] (axis cs:0.008,-0.004);
+  \node[note,anchor=west] (u4) at (axis cs:0.21,-0.07) {the minimiser $(\pi/8,-\pi/4)$ (cross): every\\cloud is centred on it, since the estimates\\are unbiased};
+  \draw[notearrow] (u4.west) to[bend left=15] (axis cs:0.002,-0.014);
+  \node[note,anchor=west] (u5) at (axis cs:0.21,-0.15) {level curves of $F$ (grey): the cost pulls back\\four times as hard along $\beta$ as along $\gamma$,\\and the noise is four times larger along $\beta$:\\the clouds are nearly round};
+  \draw[notearrow] (u5.west) to[bend left=10] (axis cs:0.115,-0.11);}
 \end{axis}}
-\gdef\sgdB#1{\begin{axis}[#1,width=\sgW,height=\sgH,xmode=log,ymode=log,xmin=1,xmax=3000,ymin=0.003,ymax=50,xlabel={iterations $K$},ylabel={$\frac1K\sum_{k<K}\mathbb E\|\nabla F(\boldsymbol\theta_k)\|^2$},clip=false,no markers,thick]
-  \sgdcurves{biased}
-  \addplot[black,densely dotted,thin,domain=1:3000] {0.1599};
-  \ona{\node[font=\scriptsize,red!75!black,anchor=west] at (axis cs:3000,0.69) {$M = 10$};
-  \node[font=\scriptsize,blue!70!black,anchor=west] at (axis cs:3000,0.26) {$M = 100$};
-  \node[font=\scriptsize,green!40!black,anchor=west] at (axis cs:3000,0.12) {$M = 1000$};
-  \node[note,anchor=west] (v1) at (axis cs:30000,0.02) {the floor $\zeta^2 = 64\sin^2\delta = 0.160$\\(dotted), attained at the\\minimisers of $F(\beta+\delta/2,\gamma)$:\\more copies do not lower it};
-  \draw[notearrow] (v1.west) to[bend left=15] (axis cs:400,0.15);}
+\gdef\sgdB#1{\begin{axis}[#1,width=\sgW,height=\sgW,scale only axis,axis equal image,clip mode=individual,xmin=-0.17,xmax=0.17,ymin=-0.17,ymax=0.17,xtick={-0.1,0,0.1},ytick={-0.1,0,0.1},xlabel={$\beta-\pi/8$},ylabel={$\gamma+\pi/4$}]
+  \sgdclouds{biased}
+  \draw[red!75!black,very thick,fill=white,fill opacity=0.6] (axis cs:-0.025,0) circle (3pt);
+  \draw[-{Stealth[length=5pt]},black,thick] (axis cs:-0.025,0) -- (axis cs:-0.125,0);
+  \ona{\node[note,anchor=west] (v1) at (axis cs:0.21,0.15) {the device computes $F(\beta+\delta/2,\gamma)$,\\$\delta = 0.05$, least at $(\pi/8-\delta/2,-\pi/4)$ (circle)};
+  \draw[notearrow] (v1.west) to[bend right=20] (axis cs:-0.022,0.009);
+  \node[note,anchor=west] (v2) at (axis cs:0.21,0.06) {more copies shrink the clouds onto that\\point, not onto the minimiser of $F$ (cross),\\$\delta/2 = 0.025$ away};
+  \draw[notearrow] (v2.west) to[bend right=10] (axis cs:0.003,0.008);
+  \node[note,anchor=west] (v3) at (axis cs:0.21,-0.03) {there $\nabla F = (-4\sin2\delta,0)$ (arrow, a\\quarter of it): $\|\nabla F\|^2 = 0.160 = \zeta^2$, the\\floor of the theorem};
+  \draw[notearrow] (v3.west) to[bend left=15] (axis cs:-0.1,-0.004);
+  \node[note,anchor=west] (v4) at (axis cs:0.21,-0.13) {over the clouds, $\|\nabla F\|^2$ averages $0.68$,\\$0.22$ and $0.17$ for $M = 10$, $100$ and $1000$:\\more copies do not go below the floor};
+  \draw[notearrow] (v4.west) to[bend left=10] (axis cs:0.06,-0.06);}
 \end{axis}}}
 \begin{frame}\ft{Stochastic gradient descent on the worked example}
-\ona{Figure~\ref{fig:ch08:sgd} shows stochastic gradient descent on the worked example from $(\beta,\gamma) = (0.1,-0.1)$, with the step $\alpha = 1/20$ that Lemma~\ref{lem:ch08:derivs} allows, and the gradient estimated gate by gate from $16$ circuits with $M$ copies each. Each curve is the running average $\frac1K\sum_{k<K}\mathbb E\|\nabla F(\boldsymbol\theta_k)\|^2$, estimated from $200$ runs; the dashed curves are the bounds \eqref{eq:ch08:sgd} with $L = 20$ and $MV = 12$, the largest value on a grid of angles. (a) On an ideal device, after $3000$ iterations, the averages are $0.54$, $0.062$ and $0.012$ for $M = 10$, $100$ and $1000$, within a factor of about two of the bounds. (b) On a device whose mixer is over-rotated by $\delta = 0.05$, as above, the iterates approach the minimisers of $F(\beta+\delta/2,\gamma)$, such as $(\pi/8-\delta/2,-\pi/4)$, where $\|\nabla F\|^2 = 16\sin^22\delta = 0.160$. The bias of the estimate is $\nabla F(\beta+\delta/2,\gamma)-\nabla F(\beta,\gamma)$, of norm at most $\zeta = 8\sin\delta$, and the floor $\zeta^2 = 0.160$ of Theorem~\ref{thm:ch08:sgd} is attained to within $0.3\%$. The averages after $3000$ iterations are $0.69$, $0.22$ and $0.17$; more copies do not take them below the floor. Corollary~\ref{cor:ch08:psr}, with the bias $0.094$ of a value, would give only $\zeta\le\sqrt{80}\cdot0.094 = 0.84$: the biases of the shifted values are correlated, and the bias of the gradient is smaller than their sum.}
-\ona{\gdef\sgW{0.46\linewidth}\gdef\sgH{0.36\linewidth}}\onp{\gdef\sgW{6.2cm}\gdef\sgH{5.4cm}}
-\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\sgdA{name=a}\node[font=\small,anchor=south west] at (a.north west) {(a)};\sgdB{name=b,at={(0,-0.45\linewidth)}}\node[font=\small,anchor=south west] at (b.north west) {(b)};\end{tikzpicture}
-\caption{Stochastic gradient descent on the worked example with the parameter-shift rule, $M = 10$ (red), $100$ (blue) and $1000$ (green) copies per circuit, $\alpha = 1/20$: the running averages of $\mathbb E\|\nabla F(\boldsymbol\theta_k)\|^2$ over $200$ runs (solid) and the bounds of Theorem~\ref{thm:ch08:sgd} (dashed). (a) An ideal device. (b) A device whose mixer gates are over-rotated by $\delta = 0.05$, with the floor $\zeta^2$ (dotted).}\label{fig:ch08:sgd}\end{figure}}
-\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\sgdA{}\end{tikzpicture}\end{column}
-\begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
-    \item The worked example from $(0.1,-0.1)$, $\alpha = 1/20$, $16$ circuits per gradient with $M$ copies each; averages over $200$ runs.
-    \item Solid: the running average of $\mathbb E\|\nabla F(\boldsymbol\theta_k)\|^2$. Dashed: the bound of the theorem, with $L = 20$ and $MV\le12$.
-    \item It decreases as $1/K$, and levels off at the noise $\alpha LV$, which is proportional to $1/M$.
-    \item After $3000$ iterations: $0.54$, $0.062$ and $0.012$ for $M = 10$ (red), $100$ (blue) and $1000$ (green), within a factor of about two of the bounds.
+\ona{Figure~\ref{fig:ch08:sgd} shows stochastic gradient descent on the worked example from $(\beta,\gamma) = (0.1,-0.1)$, with the step $\alpha = 1/20$ that Lemma~\ref{lem:ch08:derivs} allows, and the gradient estimated gate by gate from $16$ circuits with $M$ copies each: where $200$ runs are after $K = 3000$ steps. (a) On an ideal device the iterates do not stop at the minimiser $(\pi/8,-\pi/4)$: each estimate moves them by $\alpha$ times its random error, and the cost pulls them back. They form a cloud about the minimiser, of root-mean-square size $0.041$ along $\beta$ and $0.039$ along $\gamma$ for $M = 10$, $0.014$ and $0.011$ for $M = 100$, and $0.0047$ and $0.0036$ for $M = 1000$: with ten times as many copies, a cloud about $\sqrt{10}$ times smaller. The cost pulls back four times as hard along $\beta$ as along $\gamma$, but the noise of the estimate is four times larger along $\beta$, and the clouds are nearly round. Over the clouds, $\|\nabla F\|^2$ averages $0.44$, $0.051$ and $0.0059$, in proportion to $1/M$, as the term $\alpha LV$ of \eqref{eq:ch08:sgd} is. The running averages over the $3000$ iterations, which include the first steps, are $0.54$, $0.062$ and $0.012$, within a factor of about two of the bounds \eqref{eq:ch08:sgd} with $L = 20$ and $MV = 12$, the largest value on a grid of angles. (b) On a device whose mixer is over-rotated by $\delta = 0.05$, the clouds gather about the minimiser $(\pi/8-\delta/2,-\pi/4)$ of the cost $F(\beta+\delta/2,\gamma)$ that the device computes, $0.025$ from that of $F$, and more copies shrink them onto that point. There $\nabla F = (-4\sin2\delta,0)$ and $\|\nabla F\|^2 = 16\sin^22\delta = 0.160$. The bias of the estimate is $\nabla F(\beta+\delta/2,\gamma)-\nabla F(\beta,\gamma)$, of norm at most $\zeta = 8\sin\delta$, and the floor $\zeta^2 = 0.160$ of Theorem~\ref{thm:ch08:sgd} is attained to within $0.3\%$. Over the clouds $\|\nabla F\|^2$ averages $0.68$, $0.22$ and $0.17$, and the running averages are $0.69$, $0.22$ and $0.17$; more copies do not take them below the floor. Corollary~\ref{cor:ch08:psr}, with the bias $0.094$ of a value, would give only $\zeta\le\sqrt{80}\cdot0.094 = 0.84$: the biases of the shifted values are correlated, and the bias of the gradient is smaller than their sum.}
+\ona{\gdef\sgW{0.4\linewidth}}\onp{\gdef\sgW{4.6cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\sgdA{name=sga}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.6cm]sga.north west) {(a)};
+\sgdB{at={(sga.south west)},anchor=north west,yshift=-1.6cm,name=sgb}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.6cm]sgb.north west) {(b)};
+\end{tikzpicture}
+\caption{Stochastic gradient descent on the worked example with the parameter-shift rule and $\alpha = 1/20$: the iterates of $200$ runs after $K = 3000$ steps, for $M = 10$ (red), $100$ (blue) and $1000$ (green) copies of each circuit, near the minimiser $(\pi/8,-\pi/4)$ of $F$ (cross), with level curves of $F$ (grey). (a) An ideal device. (b) A device whose mixer gates are over-rotated by $\delta = 0.05$; its cost is least at $(\pi/8-\delta/2,-\pi/4)$ (circle), where $\nabla F$ is four times the arrow.}\label{fig:ch08:sgd}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\begin{tikzpicture}\sgdA{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item The worked example from $(0.1,-0.1)$, $\alpha = 1/20$, $16$ circuits per gradient with $M$ copies: $200$ runs after $K = 3000$ steps.
+    \item The iterates do not stop: a cloud about the minimiser (cross), of size $0.04$, $0.014$ and $0.0047$ for $M = 10$ (red), $100$ (blue) and $1000$ (green).
+    \item Over the clouds $\|\nabla F\|^2$ averages $0.44$, $0.051$ and $0.0059$: the noise term $\alpha LV$, proportional to $1/M$.
+    \item The running averages over the $3000$ steps, $0.54$, $0.062$ and $0.012$, are within a factor of about two of the bounds.
 \end{itemize}\end{column}\end{columns}}
 \end{frame}
 
 \begin{frame}\ft{Stochastic gradient descent with an over-rotated mixer}
-\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\sgdB{}\end{tikzpicture}\end{column}
-\begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
-    \item Every $R_X(2\beta)$ applied as $R_X(2\beta+\delta)$, $\delta = 0.05$: the device computes $F(\beta+\delta/2,\gamma)$.
-    \item The bias of the estimate has norm at most $\zeta = 8\sin\delta$; the floor $\zeta^2 = 0.160$ is dotted.
-    \item At the minimiser $(\pi/8-\delta/2,-\pi/4)$ of the device's cost, $\|\nabla F\|^2 = 16\sin^22\delta = 0.160$: the floor is attained.
-    \item After $3000$ iterations: $0.69$, $0.22$ and $0.17$ for $M = 10$ (red), $100$ (blue) and $1000$ (green). More copies do not go below the floor.
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\begin{tikzpicture}\sgdB{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Every $R_X(2\beta)$ applied as $R_X(2\beta+\delta)$, $\delta = 0.05$: the device computes $F(\beta+\delta/2,\gamma)$, least at the circle.
+    \item The clouds shrink onto the circle, $0.025$ from the minimiser of $F$ (cross).
+    \item There $\nabla F = (-4\sin2\delta,0)$ (four times the arrow): $\|\nabla F\|^2 = 0.160 = \zeta^2$, the floor.
+    \item Over the clouds $0.68$, $0.22$ and $0.17$ for $M = 10$, $100$ and $1000$: more copies do not go below the floor.
 \end{itemize}\end{column}\end{columns}}
 \end{frame}
 
-% two costs that no device with bias b can distinguish: -cos(theta) and -cos(theta - 0.6)
-\mode<all>{\gdef\twocostfig#1{\begin{axis}[#1,width=\tcW,height=\tcH,clip=false,axis lines=left,xmin=-3.1416,xmax=3.1416,ymin=-1.15,ymax=1.15,xtick={-3.1416,-1.5708,0,1.5708,3.1416},xticklabels={$-\pi$,$-\frac\pi2$,$0$,$\frac\pi2$,$\pi$},ytick={-1,-0.5,0,0.5,1},xlabel={$\theta$},ylabel={cost},samples=150,domain=-3.1416:3.1416,no markers,thick]
+% the path of the first run of stochastic gradient descent on the worked example, M = 100, from (0.1, -0.1), for the
+% steps 0.002 (orange), 0.027 (blue) and 0.1 (red), with a bead every 100 steps up to K = 1000, and the level curves
+% F = F(theta_0), -2.25, -2.5, -2.75, -2.9 (grey)
+\mode<all>{\gdef\stepsfig#1{\begin{axis}[#1,width=\stW,height=\stH,scale only axis,axis equal image,clip mode=individual,xmin=0.05,xmax=0.55,ymin=-0.9,ymax=-0.05,xtick={0.1,0.3,0.5},ytick={-0.8,-0.6,-0.4,-0.2},xlabel={$\beta$},ylabel={$\gamma$},no markers,filter discard warning=false]
+  \addplot[gray,thin] table[x=b0,y=g0] {figures/ch08/gd_levels.dat};
+  \addplot[gray,thin] table[x=b1,y=g1] {figures/ch08/gd_levels.dat};
+  \addplot[gray,thin] table[x=b2,y=g2] {figures/ch08/gd_levels.dat};
+  \addplot[gray,thin] table[x=b3,y=g3] {figures/ch08/gd_levels.dat};
+  \addplot[gray,thin] table[x=b4,y=g4] {figures/ch08/gd_levels.dat};
+  \addplot[red!75!black,very thin] table[x=b12,y=g12] {figures/ch08/sgd_steps_paths.dat};
+  \addplot[orange!90!black,semithick] table[x=b0,y=g0] {figures/ch08/sgd_steps_paths.dat};
+  \addplot[blue!70!black,semithick] table[x=b8,y=g8] {figures/ch08/sgd_steps_paths.dat};
+  \addplot[orange!90!black,only marks,mark=*,mark size=1.4pt,each nth point=100] table[x=b0,y=g0] {figures/ch08/sgd_steps_paths.dat};
+  \fill[black] (axis cs:0.1,-0.1) circle (1.6pt);
+  \draw[black,thick] (axis cs:0.3827,-0.7854) -- (axis cs:0.4027,-0.7854); \draw[black,thick] (axis cs:0.3927,-0.7954) -- (axis cs:0.3927,-0.7754);
+  \ona{\node[note,anchor=west] (w4) at (axis cs:0.62,-0.08) {the start $(0.1,-0.1)$; level curves of $F$ (grey)};
+  \draw[notearrow] (w4.west) to[bend right=15] (axis cs:0.11,-0.095);
+  \node[note,anchor=west] (w1) at (axis cs:0.62,-0.3) {$\alpha = 0.002$ (orange), a bead every $100$ steps:\\the path crawls, and needs $387$ steps to come\\within $0.05$ of the minimiser; over $K = 1000$\\steps $\|\nabla F\|^2$ averages $0.46$ ($200$ runs), the\\first term of the bound, $2(F(\boldsymbol\theta_0)-F^*)/(\alpha K)$,\\being $0.92$};
+  \draw[notearrow] (w1.west) to[bend right=10] (axis cs:0.31,-0.345);
+  \node[note,anchor=west] (w2) at (axis cs:0.62,-0.56) {$\alpha = 0.027$, near the best step $\alpha^* = 0.028$\\of the bound (blue): within $0.05$ after $29$\\steps, before its first bead, and then close;\\$0.057$ on average, against the bound $0.133$};
+  \draw[notearrow] (w2.west) to[bend right=10] (axis cs:0.33,-0.55);
+  \node[note,anchor=west] (w3) at (axis cs:0.62,-0.82) {$\alpha = 0.1$, beyond $1/L$ (red): within $0.05$ after\\$6$ steps, but each step overshoots across the\\valley along $\beta$, where $\alpha$ times the curvature\\is $1.6$, and the noise, scaled by $\alpha$, keeps it\\$0.04$ from the minimiser; $0.32$ on average};
+  \draw[notearrow] (w3.west) to[bend left=10] (axis cs:0.44,-0.8);}
+\end{axis}}}
+\begin{frame}\ft{Choosing the step}
+\ona{The bound \eqref{eq:ch08:sgd} is the sum of a term that decreases with the step and one that increases with it. Figure~\ref{fig:ch08:steps} shows what the two describe, with one run of stochastic gradient descent on the worked example for each of three steps, $M = 100$ copies for each circuit, and a bead every $100$ steps. With $\alpha = 0.002$ the path crawls: it needs $387$ steps to come within $0.05$ of the minimiser, and over $K = 1000$ iterations the average of $\|\nabla F\|^2$ over $200$ runs is $0.46$, mostly the first term, $2(F(\boldsymbol\theta_0)-F^*)/(\alpha K) = 0.92$. With $\alpha = 0.1$, beyond $1/L$, the path arrives within $6$ steps, but each step overshoots across the valley along $\beta$, where $\alpha$ times the curvature is $1.6$, and the noise, multiplied by $\alpha$, keeps it about $0.04$ from the minimiser. Its average, $0.32$, exceeds the expression of the bound, $0.26$, which does not apply there. Between them, the bound is least at $\alpha^* = (2(F(\boldsymbol\theta_0)-F^*)/(LVK))^{1/2} = 0.028$, the step of Corollary~\ref{cor:ch08:unbiased}, where it is $0.133$, with $L = 20$ and $MV = 12$ as in Fig.~\ref{fig:ch08:sgd}. With $\alpha = 0.027$ the path arrives within $29$ steps and stays close. Over $200$ runs at $13$ steps between $0.002$ and $0.1$, the average is least at this step, where it is $0.057$, and it stays within a factor of $2.4$ of the bound for every $\alpha\le1/L$.}
+\ona{\gdef\stW{0.24\linewidth}\gdef\stH{0.408\linewidth}}\onp{\gdef\stW{3cm}\gdef\stH{5.1cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\stepsfig{}\end{tikzpicture}
+\caption{One run of stochastic gradient descent on the worked example from $(0.1,-0.1)$ with $M = 100$ copies of each circuit, for the steps $\alpha = 0.002$ (orange, a bead every $100$ steps), $0.027$ (blue) and $0.1$ (red), up to $K = 1000$, with the minimiser $(\pi/8,-\pi/4)$ (cross) and level curves of $F$ (grey).}\label{fig:ch08:steps}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.36\textwidth}\centering\begin{tikzpicture}\stepsfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.62\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item One run for each step, $M = 100$, from $(0.1,-0.1)$; a bead every $100$ steps.
+    \item $\alpha = 0.002$ (orange): the path crawls, $387$ steps to come within $0.05$; over $K = 1000$ steps $\|\nabla F\|^2$ averages $0.46$: the first term of the bound, $0.92$.
+    \item $\alpha = 0.027$, near $\alpha^* = 0.028$ (blue): within $0.05$ after $29$ steps, then close; $0.057$, against the bound $0.133$.
+    \item $\alpha = 0.1>1/L$ (red): within $0.05$ after $6$ steps, then each step overshoots along $\beta$ and the noise scatters it; $0.32$, the noise term.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% two costs that no device with bias b can distinguish: -cos(theta) and -cos(theta - 0.6); (a) the costs and the band
+% -cos(theta) -+ b in which both lie; (b) their slopes and the larger of the two
+\mode<all>{\gdef\twocostfig#1{\begin{axis}[#1,width=\tcW,height=\tcH,clip mode=individual,axis lines=left,xmin=-3.1416,xmax=3.1416,ymin=-1.15,ymax=1.15,xtick={-3.1416,-1.5708,0,1.5708,3.1416},xticklabels={$-\pi$,$-\frac\pi2$,$0$,$\frac\pi2$,$\pi$},ytick={-1,-0.5,0,0.5,1},xlabel={$\theta$},ylabel={cost},samples=150,domain=-3.1416:3.1416,no markers,thick]
+  \addplot[fill=gray!15,draw=none] table[x=theta,y=c] {figures/ch08/twocost_band.dat};
   \addplot[blue!70!black] {-cos(deg(x))};
   \addplot[red!75!black] {-cos(deg(x-0.6))};
   \addplot[green!40!black,domain=-0.6:1.2] {-0.95534+0.29552*(x-0.3)};
   \addplot[green!40!black,domain=-0.6:1.2] {-0.95534-0.29552*(x-0.3)};
   \draw[{Stealth[length=3pt]}-{Stealth[length=3pt]},black,thin] (axis cs:1.8708,0.2955) -- (axis cs:1.8708,-0.2955);
   \fill[black] (axis cs:0.3,-0.95534) circle (1.6pt);
-  \ona{\node[note,anchor=west] (t1) at (axis cs:3.5,1.0) {$C_1 = -\cos\theta$ (blue),\\$C_2 = -\cos(\theta-\delta)$ (red)};
-  \node[note,anchor=west] (t2) at (axis cs:3.5,0.25) {the largest difference,\\$b = 2\sin\frac\delta2 = 0.59$: a device\\for $C_1$ is one for $C_2$\\with bias $b$};
+  \fill[blue!70!black] (axis cs:0,-1) circle (1.6pt); \fill[red!75!black] (axis cs:0.6,-1) circle (1.6pt);
+  \ona{\node[note,anchor=west] (t1) at (axis cs:3.5,1.0) {$C_1 = -\cos\theta$ (blue),\\$C_2 = -\cos(\theta-\delta)$ (red), with\\their minimisers $0$ and $\delta$ (dots)};
+  \node[note,anchor=west] (t2) at (axis cs:3.5,0.3) {the largest difference,\\$b = 2\sin\frac\delta2 = 0.59$ (arrow):\\$C_2$ lies in the band $C_1\pm b$\\(shaded), so a device for $C_1$\\is one for $C_2$ with bias $b$};
   \draw[notearrow] (t2.west) to[bend right=10] (axis cs:1.92,0.1);
-  \node[note,anchor=west] (t3) at (axis cs:3.5,-0.7) {at every point, one slope\\is at least $\frac12\sin\delta = 0.28$;\\midway, both are $0.30$};
+  \node[note,anchor=west] (t3) at (axis cs:3.5,-0.75) {midway between the minimisers,\\both slopes are $\sin\frac\delta2 = 0.30$\\(green)};
   \draw[notearrow] (t3.west) to[bend left=15] (axis cs:1.0,-0.76);}
+\end{axis}}
+\gdef\twoslopefig#1{\begin{axis}[#1,width=\tcW,height=\tcH,clip=false,axis lines=left,xmin=-3.1416,xmax=3.1416,ymin=0,ymax=1.1,xtick={-3.1416,-1.5708,0,1.5708,3.1416},xticklabels={$-\pi$,$-\frac\pi2$,$0$,$\frac\pi2$,$\pi$},ytick={0,0.5,1},xlabel={$\theta$},ylabel={slope},samples=301,domain=-3.1416:3.1416,no markers,thick]
+  \addplot[blue!70!black,semithick] {abs(sin(deg(x)))};
+  \addplot[red!75!black,semithick] {abs(sin(deg(x-0.6)))};
+  \addplot[black,very thick,densely dashed] {max(abs(sin(deg(x))),abs(sin(deg(x-0.6))))};
+  \draw[gray,densely dotted,thick] (axis cs:-3.1416,0.2823) -- (axis cs:3.1416,0.2823);
+  \fill[black] (axis cs:0.3,0.2955) circle (1.6pt); \fill[black] (axis cs:-2.8416,0.2955) circle (1.6pt);
+  \ona{\node[note,anchor=west] (h1) at (axis cs:3.5,1.0) {$|C_1'| = |\sin\theta|$ (blue) and\\$|C_2'| = |\sin(\theta-\delta)|$ (red)};
+  \node[note,anchor=west] (h2) at (axis cs:3.5,0.62) {the larger of the two (dashed):\\at every $\theta$, one cost has\\a slope of at least\dots};
+  \draw[notearrow] (h2.west) to[bend right=10] (axis cs:1.6,0.99);
+  \node[note,anchor=west] (h3) at (axis cs:3.5,0.22) {\dots$\frac12\sin\delta = 0.28$ (dotted), the\\bound of the proof; the least is\\$\sin\frac\delta2 = 0.30$, midway (dots)};
+  \draw[notearrow] (h3.west) to[bend left=10] (axis cs:0.4,0.27);}
 \end{axis}}}
 \begin{frame}\ft{The floor cannot be removed}
 \onp{\scriptsize}
@@ -375,10 +854,14 @@ Let $d\ge1$, $a>0$ and $0<\delta<\pi$, and let $C_1(\boldsymbol\theta) = -a\cos(
 \ona{\emph{Proof.} A device whose estimates have the mean $C_1$ is a device for $C_1$ without bias and a device for $C_2$ with bias $C_1-C_2$, which is at most $b$. The method receives the same estimates in both cases, and its output has the same distribution. With $s = \sum_j\hat\theta_j$, $\|\nabla C_1(\hat{\boldsymbol\theta})\| = a\sqrt d\,|\sin s|$ and $\|\nabla C_2(\hat{\boldsymbol\theta})\| = a\sqrt d\,|\sin(s-\delta)|$, and $|\sin s|+|\sin(s-\delta)|\ge\sin\delta$, since $\sin\delta = \sin s\cos(s-\delta)-\cos s\sin(s-\delta)$. Hence $\|\nabla C_1\|^2+\|\nabla C_2\|^2\ge\frac12(\|\nabla C_1\|+\|\nabla C_2\|)^2\ge\frac12da^2\sin^2\delta$, the larger of the two expectations is at least $\frac14da^2\sin^2\delta$, and $a\sin\delta = b\cos(\delta/2)$. \qed}
 \onp{Proof: the method cannot tell $C_1$ from $C_2$, and at every point one of the two gradients has norm at least $\frac12a\sqrt d\sin\delta$.}
 
-\ona{As $\delta\to0$, no method can guarantee less than about $db^2/4$, however many copies and iterations it uses, and the floor $db^2$ of Corollary~\ref{cor:ch08:psr} is attained up to a factor of about $4$. The bias in the proposition is a coherent error of a single gate. Figure~\ref{fig:ch08:twocost} shows the case $d = 1$.}
+\ona{As $\delta\to0$, no method can guarantee less than about $db^2/4$, however many copies and iterations it uses, and the floor $db^2$ of Corollary~\ref{cor:ch08:psr} is attained up to a factor of about $4$. The bias in the proposition is a coherent error of a single gate. Figure~\ref{fig:ch08:twocost} shows the case $d = 1$: in (a), the two costs and the band of width $2b$ about $C_1$ that contains $C_2$; in (b), the two slopes, the larger of which never falls below $\frac12\sin\delta$.}
 \ona{\gdef\tcW{0.5\linewidth}\gdef\tcH{0.4\linewidth}}\onp{\gdef\tcW{6.2cm}\gdef\tcH{5cm}}
-\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\twocostfig{}\end{tikzpicture}
-\caption{The two costs of Proposition~\ref{propn:ch08:floor} for $d = 1$, $a = 1$ and $\delta = 0.6$, with their tangents (green) at the point midway between their minimisers, $0$ and $\delta$, and their largest difference $b$ (black arrow).}\label{fig:ch08:twocost}\end{figure}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\twocostfig{name=tca}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.5cm]tca.north west) {(a)};
+\twoslopefig{at={(tca.south west)},anchor=north west,yshift=-1.5cm,name=tcb}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.5cm]tcb.north west) {(b)};
+\end{tikzpicture}
+\caption{The two costs of Proposition~\ref{propn:ch08:floor} for $d = 1$, $a = 1$ and $\delta = 0.6$. (a) The costs, with their tangents (green) at the point midway between their minimisers $0$ and $\delta$, their largest difference $b$ (arrow), and the band $C_1\pm b$ (shaded). (b) The absolute values of their slopes, the larger of the two (dashed), and the bound $\frac12\sin\delta$ of the proof (dotted).}\label{fig:ch08:twocost}\end{figure}}
 \end{frame}
 
 \begin{frame}\ft{Two costs that a device cannot distinguish}
@@ -386,8 +869,19 @@ Let $d\ge1$, $a>0$ and $0<\delta<\pi$, and let $C_1(\boldsymbol\theta) = -a\cos(
 \begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
     \item $C_1 = -\cos\theta$ (blue) and $C_2 = -\cos(\theta-\delta)$ (red), $\delta = 0.6$: the same circuit without and with a fixed rotation $R_Y(-\delta)$.
     \item They differ by at most $b = 2\sin(\delta/2) = 0.59$ (arrow): a device for $C_1$ is a device for $C_2$ with bias $b$.
-    \item At every point one of the two slopes is at least $\frac12\sin\delta = 0.28$; midway between the minimisers, both are $\sin\frac\delta2 = 0.30$ (green).
+    \item $C_2$ lies in the band $C_1\pm b$ (shaded): the estimates of a device cannot tell the two apart.
+    \item Midway between the minimisers, both slopes are $\sin\frac\delta2 = 0.30$ (green).
     \item With $d$ rotations: no method guarantees less than about $db^2/4$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{One of the two slopes is large}
+\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\twoslopefig{}\end{tikzpicture}\end{column}
+\begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item The slopes $|C_1'| = |\sin\theta|$ (blue) and $|C_2'| = |\sin(\theta-\delta)|$ (red), $\delta = 0.6$.
+    \item The larger of the two (dashed) is at least $\frac12\sin\delta = 0.28$ (dotted), since $|\sin s|+|\sin(s-\delta)|\ge\sin\delta$.
+    \item It is least, $\sin\frac\delta2 = 0.30$, midway between the minimisers (dots).
+    \item Whatever the method returns, its output has a slope of at least $0.28$ for one of the two costs.
 \end{itemize}\end{column}\end{columns}}
 \end{frame}
 
@@ -410,6 +904,24 @@ and for $\alpha\le1/((8d+1)L)$ the iterates of simultaneous perturbation satisfy
 \onp{Proof: Taylor's theorem to third order, $\mathbb E\,|\boldsymbol\Delta^\top\boldsymbol v|\le1$ for unit $\boldsymbol v$, the descent lemma for the second moment, and the theorem on biased estimates with $A = 8d$.}
 
 \ona{The bias of the values enters as $b/c$, which calls for a large perturbation, and the error of the Taylor expansion as $\kappa c^2$, which calls for a small one. The best choice, $c^3 = b/(2\kappa)$, gives the floor $2(\kappa c^2+b/c)^2 = 9\cdot2^{-1/3}\kappa^{2/3}b^{4/3}$, which decreases with $b$ more slowly than the floor $db^2$ of the parameter-shift rule. The step is smaller by a factor of about $8d$, and the number of iterations larger by a factor of the order of $d$; each iteration, however, requires $2$ circuits instead of $2d$. This is the trade-off of the estimators compared in \Chap~\chref{C.PSR}, now over many iterations. The theorem of \citet{kungurtsev2022iteration} for simultaneous perturbation has the same three terms.}
+\end{frame}
+
+\begin{frame}\ft{A bias that varies smoothly}
+\onp{\footnotesize}
+\ona{The term $b/c$ of Proposition~\ref{propn:ch08:spsa} allows a bias that changes by $2b$ between two points at the distance $2c\sqrt d$, however small $c$ is. The bias of a device need not behave so badly. If the noise does not depend on the angles, the proposition on noise of \Chap~\chref{C.PSR} shows that the cost $\tilde C$ that the device computes has the frequencies of $C$, and so does the bias $\tilde C-C$; the over-rotated mixer of the worked example is an instance, with $\tilde F(\beta,\gamma) = F(\beta+\delta/2,\gamma)$.}
+\begin{propn}\label{propn:ch08:smooth}
+Let $C$ and $\tilde C$ be Hermitian trigonometric polynomials of degrees at most $R_j$ in $\theta_j$, with $|\tilde C-C|\le b$, and let $\tilde W$ be half the width of the range of $\tilde C$. Then $\|\nabla\tilde C-\nabla C\|\le\|\boldsymbol R\|\,b$, and the estimate of simultaneous perturbation from the device has the bias
+\begin{equation}\label{eq:ch08:smooth}
+    \|\mathbb E\,\boldsymbol g-\nabla C(\boldsymbol\theta)\|\le\|\boldsymbol R\|\,b+\tilde\kappa c^2,\qquad\tilde\kappa = \|\boldsymbol R\|^3\tilde W d^{3/2}/6.
+\end{equation}
+\end{propn}
+\ona{\emph{Proof.} The range of $\tilde C-C$ lies in $[-b,b]$, and Lemma~\ref{lem:ch08:derivs} applied to it gives the first claim. The mean of the estimate is $\mathbb E[\tilde C(\boldsymbol\theta+c\boldsymbol\Delta)-\tilde C(\boldsymbol\theta-c\boldsymbol\Delta)]\boldsymbol\Delta/(2c)$, which, as in the proof of Proposition~\ref{propn:ch08:spsa} with $\tilde C$ in place of $C$, differs from $\nabla\tilde C(\boldsymbol\theta)$ by at most $\tilde\kappa c^2$, since $|D^3\tilde C[\boldsymbol h,\boldsymbol h,\boldsymbol h]|\le\|\boldsymbol R\|^3\tilde W\|\boldsymbol h\|^3$ by Lemma~\ref{lem:ch08:derivs}. \qed}
+\onp{Proof: the lemma on derivatives applied to $\tilde C-C$, whose range lies in $[-b,b]$, and the Taylor argument of the previous proposition for $\tilde C$.}
+\begin{itemize}\setlength\itemsep{0.15em}
+    \item The term $b/c$ becomes $\|\boldsymbol R\|\,b$, which does not grow as $c\to0$. In the same way, the term $2db^2/c^2$ of the second moment \eqref{eq:ch08:spsa} becomes $2d^2\|\boldsymbol R\|^2b^2$, and only the shot noise, $d\sigma^2/(2Mc^2)$, still grows.
+    \item The floor $2(\|\boldsymbol R\|b+\tilde\kappa c^2)^2$ tends to $2\|\boldsymbol R\|^2b^2$, which is $2db^2$ for $d$ Pauli rotations: the order of the floor $db^2$ of the parameter-shift rule.
+    \item In the worked example with the over-rotated mixer, $b = 2\sin\delta = 0.10$ on the angles of QAOA: $b/c = 1.0$ for $c = 0.1$, against $\|\nabla\tilde F-\nabla F\|\le8\sin\delta = 0.40$ and $\|\boldsymbol R\|\,b = \sqrt{20}\cdot0.10 = 0.45$.
+\end{itemize}
 \end{frame}
 
 \begin{frame}\ft{Gaussian smoothing under bias}
@@ -440,37 +952,163 @@ simultaneous perturbation & $2$ & $\kappa c^2+b/c$ & $1/((8d+1)L)$ & $9\cdot2^{-
 two-point & $2$ & $2\sqrt{2/\pi}\,b/c$, for $C_c$ & $1/((16d+65)L)$ & $\frac8{\sqrt\pi}\,L(d+3)^{3/2}\,b$ \\
 any method & & & & at least $\approx db^2/4$ \\\bottomrule
 \end{tabular}}}}
-% the floors as functions of the bias, for d = 8 Pauli rotations and |O| = 1
-\mode<all>{\gdef\floorsfig#1{\begin{axis}[#1,width=\flW,height=\flH,xmode=log,ymode=log,xmin=1e-5,xmax=0.1,ymin=1e-10,ymax=1e3,ytick={1e-10,1e-8,1e-6,1e-4,1e-2,1,1e2},xlabel={bias $b$ of a value},ylabel={floor},clip=false,no markers,thick]
-  \addplot[green!40!black] table[x=b,y=psr] {figures/ch08/floors.dat};
-  \addplot[blue!70!black] table[x=b,y=spsa] {figures/ch08/floors.dat};
-  \addplot[red!75!black] table[x=b,y=twopoint] {figures/ch08/floors.dat};
-  \addplot[gray,densely dotted,thin,domain=1e-5:0.1] {8};
-  \ona{\node[font=\scriptsize,green!40!black,anchor=west] at (axis cs:0.1,0.08) {shift rule};
-  \node[font=\scriptsize,blue!70!black,anchor=west] at (axis cs:0.1,6.4) {SPSA};
-  \node[font=\scriptsize,red!75!black,anchor=west] at (axis cs:0.1,132) {two-point};
-  \node[note,anchor=west] (f1) at (axis cs:0.4,3e-4) {$\|\nabla C\|^2\le d = 8$ everywhere\\(dotted): a floor above\\this line says nothing};
-  \draw[notearrow] (f1.west) to[bend left=20] (axis cs:0.03,8);
-  \node[note,anchor=west] (f2) at (axis cs:0.4,1e-8) {slopes $2$, $\frac43$ and $1$:\\for a small bias the\\shift rule is far ahead};
-  \draw[notearrow] (f2.west) to[bend left=15] (axis cs:3e-3,8e-5);}
+% secants on a biased cost: the cost -cos(phi) (black) and the values of a device, -cos(phi) + b sin(25 phi + 1) with
+% b = 0.06 (grey); (a) at phi_0 = 1, the tangent (green, dashed) and the central differences of half-width c = 0.06
+% (red), the best c = (b/2 kappa)^(1/3) = 0.5646 (blue) and c = 1.3 (orange) on the values of the device, as lines
+% through their two points; (b) the shift rule, half the difference of the values at phi_0 +- pi/2
+\mode<all>{\gdef\secfig#1{\begin{axis}[#1,width=\scW,height=\scH,scale only axis,clip mode=individual,axis lines=left,xmin=-0.45,xmax=2.45,ymin=-1.2,ymax=1.0,xtick={0,1,2},xticklabels={$0$,$\phi_0 = 1$,$2$},ytick={-1,-0.5,0,0.5},xlabel={$\phi$},ylabel={value},no markers]
+  \addplot[gray,semithick,samples=600,domain=-0.45:2.45] {-cos(deg(x))+0.06*sin(deg(25*x+1))};
+  \addplot[black,thick,samples=100,domain=-0.45:2.45] {-cos(deg(x))};
+  \addplot[green!40!black,thick,densely dashed,domain=0.35:1.7,samples=2] {-0.5403+0.8415*(x-1)};
+  \addplot[red!75!black,thick,domain=0.75:1.25,samples=2] {-0.5361+1.4863*(x-1)};
+  \addplot[blue!70!black,thick,domain=0.3:1.72,samples=2] {-0.45545+0.8662*(x-1)};
+  \addplot[orange!90!black,thick,domain=-0.4:2.4,samples=2] {-0.1231+0.6501*(x-1)};
+  \fill[red!75!black] (axis cs:0.94,-0.6253) circle (1.5pt); \fill[red!75!black] (axis cs:1.06,-0.4469) circle (1.5pt);
+  \fill[blue!70!black] (axis cs:0.4354,-0.9445) circle (1.5pt); \fill[blue!70!black] (axis cs:1.5646,0.0336) circle (1.5pt);
+  \fill[orange!90!black] (axis cs:-0.3,-0.9682) circle (1.5pt); \fill[orange!90!black] (axis cs:2.3,0.7220) circle (1.5pt);
+  \fill[black] (axis cs:1,-0.5403) circle (1.5pt);
+  \ona{\node[note,anchor=west] (s1) at (axis cs:2.75,1.1) {the cost $-\cos\phi$ (black) and the values of a\\device (grey), with a bias of at most $b = 0.06$\\that changes quickly with the angle};
+  \draw[notearrow] (s1.west) to[bend right=15] (axis cs:2.2,0.62);
+  \node[note,anchor=west] (s2) at (axis cs:2.75,0.48) {$c = 1.3$ (orange): the bias hardly matters,\\but the cost bends away from its tangent:\\slope $0.65$, an error of $-0.19$, of the order\\of $\kappa c^2 = 0.28$, with $\kappa = \frac16$};
+  \draw[notearrow] (s2.west) to[bend right=10] (axis cs:2.0,0.53);
+  \node[note,anchor=west] (s3) at (axis cs:2.75,0.1) {the tangent at $\phi_0$ (green, dashed): slope $0.84$};
+  \draw[notearrow] (s3.west) to[bend left=10] (axis cs:1.6,0.0);
+  \node[note,anchor=west] (s4) at (axis cs:2.75,-0.2) {$c = (b/2\kappa)^{1/3} = 0.56$ (blue): the two\\errors balance; slope $0.87$, an error of $0.025$};
+  \draw[notearrow] (s4.west) to[bend left=12] (axis cs:1.62,0.07);
+  \node[note,anchor=west] (s5) at (axis cs:2.75,-0.7) {$c = 0.06$ (red): the two values differ by the\\bias as much as by the cost; slope $1.49$, an\\error of $0.64$, of the order of $b/c = 1$};
+  \draw[notearrow] (s5.west) to[bend left=15] (axis cs:1.2,-0.33);
+  \node[note,anchor=north west] (s6) at (axis cs:-0.4,0.95) {the dots: the two values of each\\central difference, $\phi_0\pm c$};
+  \draw[notearrow] ([xshift=0.6cm]s6.south west) to[bend right=15] (axis cs:-0.29,-0.93);}
+\end{axis}}
+\gdef\psrsecfig#1{\begin{axis}[#1,width=\scW,height=\scH,scale only axis,clip mode=individual,axis lines=left,xmin=-0.8,xmax=2.8,ymin=-1.2,ymax=1.0,xtick={-0.5708,1,2.5708},xticklabels={$\phi_0-\frac\pi2$,$\phi_0$,$\phi_0+\frac\pi2$},ytick={-1,-0.5,0,0.5},xlabel={$\phi$},ylabel={value},no markers]
+  \addplot[gray,semithick,samples=700,domain=-0.8:2.8] {-cos(deg(x))+0.06*sin(deg(25*x+1))};
+  \addplot[black,thick,samples=100,domain=-0.8:2.8] {-cos(deg(x))};
+  \addplot[green!40!black,densely dotted,thick,domain=-0.75:2.75,samples=2] {0.5604*(x-1)};
+  \addplot[green!40!black,thick,densely dashed,domain=0.2:1.8,samples=2] {-0.5403+0.8415*(x-1)};
+  \addplot[green!40!black,thick,domain=0.25:1.75,samples=2] {-0.5403+0.8803*(x-1)};
+  \draw[green!40!black,thin,|-|] (axis cs:-0.5708,-0.8403) -- (axis cs:-0.5708,-0.9203);
+  \draw[green!40!black,thin,|-|] (axis cs:2.5708,0.8403) -- (axis cs:2.5708,0.9203);
+  \fill[green!40!black] (axis cs:-0.5708,-0.8803) circle (1.6pt); \fill[green!40!black] (axis cs:2.5708,0.8803) circle (1.6pt);
+  \fill[black] (axis cs:1,-0.5403) circle (1.5pt);
+  \ona{\node[note,anchor=west] (q1) at (axis cs:3.1,1.0) {the shift rule evaluates the device at\\$\phi_0\pm\pi/2$, far apart (dots); the bars\\are $\pm b$};
+  \draw[notearrow] (q1.west) to[bend right=10] (axis cs:2.62,0.89);
+  \draw[notearrow] (q1.west) to[bend right=25] (axis cs:-0.5,-0.87);
+  \node[note,anchor=west] (q2) at (axis cs:3.1,0.45) {the secant through them (dotted) has the\\slope $0.56$; times $\pi/2$ it is $0.88$: for a\\sinusoid, half the difference of the two\\values is the derivative exactly};
+  \draw[notearrow] (q2.west) to[bend right=10] (axis cs:2.2,0.68);
+  \node[note,anchor=west] (q3) at (axis cs:3.1,-0.07) {the estimate (green) against the tangent\\(dashed): $0.880$ against $0.841$};
+  \draw[notearrow] (q3.west) to[bend left=10] (axis cs:1.6,0.0);
+  \node[note,anchor=west] (q4) at (axis cs:3.1,-0.52) {a bias of at most $b$ in each value changes\\the estimate by at most $b$, here by $0.039$:\\no small $c$ divides it, and the Taylor\\expansion plays no part};
+  \draw[notearrow] (q4.west) to[bend left=10] (axis cs:1.45,-0.19);
+  \node[note,anchor=west] (q5) at (axis cs:3.1,-1.02) {hence the floor $db^2$, the lowest of the three};}
 \end{axis}}}
 \begin{frame}\ft{The floors compared}
-\ona{Table~\ref{tab:ch08:floors} collects the three estimators. For a small bias the floors are ordered: the parameter-shift rule, with $b^2$, simultaneous perturbation, with $b^{4/3}$, and the two-point estimator, with $b$. Figure~\ref{fig:ch08:floors} shows them for a circuit of $d = 8$ Pauli rotations with $\|O\| = 1$, for which Lemma~\ref{lem:ch08:derivs} gives $L = 8$ and $L_3 = 8^{3/2}$, and $\kappa = d^3/6 = 85.3$; the floors are $8b^2$, $138\,b^{4/3}$ and $1317\,b$. For $b = 10^{-3}$ they are $8\cdot10^{-6}$, $0.014$ and $1.3$. These are worst-case bounds, and the two-point bound exceeds $\max\|\nabla C\|^2 = 8$, and says nothing, once $b>0.006$. The conclusions agree with those of \citet{kungurtsev2022iteration}: the parameter-shift rule has the lowest floor and the smallest constants, simultaneous perturbation has a free parameter $c$ that trades the bias of the device against that of the estimator, and the two-point estimator is the method of last resort.}
-\ona{\gdef\flW{0.5\linewidth}\gdef\flH{0.38\linewidth}}\onp{\gdef\flW{6.2cm}\gdef\flH{5.4cm}}
+\ona{Table~\ref{tab:ch08:floors} collects the three estimators. For a small bias the floors are ordered: the parameter-shift rule, with $b^2$, simultaneous perturbation, with $b^{4/3}$, and the two-point estimator, with $b$. For a circuit of $d = 8$ Pauli rotations with $\|O\| = 1$, for which Lemma~\ref{lem:ch08:derivs} gives $L = 8$ and $L_3 = 8^{3/2}$, and $\kappa = d^3/6 = 85.3$, the floors are $8b^2$, $138\,b^{4/3}$ and $1317\,b$. For $b = 10^{-3}$ they are $8\cdot10^{-6}$, $0.014$ and $1.3$. These are worst-case bounds, and the two-point bound exceeds $\max\|\nabla C\|^2 = 8$, and says nothing, once $b>0.006$. The conclusions agree with those of \citet{kungurtsev2022iteration}: the parameter-shift rule has the lowest floor and the smallest constants, simultaneous perturbation has a free parameter $c$ that trades the bias of the device against that of the estimator, and the two-point estimator is the method of last resort. Figure~\ref{fig:ch08:secants}(b) shows why the shift rule has the lowest floor: it takes the difference of two values that lie far apart, and does not divide the bias by a small perturbation.}
 \onp{\begin{center}\scriptsize\floortab{0.19}{0.12}{0.19}{0.16}{0.22}\end{center}}
 \ona{\begin{table}[htb]\centering\caption{The three estimators under a bias $b$ of the values, for $d$ parameters, $\|\nabla^2C\|\le L$ and $\kappa = L_3d^{3/2}/6$, with the floors of Corollary~\ref{cor:ch08:psr} and Propositions~\ref{propn:ch08:spsa} and~\ref{propn:ch08:twopoint} at the best perturbation $c$, and the lower bound of Proposition~\ref{propn:ch08:floor}.}\label{tab:ch08:floors}\footnotesize\floortab{0.2}{0.14}{0.2}{0.17}{0.22}\end{table}}
-\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\floorsfig{}\end{tikzpicture}
-\caption{The floors of the three estimators at their best perturbations, as functions of the bias $b$ of a value, for a circuit of $d = 8$ Pauli rotations with $\|O\| = 1$: the parameter-shift rule (green), simultaneous perturbation (blue) and the two-point estimator (red).}\label{fig:ch08:floors}\end{figure}}
 \onp{\footnotesize For a small bias: shift rule $b^2$, SPSA $b^{4/3}$, two-point $b$; the last is the method of last resort \citep{kungurtsev2022iteration}.}
 \end{frame}
 
-\begin{frame}\ft{The floors as functions of the bias}
-\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\floorsfig{}\end{tikzpicture}\end{column}
+\begin{frame}\ft{Why the shift rule has the lowest floor}
+\onp{\gdef\scW{4.6cm}\gdef\scH{4.2cm}}
+\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\psrsecfig{}\end{tikzpicture}\end{column}
 \begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
-    \item A circuit of $d = 8$ Pauli rotations with $\|O\| = 1$: $L = 8$, $L_3 = 8^{3/2}$, $\kappa = 85.3$.
-    \item The floors at the best perturbations: $8b^2$ (shift rule, green), $138\,b^{4/3}$ (SPSA, blue), $1317\,b$ (two-point, red).
-    \item At $b = 10^{-3}$: $8\cdot10^{-6}$, $0.014$ and $1.3$.
-    \item Above $\|\nabla C\|^2 = 8$ (dotted) a floor says nothing: the two-point bound is void for $b>0.006$.
+    \item The cost $-\cos\phi$ (black) and the values of a device (grey), with a bias of at most $b = 0.06$.
+    \item The shift rule takes the values at $\phi_0\pm\pi/2$ (dots), far apart: the secant (dotted), times $\pi/2$, is the derivative of a sinusoid exactly.
+    \item A bias of at most $b$ in each value moves the estimate (green) by at most $b$: $0.880$ against $0.841$.
+    \item Nothing divides the bias by a small $c$: the floor $db^2$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{The best perturbation}
+\ona{The floors of Table~\ref{tab:ch08:floors} are taken at the best perturbation $c$. Figure~\ref{fig:ch08:secants}(a) shows why there is a best one, for the cost $-\cos\phi$ of one parameter and a device whose values carry a bias of at most $b = 0.06$ that changes quickly with the angle. A central difference of half-width $c$ at $\phi_0 = 1$ is the slope of the secant through the values at $\phi_0\pm c$. For $c = 0.06$ the two values differ by the bias as much as by the cost, and the slope is $1.49$ instead of $0.84$, an error of the order of $b/c = 1$. For $c = 1.3$ the bias hardly matters, but the cost bends away from its tangent, and the slope is $0.65$, an error of the order of $\kappa c^2 = 0.28$, with $\kappa = \frac16$. At $c = (b/2\kappa)^{1/3} = 0.56$ the two errors balance, and the slope is $0.87$. For simultaneous perturbation in $d$ parameters the floor is $2(\kappa c^2+b/c)^2$, with $\kappa = L_3d^{3/2}/6$. For the circuit of $d = 8$ Pauli rotations above and $b = 10^{-3}$, it is least at $c = (b/2\kappa)^{1/3} = 0.018$, where it is $0.014$, and it is within a factor of $10$ of this only for $c$ between about $0.004$ and $0.05$. The two-point estimator trades the same bias against the smoothing, and its floor is least at $c = 0.0039$, where it is $1.3$. Both are far above the floor $db^2 = 8\cdot10^{-6}$ of the parameter-shift rule, which has no perturbation to choose: in (b), its two values lie $\pi$ apart, the bias moves the estimate by at most $b$, here by $0.039$, and for a sinusoid there is no error of the Taylor expansion at all.}
+\ona{\gdef\scW{0.42\linewidth}\gdef\scH{0.36\linewidth}}\onp{\gdef\scW{4.6cm}\gdef\scH{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\secfig{name=sca}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.5cm]sca.north west) {(a)};
+\psrsecfig{at={(sca.south west)},anchor=north west,yshift=-1.6cm,name=scb}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.5cm]scb.north west) {(b)};
+\end{tikzpicture}
+\caption{Secants on a biased cost: the cost $-\cos\phi$ (black) and the values of a device, $-\cos\phi+b\sin(25\phi+1)$ with $b = 0.06$ (grey). (a) At $\phi_0 = 1$, the tangent (green, dashed) and the central differences of half-width $c = 0.06$ (red), $0.56$ (blue) and $1.3$ (orange) on the values of the device, drawn as lines through their two values (dots). (b) The parameter-shift rule: the values at $\phi_0\pm\pi/2$ (dots) with the bars $\pm b$, the secant through them (dotted), and the estimate, half their difference (green), against the tangent (dashed).}\label{fig:ch08:secants}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\begin{tikzpicture}\secfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item A central difference of half-width $c$ at $\phi_0 = 1$: the secant through the values at $\phi_0\pm c$ (dots); the tangent has the slope $0.84$ (green, dashed).
+    \item $c = 0.06$ (red): the bias dominates, slope $1.49$; error of order $b/c$.
+    \item $c = 1.3$ (orange): the curvature dominates, slope $0.65$; error of order $\kappa c^2$.
+    \item $c = (b/2\kappa)^{1/3} = 0.56$ (blue): they balance, slope $0.87$. For $d = 8$, $b = 10^{-3}$: SPSA $c = 0.018$, floor $0.014$; two-point $c = 0.0039$, floor $1.3$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% the derivative-free estimators on the worked example, M = 100: (a) one run of each on an ideal device, up to 4000 circuits,
+% with a bead every 400 circuits: the shift rule (green, alpha = 1/20), simultaneous perturbation (blue, 1/340; dash-dotted,
+% 1/20) and the two-point estimator (red, 1/1940), c = 0.1; (b) the iterates of 200 runs of each after 48000 circuits on the
+% device with the over-rotated mixer, centred at the minimiser of F (cross), with that of F(beta + delta/2, gamma) (circle)
+\mode<all>{\gdef\dfoA#1{\begin{axis}[#1,width=\dfW,height=\dfH,scale only axis,axis equal image,clip mode=individual,xmin=0.05,xmax=0.6,ymin=-1.05,ymax=-0.05,xtick={0.1,0.3,0.5},ytick={-1,-0.8,-0.6,-0.4,-0.2},xlabel={$\beta$},ylabel={$\gamma$},no markers,filter discard warning=false]
+  \addplot[gray,thin] table[x=b0,y=g0] {figures/ch08/gd_levels.dat};
+  \addplot[gray,thin] table[x=b1,y=g1] {figures/ch08/gd_levels.dat};
+  \addplot[gray,thin] table[x=b2,y=g2] {figures/ch08/gd_levels.dat};
+  \addplot[gray,thin] table[x=b3,y=g3] {figures/ch08/gd_levels.dat};
+  \addplot[gray,thin] table[x=b4,y=g4] {figures/ch08/gd_levels.dat};
+  \addplot[blue!50,thin,densely dashdotted,restrict expr to domain={\thisrow{circuits}}{0:4000}] table[x=bspsafast,y=gspsafast] {figures/ch08/dfo_paths_unbiased.dat};
+  \addplot[red!75!black,semithick,restrict expr to domain={\thisrow{circuits}}{0:4000}] table[x=btwopoint,y=gtwopoint] {figures/ch08/dfo_paths_unbiased.dat};
+  \addplot[blue!70!black,semithick,restrict expr to domain={\thisrow{circuits}}{0:4000}] table[x=bspsa,y=gspsa] {figures/ch08/dfo_paths_unbiased.dat};
+  \addplot[green!40!black,semithick,restrict expr to domain={\thisrow{circuits}}{0:4000}] table[x=bpsr,y=gpsr] {figures/ch08/dfo_paths_unbiased.dat};
+  \addplot[red!75!black,only marks,mark=*,mark size=1.3pt,each nth point=25,restrict expr to domain={\thisrow{circuits}}{0:4000}] table[x=btwopoint,y=gtwopoint] {figures/ch08/dfo_paths_unbiased.dat};
+  \addplot[blue!70!black,only marks,mark=*,mark size=1.3pt,each nth point=25,restrict expr to domain={\thisrow{circuits}}{0:4000}] table[x=bspsa,y=gspsa] {figures/ch08/dfo_paths_unbiased.dat};
+  \addplot[green!40!black,only marks,mark=*,mark size=1.3pt,each nth point=25,restrict expr to domain={\thisrow{circuits}}{0:4000}] table[x=bpsr,y=gpsr] {figures/ch08/dfo_paths_unbiased.dat};
+  \fill[black] (axis cs:0.1,-0.1) circle (1.6pt);
+  \draw[black,thick] (axis cs:0.3827,-0.7854) -- (axis cs:0.4027,-0.7854); \draw[black,thick] (axis cs:0.3927,-0.7954) -- (axis cs:0.3927,-0.7754);
+  \ona{\node[note,anchor=west] (f1) at (axis cs:0.67,-0.08) {the start $(0.1,-0.1)$; a bead every $400$\\circuits on each path};
+  \draw[notearrow] (f1.west) to[bend right=15] (axis cs:0.11,-0.095);
+  \node[note,anchor=west] (f2) at (axis cs:0.67,-0.27) {the shift rule (green): $16$ circuits a step,\\along the gradient; within $0.05$ of the\\minimiser after $256$ circuits};
+  \draw[notearrow] (f2.west) to[bend right=10] (axis cs:0.3,-0.4);
+  \node[note,anchor=west] (f3) at (axis cs:0.67,-0.48) {simultaneous perturbation (blue), step\\$1/340$: $2$ circuits a step, each along a\\diagonal; it zigzags, and arrives after $484$\\circuits, as fast per circuit as the shift rule};
+  \draw[notearrow] (f3.west) to[bend left=5] (axis cs:0.36,-0.6);
+  \node[note,anchor=west] (f4) at (axis cs:0.67,-0.71) {the two-point estimator (red), step $1/1940$:\\random directions and a small step; its\\beads crowd, and it arrives only after\\$3\,670$ circuits};
+  \draw[notearrow] (f4.west) to[bend right=20] (axis cs:0.27,-0.31);
+  \node[note,anchor=west] (f5) at (axis cs:0.67,-0.93) {simultaneous perturbation with the step $1/20$\\(dash-dotted): there after $42$ circuits, but its\\noise, $1/c^2 = 100$ times that of the shift rule,\\keeps it $0.10$ from the minimiser};
+  \draw[notearrow] (f5.west) to[bend left=10] (axis cs:0.47,-0.93);}
+\end{axis}}
+\gdef\dfoB#1{\begin{axis}[#1,width=\dbW,height=\dbW,scale only axis,axis equal image,clip mode=individual,xmin=-0.085,xmax=0.055,ymin=-0.07,ymax=0.07,xtick={-0.05,0,0.05},ytick={-0.05,0,0.05},scaled ticks=false,xticklabel style={/pgf/number format/fixed},yticklabel style={/pgf/number format/fixed},xlabel={$\beta-\pi/8$},ylabel={$\gamma+\pi/4$}]
+  \addplot[gray,thin] table[x expr=\thisrow{b5}-0.392699,y expr=\thisrow{g5}+0.785398] {figures/ch08/gd_levels.dat};
+  \addplot[red!75!black,only marks,mark=*,mark size=0.6pt] table[x expr=\thisrow{btwopoint}-0.392699,y expr=\thisrow{gtwopoint}+0.785398] {figures/ch08/dfo_cloud_biased.dat};
+  \addplot[blue!70!black,only marks,mark=*,mark size=0.6pt] table[x expr=\thisrow{bspsa}-0.392699,y expr=\thisrow{gspsa}+0.785398] {figures/ch08/dfo_cloud_biased.dat};
+  \addplot[green!40!black,only marks,mark=*,mark size=0.6pt] table[x expr=\thisrow{bpsr}-0.392699,y expr=\thisrow{gpsr}+0.785398] {figures/ch08/dfo_cloud_biased.dat};
+  \draw[black,thick] (axis cs:-0.005,0) -- (axis cs:0.005,0); \draw[black,thick] (axis cs:0,-0.005) -- (axis cs:0,0.005);
+  \draw[red!75!black,very thick,fill=white,fill opacity=0.6] (axis cs:-0.025,0) circle (3pt);
+  \ona{\node[note,anchor=west] (g1) at (axis cs:0.07,0.06) {the minimiser of $F(\beta+\delta/2,\gamma)$, which\\the device computes (circle)};
+  \draw[notearrow] (g1.west) to[bend right=25] (axis cs:-0.022,0.004);
+  \node[note,anchor=west] (g2) at (axis cs:0.07,0.025) {$200$ runs of each after $48\,000$ circuits: the\\shift rule (green), simultaneous perturbation\\(blue) and the two-point estimator (red) all\\gather about it};
+  \draw[notearrow] (g2.west) to[bend right=10] (axis cs:-0.01,0.03);
+  \node[note,anchor=west] (g3) at (axis cs:0.07,-0.015) {not about the minimiser of $F$ (cross): the\\bias, not the estimator, decides where they stop};
+  \draw[notearrow] (g3.west) to[bend left=10] (axis cs:0.004,-0.003);
+  \node[note,anchor=west] (g4) at (axis cs:0.07,-0.055) {running averages of $\|\nabla F\|^2$: $0.22$, $0.19$ and\\$0.29$, near $\zeta^2 = 0.160$, although the floor of the\\proposition for simultaneous perturbation is $4.0$:\\the bias varies smoothly};
+  \draw[notearrow] (g4.west) to[bend left=10] (axis cs:-0.035,-0.035);}
+\end{axis}}}
+\begin{frame}\ft{The derivative-free estimators on the worked example}
+\ona{Figure~\ref{fig:ch08:dfo} runs the three estimators on the worked example from $(0.1,-0.1)$, with $M = 100$ copies of each circuit. Each takes the largest step that its result allows: $1/L = 1/20$ for the shift rule, with $16$ circuits for each iteration; $1/((8d+1)L) = 1/340$ for simultaneous perturbation with $c = 0.1$; and $1/((16d+65)L) = 1/1940$ for the two-point estimator with $c = 0.1$, each with $2$ circuits. Simultaneous perturbation is also run with the step $1/20$, which its proposition does not cover. Panel (a) shows one run of each on an ideal device, with a bead every $400$ circuits, so that the beads compare the progress per circuit. The shift rule steps along the gradient and comes within $0.05$ of the minimiser after $256$ circuits. Simultaneous perturbation steps along the diagonals and zigzags, with a step $17$ times smaller and $8$ times as many iterations, but it arrives after $484$ circuits: per circuit it keeps pace with the shift rule. The two-point estimator, with its small step and random directions, arrives only after $3\,670$ circuits. Over $200$ runs, the running average of $\|\nabla F\|^2$ falls below $0.5$ after $672$, $1\,412$ and $8\,822$ circuits, and after $48\,000$ circuits it is $0.062$, $0.035$ and $0.139$. The bound of Proposition~\ref{propn:ch08:spsa}, $2.5$ at the end, exceeds the average of simultaneous perturbation by a factor of about $70$: its constants allow every third derivative of $F$ to be as large as Lemma~\ref{lem:ch08:derivs} permits. The bound of the two-point estimator is void here, since its floor at $c = 0.1$ is $260$, above $\max\|\nabla F\|^2 = 16$. With the step $1/20$, simultaneous perturbation arrives after $42$ circuits, but the $200$ runs end at a root-mean-square distance of $0.10$ from the minimiser, and the average is $0.61$: the shot noise of its estimate, of the order of $d\sigma^2/(Mc^2)$, is $1/c^2 = 100$ times that of the shift rule. Panel (b) shows where $200$ runs of each are after $48\,000$ circuits on the device with the over-rotated mixer. All three gather about the minimiser of $\tilde F$, not that of $F$, and the running averages are $0.22$ for the shift rule, near its floor $\zeta^2 = 0.160$, $0.19$ for simultaneous perturbation and $0.29$ for the two-point estimator, although the floor of Proposition~\ref{propn:ch08:spsa} is $4.0$. The bias of this device varies smoothly, and Proposition~\ref{propn:ch08:smooth} replaces the term $b/c = 1.0$ by $\|\nabla\tilde F-\nabla F\|\le0.40$.}
+\ona{\gdef\dfW{0.25\linewidth}\gdef\dfH{0.4545\linewidth}\gdef\dbW{0.36\linewidth}}\onp{\gdef\dfW{2.9cm}\gdef\dfH{5.27cm}\gdef\dbW{4.3cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\dfoA{name=dfa}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.6cm]dfa.north west) {(a)};
+\dfoB{at={(dfa.south west)},anchor=north west,yshift=-1.6cm,name=dfb}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.6cm]dfb.north west) {(b)};
+\end{tikzpicture}
+\caption{The three estimators on the worked example with $M = 100$ copies of each circuit: the shift rule with $\alpha = 1/20$ (green), simultaneous perturbation with $c = 0.1$ and $\alpha = 1/340$ (blue) or $1/20$ (dash-dotted), and the two-point estimator with $c = 0.1$ and $\alpha = 1/1940$ (red). (a) One run of each on an ideal device, up to $4000$ circuits, with a bead every $400$ circuits, the minimiser (cross) and level curves of $F$ (grey). (b) The iterates of $200$ runs after $48\,000$ circuits on the device with the over-rotated mixer, near the minimiser of $F$ (cross) and that of $\tilde F$ (circle).}\label{fig:ch08:dfo}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.36\textwidth}\centering\begin{tikzpicture}\dfoA{}\end{tikzpicture}\end{column}
+\begin{column}{0.62\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.25em}
+    \item One run of each, $M = 100$, the largest steps the results allow; a bead every $400$ circuits.
+    \item Shift rule (green), $16$ circuits a step along the gradient: within $0.05$ after $256$ circuits.
+    \item SPSA (blue), $2$ circuits a step along a diagonal, step $1/340$: zigzags, and arrives after $484$ circuits, as fast per circuit.
+    \item Two-point (red), step $1/1940$: beads crowd, $3\,670$ circuits.
+    \item SPSA with the step $1/20$ (dash-dotted): there after $42$ circuits, but $100$ times the noise keeps it $0.10$ away.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{The derivative-free estimators under bias}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\begin{tikzpicture}\dfoB{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item The device with the over-rotated mixer, $\delta = 0.05$: $200$ runs of each estimator after $48\,000$ circuits.
+    \item All three gather about the minimiser of $\tilde F$ (circle), not that of $F$ (cross).
+    \item Running averages $0.22$, $0.19$ and $0.29$, near $\zeta^2 = 0.160$; the floor of the SPSA proposition, with $b/c = 1.0$, is $4.0$.
+    \item The bias varies smoothly: the smooth-bias proposition replaces $b/c$ by $\|\nabla\tilde F-\nabla F\|\le0.40$.
 \end{itemize}\end{column}\end{columns}}
 \end{frame}
 
@@ -486,15 +1124,115 @@ any method & & & & at least $\approx db^2/4$ \\\bottomrule
 \ona{Measured in iterations, simultaneous perturbation is thus competitive with the parameter-shift rule at a fraction of the circuits, provided that $c$ is not too small, in agreement with the floors of Table~\ref{tab:ch08:floors}, which favour a large $c$ when the bias is large.}
 \end{frame}
 
+\section{Decreasing steps}\label{sec:ch08:decr}
+
+\begin{frame}\ft{Decreasing steps}
+\onp{\scriptsize}
+\ona{With a constant step, the bound of Theorem~\ref{thm:ch08:sgd} keeps the term $\alpha LV$, and the iterates keep moving under the noise. Stochastic approximation in the sense of \citet{robbins1951stochastic} uses steps $\alpha_k$ that decrease, slowly enough that the iterates can travel any distance, $\sum_k\alpha_k = \infty$, and fast enough that the noise is averaged out, $\sum_k\alpha_k^2<\infty$. The proof rests on a theorem of \citet{robbins1971convergence}: if non-negative random variables $X_k$, $Y_k$ and $Z_k$, determined by the first $k$ iterations, satisfy $\mathbb E[X_{k+1}\,|\,\text{the first }k\text{ iterations}]\le X_k-Y_k+Z_k$ and $\sum_kZ_k<\infty$, then $X_k$ converges and $\sum_kY_k<\infty$, almost surely.}
+\onp{Robbins--Siegmund \citep{robbins1971convergence}: if $X_k,Y_k,Z_k\ge0$, $\mathbb E[X_{k+1}\,|\,\text{past}]\le X_k-Y_k+Z_k$ and $\sum Z_k<\infty$, then $X_k$ converges and $\sum Y_k<\infty$, almost surely.}
+\begin{thm}[\citet{robbins1971convergence,bertsekas2000gradient}]\label{thm:ch08:decr}
+Let $\|\nabla^2C\|\le L$, and let the estimate at iteration $k$ satisfy \eqref{eq:ch08:assume} with the constants $\zeta_k$, $A$ and $V_k$. If $\alpha_k\le1/((A+1)L)$ for all $k$ from some $k_0$ on, $\sum_k\alpha_k = \infty$, and
+\begin{equation}\label{eq:ch08:decr}
+    \sum_k\big(\alpha_k\zeta_k^2+\alpha_k^2V_k\big)<\infty,
+\end{equation}
+then $C(\boldsymbol\theta_k)$ converges and $\liminf_k\|\nabla C(\boldsymbol\theta_k)\| = 0$, almost surely.
+\end{thm}
+\ona{\emph{Proof.} The estimate at iteration $k$ depends on the past only through $\boldsymbol\theta_k$, so that conditioning on $\boldsymbol\theta_k$ is conditioning on the first $k$ iterations. The proof of Theorem~\ref{thm:ch08:sgd}, with the step $\alpha_k$, gives for $k\ge k_0$ that $\mathbb E[C(\boldsymbol\theta_{k+1})-C^*\,|\,\boldsymbol\theta_k]\le C(\boldsymbol\theta_k)-C^*-\frac{\alpha_k}2\|\nabla C(\boldsymbol\theta_k)\|^2+\frac12(\alpha_k\zeta_k^2+L\alpha_k^2V_k)$. The theorem of Robbins and Siegmund, with $X_k = C(\boldsymbol\theta_k)-C^*$, $Y_k = \frac{\alpha_k}2\|\nabla C(\boldsymbol\theta_k)\|^2$ and $Z_k = \frac12(\alpha_k\zeta_k^2+L\alpha_k^2V_k)$, shows that $C(\boldsymbol\theta_k)$ converges and $\sum_k\alpha_k\|\nabla C(\boldsymbol\theta_k)\|^2<\infty$, almost surely. If $\|\nabla C(\boldsymbol\theta_k)\|^2\ge\eta>0$ for all large $k$, the sum is infinite, since $\sum_k\alpha_k = \infty$. \qed}
+\onp{Proof: the inequality in the proof of the theorem on biased estimates, with $X_k = C(\boldsymbol\theta_k)-C^*$ and $Y_k = \frac{\alpha_k}2\|\nabla C(\boldsymbol\theta_k)\|^2$.}
+\begin{itemize}\setlength\itemsep{0.15em}
+    \item \citet{bertsekas2000gradient} show more: $\nabla C(\boldsymbol\theta_k)\to0$ almost surely. Every limit point is stationary; which one is not said.
+    \item The steps $\alpha_k = a/(k+1+A)^s$ with $\frac12<s\le1$ satisfy $\sum_k\alpha_k = \infty$ and $\sum_k\alpha_k^2<\infty$, which suffice when $V_k\le V$ and $\zeta_k = 0$.
+    \item A constant bias $\zeta>0$ makes $\sum_k\alpha_k\zeta^2$ infinite: decreasing steps average the noise out, not the bias.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{Simultaneous perturbation with decreasing gains}
+\onp{\footnotesize}
+\ona{For simultaneous perturbation the perturbation $c_k$ must decrease as well, for the error of the Taylor expansion to vanish; but the shot noise grows as $1/c_k^2$. The theorem balances the two.}
+\begin{cor}[\citet{spall1992multivariate}]\label{cor:ch08:spsagains}
+On a device without bias, simultaneous perturbation with the gains $\alpha_k = a/(k+1+A)^s$ and $c_k = c/(k+1)^t$, where $s\le1$, $s+4t>1$ and $s-t>\frac12$, satisfies the conclusions of \ona{Theorem~\ref{thm:ch08:decr}}\onp{the theorem on decreasing steps}.
+\end{cor}
+\ona{\emph{Proof.} By the proof of Proposition~\ref{propn:ch08:spsa} with $b = 0$, the estimate at iteration $k$ satisfies \eqref{eq:ch08:assume} with $\zeta_k = \kappa c_k^2$, $A = 8d$ and $V_k = L^2c_k^2d^3+d\sigma^2/(2Mc_k^2)+8d\kappa^2c_k^4$. Hence $\alpha_k\zeta_k^2$ is of the order of $k^{-(s+4t)}$, and $\alpha_k^2V_k$ of the order of $k^{-2(s-t)}$, its largest term being that with $c_k^{-2}$; both are summable under the conditions. As $s\le1$, $\sum_k\alpha_k = \infty$, and as $\alpha_k\to0$, $\alpha_k\le1/((8d+1)L)$ from some $k_0$ on. \qed}
+\onp{Proof: $\zeta_k = \kappa c_k^2$ and $V_k\approx d\sigma^2/(2Mc_k^2)$, so that the terms of \eqref{eq:ch08:decr} are of the orders $k^{-(s+4t)}$ and $k^{-2(s-t)}$.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item The exponents $s = 0.602$ and $t = 0.101$ recommended in practice \citep{spall1998implementation} satisfy both conditions, barely: $s+4t = 1.006$ and $s-t = 0.501$. The asymptotically optimal choice is $s = 1$, $t = \frac16$.
+    \item This is the almost sure convergence of SPSA under decreasing gains quoted in \Chap~\chref{C.QAOA}.
+    \item With a bias $b>0$, $\zeta_k\ge b/c_k$ grows, and the corollary fails. If the bias varies smoothly, \ona{Proposition~\ref{propn:ch08:smooth}}\onp{the smooth-bias proposition} gives $\zeta_k\le\|\boldsymbol R\|\,b+\tilde\kappa c_k^2$, which does not vanish: the iterates approach the stationary points of $\tilde C$, not those of $C$.
+\end{itemize}
+\end{frame}
+
+% decreasing steps on the worked example, M = 100: the iterates of 200 runs, centred at the minimiser of F (cross), for the
+% shift rule with the constant step 1/20 at k = 10^4 (grey) and with the gains a_k = a/(k+101)^0.602, a_0 = 0.05, at
+% k = 100, 1000, 10^4 (green, darker later), and for simultaneous perturbation with a_0 = 0.01 and c_k = 0.2/(k+1)^0.101
+% at k = 10^4 (blue); (a) an ideal device; (b) the over-rotated mixer, with the minimiser of F(beta + delta/2, gamma) (circle)
+\mode<all>{\gdef\decrclouds#1{%
+  \addplot[gray,thin] table[x expr=\thisrow{b5}-0.392699,y expr=\thisrow{g5}+0.785398] {figures/ch08/gd_levels.dat};
+  \addplot[gray,only marks,mark=*,mark size=0.6pt] table[x expr=\thisrow{bconst10000}-0.392699,y expr=\thisrow{gconst10000}+0.785398] {figures/ch08/decr_cloud_#1.dat};
+  \addplot[green!55,only marks,mark=*,mark size=0.6pt] table[x expr=\thisrow{bdecr100}-0.392699,y expr=\thisrow{gdecr100}+0.785398] {figures/ch08/decr_cloud_#1.dat};
+  \addplot[blue!70!black,only marks,mark=*,mark size=0.6pt] table[x expr=\thisrow{bspsa10000}-0.392699,y expr=\thisrow{gspsa10000}+0.785398] {figures/ch08/decr_cloud_#1.dat};
+  \addplot[green!60!black,only marks,mark=*,mark size=0.6pt] table[x expr=\thisrow{bdecr1000}-0.392699,y expr=\thisrow{gdecr1000}+0.785398] {figures/ch08/decr_cloud_#1.dat};
+  \addplot[green!25!black,only marks,mark=*,mark size=0.6pt] table[x expr=\thisrow{bdecr10000}-0.392699,y expr=\thisrow{gdecr10000}+0.785398] {figures/ch08/decr_cloud_#1.dat};
+  \draw[black,thick] (axis cs:-0.004,0) -- (axis cs:0.004,0); \draw[black,thick] (axis cs:0,-0.004) -- (axis cs:0,0.004);}
+\gdef\decrA#1{\begin{axis}[#1,width=\dcW,height=\dcW,scale only axis,axis equal image,clip mode=individual,xmin=-0.07,xmax=0.045,ymin=-0.0575,ymax=0.0575,xtick={-0.05,0,0.04},ytick={-0.04,0,0.04},scaled ticks=false,xticklabel style={/pgf/number format/fixed},yticklabel style={/pgf/number format/fixed},xlabel={$\beta-\pi/8$},ylabel={$\gamma+\pi/4$}]
+  \decrclouds{unbiased}
+  \ona{\node[note,anchor=west] (h1) at (axis cs:0.06,0.052) {the constant step $1/20$ (grey), at $k = 10^4$: the\\cloud keeps its size, $0.020$, however long one\\waits, and $\|\nabla F\|^2$ averages about $0.055$};
+  \draw[notearrow] (h1.west) to[bend right=15] (axis cs:0.028,0.03);
+  \node[note,anchor=west] (h2) at (axis cs:0.06,0.017) {decreasing gains $\alpha_k = a/(k+101)^{0.602}$ from $0.05$\\(green, darker later): at $k = 100$, $1000$ and $10^4$\\the clouds shrink, about as $\sqrt{\alpha_k}$, to $0.015$, $0.0079$\\and $0.0040$};
+  \draw[notearrow] (h2.west) to[bend right=10] (axis cs:0.017,0.008);
+  \node[note,anchor=west] (h3) at (axis cs:0.06,-0.02) {at $k = 10^4$, $\|\nabla F\|^2$ averages $0.0026$; the iterates\\converge to stationary points almost surely};
+  \draw[notearrow] (h3.west) to[bend left=10] (axis cs:0.004,-0.003);
+  \node[note,anchor=west] (h4) at (axis cs:0.06,-0.05) {simultaneous perturbation with decreasing gains\\and perturbations (blue), at $k = 10^4$: $0.0099$,\\with the average $0.0060$};
+  \draw[notearrow] (h4.west) to[bend left=10] (axis cs:0.004,-0.016);}
+\end{axis}}
+\gdef\decrB#1{\begin{axis}[#1,width=\dcW,height=\dcW,scale only axis,axis equal image,clip mode=individual,xmin=-0.07,xmax=0.045,ymin=-0.0575,ymax=0.0575,xtick={-0.05,0,0.04},ytick={-0.04,0,0.04},scaled ticks=false,xticklabel style={/pgf/number format/fixed},yticklabel style={/pgf/number format/fixed},xlabel={$\beta-\pi/8$},ylabel={$\gamma+\pi/4$}]
+  \decrclouds{biased}
+  \draw[red!75!black,very thick,fill=white,fill opacity=0.6] (axis cs:-0.025,0) circle (3pt);
+  \ona{\node[note,anchor=west] (i1) at (axis cs:0.06,0.045) {on the device with the over-rotated mixer the\\clouds shrink as fast, onto the minimiser of $\tilde F$\\(circle)};
+  \draw[notearrow] (i1.west) to[bend right=25] (axis cs:-0.022,0.004);
+  \node[note,anchor=west] (i2) at (axis cs:0.06,0.0) {$0.025$ from the minimiser of $F$ (cross): the\\centre of the last green cloud is $0.0247$ from it};
+  \draw[notearrow] (i2.west) to[bend right=10] (axis cs:0.004,0.002);
+  \node[note,anchor=west] (i3) at (axis cs:0.06,-0.042) {$\|\nabla F\|^2$ averages $0.21$, $0.16$ and $0.16$ at $k = 10^4$,\\approaching $16\sin^22\delta = 0.160$: decreasing\\steps remove the noise, not the bias};
+  \draw[notearrow] (i3.west) to[bend left=10] (axis cs:-0.022,-0.008);}
+\end{axis}}}
+\begin{frame}\ft{Decreasing steps on the worked example}
+\ona{Figure~\ref{fig:ch08:decr} shows where $200$ runs are, with $M = 100$ copies of each circuit, for the shift rule with the constant step $1/20$ and with the gains $\alpha_k = a/(k+101)^{0.602}$, which start at $0.05$, and for simultaneous perturbation with the exponents $0.602$ and $0.101$, $\alpha_0 = 0.01$ and $c_0 = 0.2$. A smaller $\alpha_0$ is needed for simultaneous perturbation, whose estimate has the larger second moment of Proposition~\ref{propn:ch08:spsa}. On an ideal device (a), the constant step leaves the iterates in a cloud of root-mean-square size $0.020$ about the minimiser, however long the method runs, and $\|\nabla F\|^2$ averages about $0.055$. With decreasing gains, the cloud of the shift rule shrinks roughly as $\sqrt{\alpha_k}$: its size is $0.015$, $0.0079$ and $0.0040$ at $k = 100$, $1000$ and $10^4$, where $\|\nabla F\|^2$ averages $0.0026$. That of simultaneous perturbation is $0.0099$ at $k = 10^4$, where the average is $0.0060$. Both shrink further as $k$ grows, as Theorem~\ref{thm:ch08:decr} and Corollary~\ref{cor:ch08:spsagains} assert. On the device with the over-rotated mixer (b), the clouds shrink as fast, but onto the minimiser of $\tilde F$, $0.025$ from that of $F$, and $\|\nabla F\|^2$ approaches $0.160$, its value there: the averages are $0.21$, $0.16$ and $0.16$ after $10^4$ iterations.}
+\ona{\gdef\dcW{0.36\linewidth}}\onp{\gdef\dcW{4.3cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\decrA{name=dca}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.6cm]dca.north west) {(a)};
+\decrB{at={(dca.south west)},anchor=north west,yshift=-1.6cm,name=dcb}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.6cm]dcb.north west) {(b)};
+\end{tikzpicture}
+\caption{Decreasing steps on the worked example, $M = 100$: the iterates of $200$ runs near the minimiser of $F$ (cross), for the shift rule with the constant step $1/20$ at $k = 10^4$ (grey) and with decreasing gains at $k = 100$, $1000$ and $10^4$ (green, darker later), and for simultaneous perturbation with decreasing gains at $k = 10^4$ (blue). (a) An ideal device. (b) The device with the over-rotated mixer, whose cost $\tilde F$ is least at the circle.}\label{fig:ch08:decr}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\begin{tikzpicture}\decrA{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $200$ runs, $M = 100$, near the minimiser (cross).
+    \item Constant step $1/20$ (grey), $k = 10^4$: the cloud keeps its size, $0.020$; $\|\nabla F\|^2\approx0.055$.
+    \item Gains $a/(k+101)^{0.602}$ from $0.05$ (green, darker later): at $k = 100$, $1000$, $10^4$ the clouds shrink, about as $\sqrt{\alpha_k}$: $0.015$, $0.0079$, $0.0040$; $\|\nabla F\|^2 = 0.0026$.
+    \item SPSA, exponents $0.602$, $0.101$ (blue), $k = 10^4$: $0.0099$; $0.0060$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{Decreasing steps under bias}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\begin{tikzpicture}\decrB{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item The same methods on the device with the over-rotated mixer.
+    \item The clouds shrink as fast, onto the minimiser of $\tilde F$ (circle), $0.025$ from that of $F$ (cross).
+    \item $\|\nabla F\|^2$: $0.21$, $0.16$ and $0.16$ at $k = 10^4$, approaching $0.160$, its value at the circle.
+    \item Decreasing steps remove the noise, not the bias.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
 \section{Conclusions}
 
-\begin{frame}\ft{A short history}
+\begin{frame}[allowframebreaks]\ft{A short history}
 \onp{\scriptsize}
 \ona{The following list gives the main steps in the analysis of iterative methods with noisy and biased estimates.}
 \begin{description}\setlength\itemsep{0.1em}
     \item[1951, 1952] Stochastic approximation: the root of a function from noisy values \citep{robbins1951stochastic}, and its maximum from noisy differences \citep{kiefer1952stochastic}.
     \item[1963] Linear convergence of gradient methods under the inequality now named after Polyak and \Loj{} \citep{polyak1963gradient}.
-    \item[1992] Simultaneous perturbation \citep{spall1992multivariate}.
+    \item[1971] A convergence theorem for non-negative almost supermartingales \citep{robbins1971convergence}.
+    \item[1992, 1998] Simultaneous perturbation \citep{spall1992multivariate}, and the gains used in practice \citep{spall1998implementation}.
+    \item[2000] Convergence of the gradient in gradient methods with errors \citep{bertsekas2000gradient}.
     \item[2013] The complexity of stochastic first- and zeroth-order methods for non-convex problems \citep{ghadimi2013stochastic}.
     \item[2015] Two-point estimators \citep{duchi2015optimal}; simultaneous perturbation under bounded disturbances \citep{granichin2014simultaneous}.
     \item[2016, 2017] The Polyak--\Loj{} inequality revisited \citep{karimi2016linear}; Gaussian smoothing \citep{Nesterov2015}; the asymptotic bias of stochastic gradient search \citep{tadic2017asymptotic}.
@@ -506,12 +1244,13 @@ any method & & & & at least $\approx db^2/4$ \\\bottomrule
 
 \begin{frame}\ft{Conclusions}
 \onp{\footnotesize}
-\begin{itemize}\setlength\itemsep{0.3em}
-    \item The cost of $d$ Pauli rotations has $\|\nabla C\|\le\sqrt d\,w/2$ and $\|\nabla^2C\|\le dw/2$, both attained.
-    \item Gradient descent finds an $\epsilon$-stationary point in $2L(C(\boldsymbol\theta_0)-C^*)/\epsilon\le dw^2/\epsilon$ iterations; with unbiased estimates of variance $V$, of the order of $LV/\epsilon^2$ iterations suffice. Neither order can be improved for general smooth functions.
-    \item The bias of a device does not change the rate, but adds a floor $\zeta^2$, the squared bias of the estimate of the gradient: $db^2$ for the parameter-shift rule. No method can guarantee less than about $db^2/4$.
-    \item The derivative-free estimators have floors of the orders of $b^{4/3}$ and $b$, and steps smaller by a factor of the order of $d$, with two circuits per iteration instead of $2d$.
-    \item On the worked example, the bound is within a factor of about two of the simulated averages, and an over-rotated mixer produces the predicted floor.
+\begin{itemize}\setlength\itemsep{0.25em}
+    \item The cost of $d$ Pauli rotations has $\|\nabla C\|\le\sqrt d\,w/2$ and $\|\nabla^2C\|\le dw/2$, both attained; for QAOA of depth $p$ the constants are polynomial in $p$, $n$ and $m$, and conservative.
+    \item Gradient descent finds an $\epsilon$-stationary point in $2L(C(\boldsymbol\theta_0)-C^*)/\epsilon\le dw^2/\epsilon$ iterations, and converges linearly where the Polyak--\Loj{} inequality holds; with unbiased estimates of variance $V$, of the order of $LV/\epsilon^2$ iterations suffice. Neither order can be improved for general smooth functions.
+    \item The bias of a device does not change the rate, but adds a floor $\zeta^2$: $db^2$ for the parameter-shift rule. No method can guarantee less than about $db^2/4$.
+    \item The derivative-free estimators use two circuits per iteration instead of $2d$, with floors of the orders of $b^{4/3}$ and $b$ in the worst case, and that of the shift rule when the bias varies smoothly, as on the worked example.
+    \item Decreasing steps give convergence to stationary points almost surely on an ideal device; they average out the noise, not the bias.
+    \item On the worked example, the bound for the shift rule is within a factor of about two of the simulated averages, and an over-rotated mixer produces the predicted floor.
     \item What an iteration costs is the subject of \Chap~\chref{C.PerIteration}; where to start, so that a stationary point is a good one, that of \Chaps~\chref{C.WSRounded}--\chref{C.WSContinuous}.
 \end{itemize}
 \end{frame}
@@ -545,6 +1284,23 @@ In the worked example, let every $R_X(2\beta)$ be applied as $R_X(2\beta+\delta)
 \end{exe}
 \begin{exe}[The floors of the derivative-free estimators]\label{exe:ch08:floors}
 Derive the best perturbations and the floors in \ona{Table~\ref{tab:ch08:floors}}\onp{the table of floors}. For $d = 8$, $L = 8$, $L_3 = 8^{3/2}$ and $b = 10^{-3}$, compute the best $c$ for simultaneous perturbation and for the two-point estimator, and find the bias above which the floor of simultaneous perturbation exceeds $\max\|\nabla C\|^2 = 8$.
+\end{exe}
+\end{frame}
+
+\begin{frame}\ft{Exercises, continued}
+\onp{\footnotesize}
+\begin{exe}[The constants of QAOA]\label{exe:ch08:qaoa}
+For the $3$-regular graph of \Chap~\chref{C.Annealing}, with $n = 8$, $m = 12$ and $c^* = 10$, compute the bounds of \ona{Corollary~\ref{cor:ch08:qaoa}}\onp{the corollary on QAOA} for $p = 1,\dots,6$, the number of circuits for one gradient, and the number of iterations of gradient descent that guarantee $\|\nabla F_p\|^2\le0.01$. Show that the bound on $\|\nabla^2F_1\|$ for the $4$-cycle is $160$, and explain why the degrees $4$ and $2$ of $F$ give the smaller bound $20$.
+\end{exe}
+\end{frame}
+
+\begin{frame}\ft{Exercises, continued}
+\onp{\footnotesize}
+\begin{exe}[The Polyak--\Loj{} constant of the worked example]\label{exe:ch08:plw}
+With $u = \sin4\beta$ and $v = \sin2\gamma$, show that $\frac12\|\nabla F\|^2 = 8(1-u^2)v^2+2u^2(1-v^2)$ and $F-F^* = 1+uv$. Show that on the curve $uv = -c$, $c = 0.0774$, through the start $(0.1,-0.1)$, the ratio of the two is least where $|u| = 2|v|$, and that its least value there is $(8c-10c^2)/(1-c)\approx0.61$; show that the ratio is larger on the rest of the sublevel set $\{uv\le-c\}$.
+\end{exe}
+\begin{exe}[Gains for simultaneous perturbation]\label{exe:ch08:gains}
+Draw the set of exponents $(s,t)$ for which \ona{Corollary~\ref{cor:ch08:spsagains}}\onp{the corollary on gains} applies, and mark $(0.602,0.101)$ and $(1,\frac16)$. Show that no $s$ will do with a constant perturbation, and explain why.
 \end{exe}
 \end{frame}
 

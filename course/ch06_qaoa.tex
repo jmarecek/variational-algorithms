@@ -594,7 +594,7 @@ Let $H_C$ be a phase separator and $\{H_i\}_{i\in I}$ a mixing family, $H_M = \s
 
 \begin{frame}\ft{The problem the optimizer faces}
 \onp{\footnotesize}
-\ona{Since the angles of the proof are of use only at a depth that grows with the unknown time $T$, in practice the depth is fixed and small, and the angles are found by search. The optimizer minimises $F(\boldsymbol\theta)$ over $\boldsymbol\theta = (\boldsymbol\beta,\boldsymbol\gamma)\in\R^d$, $d = 2p$. The function is smooth, indeed a trigonometric polynomial in each angle, and periodic if the spectra of $H_C$ and $H_M$ are integral. It is, however, available only through estimates, and estimates are expensive. In the worked example of \Chap~\chref{C.VQE}, one energy required $M = 1000$ copies for a standard error of $0.03$, and one gradient $16$ circuits, two for each gate that depends on an angle; the parameter-shift rule behind this is the subject of \Chap~\chref{C.PSR}. A Hessian has $d(d+1)/2$ entries, each of which requires several circuits. With a latency of seconds for each circuit submitted (\Chap~\chref{C.PerIteration}), the number of circuits, rather than the number of iterations, is the cost to be minimised.}
+\ona{Since the angles of the proof are of use only at a depth that grows with the unknown time $T$, in many experiments, the depth is fixed and small, and the angles are found by search. The optimizer minimises $F(\boldsymbol\theta)$ over $\boldsymbol\theta = (\boldsymbol\beta,\boldsymbol\gamma)\in\R^d$, $d = 2p$. The function is smooth, indeed a trigonometric polynomial in each angle, and periodic if the spectra of $H_C$ and $H_M$ are integral. It is, however, available only through estimates, and estimates are expensive. In the worked example of \Chap~\chref{C.VQE}, one energy required $M = 1000$ copies for a standard error of $0.03$, and one gradient $16$ circuits, two for each gate that depends on an angle; the parameter-shift rule behind this is the subject of \Chap~\chref{C.PSR}. A Hessian has $d(d+1)/2$ entries, each of which requires several circuits. With a latency of seconds for each circuit submitted (\Chap~\chref{C.PerIteration}), the number of circuits, rather than the number of iterations, is the cost to be minimised.}
 \onp{At a fixed low depth the angles are found by search.}
 \begin{itemize}\setlength\itemsep{0.2em}
     \item \emph{Derivative-free} methods use only values of $F$.
@@ -651,7 +651,7 @@ cubic regularisation & gradient, Hessian & of the order of $d^2$ & approximate s
 quantum natural gradient & gradient, metric & of the order of $d^2$, or block-diagonal & invariant under reparametrisation & -- \\\bottomrule
 \end{tabular}}}}
 \begin{frame}\ft{The optimizers compared}
-\ona{Table~\ref{tab:ch06:optimizers} summarises the methods. No single one dominates: derivative-free methods are cheap per iteration and robust, but slow in many dimensions; quasi-Newton and second-order methods converge fast near a minimiser, but require accurate derivatives, each of which costs many circuits. At the depths used in practice, a few tens of angles, the cost is dominated by the number of circuits and their latency, which is why the rules of the next section, which set the angles with little or no search, are preferred in practice.}
+\ona{Table~\ref{tab:ch06:optimizers} summarises the methods. No single one dominates: derivative-free methods are cheap per iteration and robust, but slow in many dimensions; quasi-Newton and second-order methods converge fast near a minimiser, but require accurate derivatives, each of which costs many circuits. At the depths used in many experiments, a few tens of angles, the cost is dominated by the number of circuits and their latency, which is why the rules of the next section, which set the angles with little or no search, are preferred in recent experiments.}
 \onp{\begin{center}\tiny\opttab{0.16}{0.12}{0.21}{0.21}{0.2}\end{center}}
 \ona{\begin{table}[htb]\centering\caption{Classical optimizers for the angles of QAOA, for $d$ angles. ``Evaluations'' counts estimates of $F$; a gradient by shifted circuits requires two circuits for each gate that depends on an angle (\Chap~\chref{C.PSR}).}\label{tab:ch06:optimizers}\footnotesize\opttab{0.17}{0.12}{0.22}{0.21}{0.2}\end{table}}
 \end{frame}
@@ -693,7 +693,7 @@ quantum natural gradient & gradient, metric & of the order of $d^2$, or block-di
 \onp{\footnotesize SPSA is cheapest per step; COBYLA stops early; BFGS pays $16\,000$ copies for a gradient; STORM pays more copies as its radius shrinks.}
 \end{frame}
 
-\section{Setting the angles}\label{sec:ch06:angles}
+\section{Setting the angles beyond optimization}\label{sec:ch06:angles}
 
 \begin{frame}\ft{Rules for setting the angles}
 \onp{\footnotesize}
