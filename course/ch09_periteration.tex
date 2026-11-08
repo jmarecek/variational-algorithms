@@ -9,7 +9,7 @@
 \lecture{Per-Iteration Complexity of QAOA}{Lect09}
 \chapter{Per-Iteration Complexity of QAOA}\label{C.PerIteration}
 
-\ona{\Chap~\chref{C.IterationComplexity} counted iterations. This \chap{} asks what one iteration \emph{costs}: shots, circuits, circuit depth, classical simulation time, and hardware latency; then recalls from \Chap~\chref{C.VQE} why no per-iteration budget rescues the worst case: training is $\mathbf{NP}$-hard \citep{bittel2021training}. It then follows \citet{marecek2026angles}, \emph{Setting angles in quantum approximate optimization at utility-scale}, where these costs decide how the angles of QAOA are set at 100 qubits or more, and which of the many proposed methods to trust.}
+\ona{\Chap~\chref{C.IterationComplexity} counted iterations. This \chap{} asks what one iteration \emph{costs}: copies, circuits, depth, classical simulation and, above all, time. On a device in the cloud, each iteration is a round trip: the circuits travel to the device, wait in its queue, are prepared and executed, and the results travel back, and the next circuits cannot be sent before they have arrived. We take a measured round trip apart, model the queue and derive the waits of a variational method in it, and show how the delays decide how many copies a round should carry and which methods are fast. We then recall from \Chap~\chref{C.VQE} why no per-iteration budget rescues the worst case, since training is $\mathbf{NP}$-hard \citep{bittel2021training}, and follow \citet{marecek2026angles}, \emph{Setting angles in quantum approximate optimization at utility-scale}, where these costs decide how the angles of QAOA are set at 100 qubits or more. The numbers of Sections~\ref{sec:ch09:round}--\ref{sec:ch09:copies} are computed by \texttt{code/ch09\_figures.py}.}
 
 \section{The cost of one iteration}
 
@@ -27,8 +27,8 @@
 \begin{itemize}\setlength\itemsep{0.3em}
     \item \textbf{Circuit evaluations per iteration:} COBYLA $1$, SPSA $2$, parameter-shift gradient $2\cdot 2p$ (\Chap~\chref{C.PSR}); each with $M$ shots.
     \item \textbf{Gates per layer:} $|E|$ two-qubit $ZZ$ rotations and $n$ single-qubit rotations. On hardware with restricted connectivity, each $ZZ$ between non-adjacent qubits costs SWAPs; for a heavy-hex device and a dense problem graph the depth grows by a factor $\mathcal O(n)$, which is why hardware studies use hardware-native (heavy-hex, line-based) graphs.
-    \item \textbf{Wall-clock:} on \emph{ibm\_boston}, $t_{\rm shot} \approx 100\,\mu$s and a fixed latency $t_{\rm qc} \approx 6$ s per submitted circuit; one iteration of COBYLA with $M = 20\,000$ shots takes about 8 s, of which the latency dominates. A closed loop of 80 iterations on 100 qubits took minutes of QPU time (\Chap~\chref{C.Motivation}).
-    \item \textbf{Total:} $T = N\,(t_{\rm qc} + c\,M\,t_{\rm shot}) + Q\,t_{\rm shot}$ for $N$ iterations of $c$ circuits each and $Q$ final samples; this is the resource model of the Pareto analysis below.
+    \item \textbf{Wall-clock:} on \emph{ibm\_boston}, $t_{\rm shot} \approx 100\,\mu$s and a latency of about $6$~s for each submitted circuit; one iteration of COBYLA with $M = 20\,000$ shots takes about $8$~s, most of it latency\ona{; Section~\ref{sec:ch09:round} takes such a round trip apart}.
+    \item \textbf{Total:} $T = N\,(t_{\rm qc} + c\,M\,t_{\rm shot}) + Q\,t_{\rm shot}$ for $N$ iterations of $c$ circuits each and $Q$ final samples, the resource model of the Pareto analysis below; it is \eqref{eq:ch09:round} with $W = 0$ and the latency $t_{\rm qc}$ paid once a round.
 \end{itemize}
 \end{frame}
 
@@ -47,6 +47,325 @@
 \figslide[height=0.55\textheight]{figures/numerics/figure15.pdf}{Time to evaluate $\langle H_C\rangle$ of depth-ten QAOA as a function of the number of edges, colour giving the number of nodes \citep{marecek2026angles}: (a),(b) Quimb MPS without and with the SAT remapping time, (c),(d) Qiskit Aer MPS, (e) Pauli propagation, (f) the SAT remapping alone.}{fig:ch09:evaltime}
 \end{frame}
 
+\section{The round trip}\label{sec:ch09:round}
+
+\begin{frame}\ft{A round trip}
+\onp{\footnotesize}
+\ona{An iteration of a variational method on a device in the cloud is a \emph{round trip}. The classical computer sends circuits to the device; the device queues them, prepares them for execution and executes them; and the results return. The circuits of the next iteration depend on these results, and cannot be sent before the results have returned.}
+\begin{defn}\label{defn:ch09:round}
+A \emph{round} submits $c$ circuits, with $M$ copies of each, and waits for their results. It takes the time
+\begin{equation}\label{eq:ch09:round}
+    t_{\rm round} = t_{\rm net}+W+t_{\rm prep}+c\,M\,t_{\rm shot},
+\end{equation}
+where $t_{\rm net}$ is the time taken to send the circuits and to return the results, $W$ the wait in the queue of the device, $t_{\rm prep}$ the time taken to prepare the circuits for execution, and $t_{\rm shot}$ the time of one copy. A method is \emph{adaptive} if the circuits of each round depend on the results of the earlier rounds.
+\end{defn}
+\ona{Gradient descent, simultaneous perturbation and COBYLA are adaptive: $K$ iterations take $K$ rounds, one after another, and at least $K(t_{\rm net}+t_{\rm prep})+\sum_kW_k$, however many devices are available. Only the circuits of one round, and the copies of one circuit, can be executed in parallel. We call $t_{\rm lat} = t_{\rm net}+t_{\rm prep}$ the \emph{latency} of a round. It is paid once a round if the $c$ circuits are submitted together, and $c$ times if they are submitted one by one; whether $t_{\rm prep}$ grows with $c$ depends on the device, and we take it to be paid once a round.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item Adaptive methods (gradient descent, simultaneous perturbation, COBYLA): $K$ iterations are $K$ rounds in sequence; only the circuits of a round run in parallel.
+    \item The latency $t_{\rm lat} = t_{\rm net}+t_{\rm prep}$: once a round if its circuits are submitted together, $c$ times if one by one.
+\end{itemize}
+\end{frame}
+
+% three consecutive rounds of the hardware run of Marecek et al. (2026), in a session: the network (orange, 2.4 s in all,
+% drawn as two halves), the preparation of the circuit (light blue, 3.8 s) and the 20 000 copies (dark blue, 2.0 s) on the
+% device, and the client, which waits (dashed) and computes the next angles (dots)
+\mode<all>{\gdef\roundtripfig#1{\begin{axis}[#1,width=\rtW,height=\rtH,scale only axis,clip=false,axis x line=bottom,axis y line=none,xmin=0,xmax=24.6,ymin=-0.45,ymax=2.45,xtick={0,8.2,16.4,24.6},xticklabels={$0$,$8.2$,$16.4$,$24.6$},xlabel={time (s)}]
+  \pgfplotsinvokeforeach{0,8.2,16.4}{
+    \fill[orange!60] (axis cs:##1,0.75) rectangle (axis cs:##1+1.2,1.25);
+    \fill[blue!25] (axis cs:##1+1.2,-0.25) rectangle (axis cs:##1+5,0.25);
+    \fill[blue!70!black] (axis cs:##1+5,-0.25) rectangle (axis cs:##1+7,0.25);
+    \fill[orange!60] (axis cs:##1+7,0.75) rectangle (axis cs:##1+8.2,1.25);
+    \draw[gray,densely dashed] (axis cs:##1,2) -- (axis cs:##1+8.2,2);
+    \fill[black] (axis cs:##1+8.2,2) circle (1.6pt);
+  }
+  \fill[black] (axis cs:0,2) circle (1.6pt);
+  \node[font=\scriptsize,anchor=east] at (axis cs:-0.3,0) {device};
+  \node[font=\scriptsize,anchor=east] at (axis cs:-0.3,1) {network};
+  \node[font=\scriptsize,anchor=east] at (axis cs:-0.3,2) {client};
+  \node[font=\scriptsize,anchor=south] at (axis cs:4.1,2.08) {\ona{round }$k$};
+  \node[font=\scriptsize,anchor=south] at (axis cs:12.3,2.08) {\ona{round }$k+1$};
+  \node[font=\scriptsize,anchor=south] at (axis cs:20.5,2.08) {\ona{round }$k+2$};
+  \draw[-{Stealth[length=3pt]},black!70,thin] (axis cs:8.2,1.88) -- (axis cs:8.2,1.3);
+  \draw[-{Stealth[length=3pt]},black!70,thin] (axis cs:16.4,1.88) -- (axis cs:16.4,1.3);
+  \ona{\node[note,anchor=south west] (r1) at (axis cs:-1,3.1) {the circuit and its angles travel to the device,\\and the $20\,000$ results return (orange): $2.4$~s\\in all, with the client, drawn as two halves};
+  \draw[notearrow] ([xshift=1.2cm]r1.south west) to[bend right=15] (axis cs:0.6,1.3);
+  \draw[notearrow] ([xshift=3.2cm]r1.south west) to[bend left=10] (axis cs:7.6,1.3);
+  \node[note,anchor=south west] (r4) at (axis cs:15,3.1) {the client computes the next angles from\\the results (dots), and only then can it\\send the next round: the rounds cannot\\overlap};
+  \draw[notearrow] (r4.south west) to[bend right=15] (axis cs:16.3,2.1);
+  \node[note,anchor=north west] (r2) at (axis cs:-1,-2.3) {the backend prepares the circuit for execution\\(light blue): $3.8$~s of the $5.8$~s that it reports};
+  \draw[notearrow] ([xshift=0.5cm]r2.north west) to[bend left=15] (axis cs:3,-0.3);
+  \node[note,anchor=north west] (r3) at (axis cs:14.5,-2.3) {$20\,000$ copies at $100\,\mu$s (dark blue): $2.0$~s, the\\only time for which the device samples, $24\%$ of\\the round of $8.2$~s that the user measures};
+  \draw[notearrow] ([xshift=0.4cm]r3.north west) to[bend left=20] (axis cs:14.2,-0.3);
+  \node[note,anchor=west] (r5) at (axis cs:26,0.6) {in a session, the device waits\\for the client; outside one,\\each round would also wait\\in the queue, between its\\arrival and its preparation};
+  \draw[notearrow] (r5.west) to[bend left=10] (axis cs:17.6,0.3);}
+\end{axis}}}
+\begin{frame}\ft{A round trip, pictured}
+\ona{Figure~\ref{fig:ch09:roundtrip} shows three rounds of the training of depth-four QAOA on $100$ qubits of \emph{ibm\_boston} by \citet{marecek2026angles}, in a \emph{session}, which reserves the device for the client and removes $W$, with $M = 20\,000$ copies of one circuit a round. The user measured $8.2\pm0.9$~s a round, and the backend reported $5.8\pm0.5$~s. With $t_{\rm shot} = 100\,\mu$s, the value of the source, the copies take $2.0$~s, the preparation $3.8$~s, and the network and the client $2.4$~s. The device samples for $24\%$ of the round, and returns $2\,439$ copies a second, against $10\,000$ without the overheads; the $11.4$ minutes of the training are about $83$ rounds.}
+\ona{\gdef\rtW{0.62\linewidth}\gdef\rtH{0.13\linewidth}}\onp{\gdef\rtW{4.6cm}\gdef\rtH{2.4cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\roundtripfig{}\end{tikzpicture}
+\caption{Three rounds of the training of depth-four QAOA on $100$ qubits of \emph{ibm\_boston} in a session, after \citet{marecek2026angles}: the network (orange), the preparation of the circuit (light blue) and the $20\,000$ copies (dark blue) on the device, and the client, which waits (dashed) and computes the next angles (dots).}\label{fig:ch09:roundtrip}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\roundtripfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Depth-four QAOA, $100$ qubits, \emph{ibm\_boston}, in a session; $20\,000$ copies a round \citep{marecek2026angles}.
+    \item The user measures $8.2$~s a round; the backend reports $5.8$~s.
+    \item Copies: $2.0$~s at $100\,\mu$s (dark blue); preparation $3.8$~s (light blue); network and client $2.4$~s (orange).
+    \item The device samples for $24\%$ of the round: $2\,439$ copies a second, against $10\,000$.
+    \item The next angles need the results: the rounds cannot overlap.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\section{Waiting in a queue}\label{sec:ch09:queue}
+
+\begin{frame}\ft{A queue and its mean wait}
+\onp{\footnotesize}
+\ona{A device in the cloud serves many users. We model it as a single server, which executes one job at a time, first come, first served. The jobs of the other users arrive at the times of a Poisson process of rate $\lambda$, independently of one another, and take independent service times distributed as $S$. The \emph{load} $\rho = \lambda\,\mathbb E S$ is the fraction of the time for which the device is busy, and we assume that $\rho<1$, so that the queue has a stationary state \citep{harcholbalter2013performance}.}
+\begin{lem}[\citet{little1961proof}]\label{lem:ch09:little}
+In a queue in its stationary state, the mean number of jobs waiting is $L_q = \lambda\,\mathbb E W$, where $\mathbb E W$ is the mean wait of a job.
+\end{lem}
+\begin{propn}[Pollaczek and Khinchine]\label{propn:ch09:pk}
+In this queue, in its stationary state, a job that arrives at a time of the Poisson process, or at a time independent of the queue, waits on average
+\begin{equation}\label{eq:ch09:pk}
+    \mathbb E\,W = \frac{\lambda\,\mathbb E S^2}{2(1-\rho)} = \frac\rho{1-\rho}\cdot\frac{\mathbb E S^2}{2\,\mathbb E S}.
+\end{equation}
+\end{propn}
+\ona{\emph{Proof.} Such a job finds the queue in its stationary state; for the arrivals of a Poisson process, this is the property that Poisson arrivals see time averages \citep[Chapter~13]{harcholbalter2013performance}. Its wait is the work that it finds: the remaining service of the job in service, if any, and the services of the jobs that wait. The device is busy with probability $\rho$, and the job in service is then found at a uniformly random time in its service, a service of length $s$ being found with a probability proportional to $s$; the remaining service has the mean $\mathbb E S^2/(2\,\mathbb E S)$. The services of the $L_q$ waiting jobs do not depend on their number, and have the total mean $L_q\,\mathbb E S = \lambda\,\mathbb E W\,\mathbb E S = \rho\,\mathbb E W$, by Lemma~\ref{lem:ch09:little}. Hence $\mathbb E W = \rho\,\mathbb E S^2/(2\,\mathbb E S)+\rho\,\mathbb E W$. \qed}
+\onp{Proof: the work found on arrival is the remaining service, of mean $\rho\,\mathbb ES^2/(2\,\mathbb ES)$, plus $L_q\,\mathbb ES = \rho\,\mathbb EW$ by Little's law.}
+\end{frame}
+
+\begin{frame}\ft{The waits of a closed loop}
+\onp{\footnotesize}
+\ona{A variational method does not submit its rounds at the times of a Poisson process. Each round is submitted as soon as the results of the previous one have returned, and the device has meanwhile served only the work that arrived since.}
+\begin{propn}\label{propn:ch09:loop}
+In the queue above, let a client submit its first round at a time independent of the queue, and each later round $t_{\rm net}$ after the previous round has been served; let each round occupy the device for $s$, and let $t_c = s+t_{\rm net}$. If the device serves first come, first served, the waits $W_k$ of the rounds satisfy $\mathbb E W_1 = \lambda\,\mathbb E S^2/(2(1-\rho))$ and
+\begin{equation}\label{eq:ch09:loop}
+    \rho\,(\mathbb E W_k+t_c)-t_{\rm net}\le\mathbb E W_{k+1}\le\rho\,(\mathbb E W_k+t_c),
+\end{equation}
+so that $\mathbb E W_k\le\rho^{k-1}\,\mathbb E W_1+\rho\,t_c/(1-\rho)$.
+\end{propn}
+\ona{\emph{Proof.} The first wait is that of Proposition~\ref{propn:ch09:pk}. Let round $k$ be submitted at the time $a_k$, so that $a_{k+1}-a_k = W_k+t_c$. Every job that arrived before $a_k$ is served before round $k$, which ends at $a_k+W_k+s$. The work found at $a_{k+1}$, which is $W_{k+1}$, is therefore that of jobs that arrived in $(a_k,a_{k+1}]$: it is at most their total service $A_k$, and at least $A_k-t_{\rm net}$, since the device can serve them only after round $k$ has ended. The length $W_k+t_c$ of the interval is known at $a_k$, and the arrivals after $a_k$ do not depend on what happened before, so that $\mathbb E[A_k\,|\,W_k] = \lambda\,\mathbb E S\,(W_k+t_c) = \rho\,(W_k+t_c)$. Taking expectations gives \eqref{eq:ch09:loop}, and induction the last bound. \qed}
+\onp{Proof: round $k+1$ finds only the work that arrived during $(a_k,a_{k+1}]$, of mean $\rho\,(W_k+t_c)$, less at most $t_{\rm net}$ served meanwhile.}
+\end{frame}
+
+% the first 90 minutes of one stream of the other users' jobs (grey) at the load 0.8, a tenth of them sessions, served in
+% three ways together with the 80 rounds of a client (blue): in a session (top, its reservation light blue), first come,
+% first served (middle), and with the others first (bottom); the first waits in red
+\mode<all>{\gdef\timelinefig#1{\begin{axis}[#1,width=\tlW,height=\tlH,scale only axis,clip=false,axis x line=bottom,axis y line=none,xmin=0,xmax=90,ymin=-0.6,ymax=2.75,xtick={0,15,30,45,60,75,90},xlabel={minutes after the first submission},only marks,mark=none]
+  \addplot[error bars/.cd,x dir=plus,x explicit,error mark=none,error bar style={line width=7pt,blue!18}] table[x=start,y=lane,x error=len,restrict expr to domain={\thisrow{who}}{2:2}] {figures/ch09/queue_timeline.dat};
+  \addplot[error bars/.cd,x dir=plus,x explicit,error mark=none,error bar style={line width=7pt,gray!55}] table[x=start,y=lane,x error=len,restrict expr to domain={\thisrow{who}}{0:0}] {figures/ch09/queue_timeline.dat};
+  \addplot[error bars/.cd,x dir=plus,x explicit,error mark=none,error bar style={line width=7pt,blue!70!black}] table[x=start,y=lane,x error=len,restrict expr to domain={\thisrow{who}}{1:1}] {figures/ch09/queue_timeline.dat};
+  \draw[{Bar[width=4pt]}-{Stealth[length=4pt]},red!75!black,thick] (axis cs:0.02,2.38) -- (axis cs:12.2,2.38);
+  \draw[{Bar[width=4pt]}-{Stealth[length=4pt]},red!75!black,thick] (axis cs:0.02,1.38) -- (axis cs:12.2,1.38);
+  \draw[{Bar[width=4pt]}-{Stealth[length=4pt]},red!75!black,thick] (axis cs:0.02,0.38) -- (axis cs:27.55,0.38);
+  \node[font=\scriptsize,anchor=east,align=right] at (axis cs:-1,2) {session};
+  \node[font=\scriptsize,anchor=east,align=right] at (axis cs:-1,1) {first come,\\first served};
+  \node[font=\scriptsize,anchor=east,align=right] at (axis cs:-1,0) {others first};
+  \ona{\node[note,anchor=south west] (q1) at (axis cs:-2,3.3) {the first round waits for the work that it finds (red):\\$731$~s, or $12.2$ minutes, the same in the top two lanes};
+  \draw[notearrow] ([xshift=1.6cm]q1.south west) to[bend right=15] (axis cs:6,2.45);
+  \node[note,anchor=west] (q2) at (axis cs:94,2.9) {in a session the $80$ rounds follow at once,\\in $654$~s (blue on light blue); the others\\wait, and the client is done after $23.1$ minutes};
+  \draw[notearrow] (q2.west) to[bend right=10] (axis cs:20,2.2);
+  \node[note,anchor=west] (q3) at (axis cs:94,1.3) {first come, first served: the second round\\waits $684$~s behind the $11$ jobs that\\arrived during the first wait; later rounds\\wait seconds, except behind the sessions\\of others; done after $63.1$ minutes};
+  \draw[notearrow] (q3.west) to[bend right=10] (axis cs:30,1.2);
+  \node[note,anchor=west] (q4) at (axis cs:94,-0.4) {the others first: the first round waits\\until the device has nothing else to do,\\$27.6$ minutes, and later rounds whenever\\the queue empties; done after $63.4$ minutes};
+  \draw[notearrow] (q4.west) to[bend left=10] (axis cs:50,0.2);
+  \node[note,anchor=north west] (q5) at (axis cs:-2,-1.9) {the jobs of the other users (grey): the same stream in each lane, at the load $\rho = 0.8$, a tenth of them sessions};
+  \draw[notearrow] ([xshift=2.4cm]q5.north west) to[bend left=15] (axis cs:8.5,-0.2);}
+\end{axis}}}
+\begin{frame}\ft{Three ways to queue, pictured}
+\ona{Figure~\ref{fig:ch09:timeline} serves one stream of the other users' jobs in three ways, together with the $80$ rounds of the client of Fig.~\ref{fig:ch09:roundtrip}, each of which occupies the device for $s = 5.8$~s and returns after $t_{\rm net} = 2.4$~s more. The other users' jobs arrive at the load $\rho = 0.8$; nine in ten are jobs of $30$~s on average, and one in ten sessions of $330$~s on average, both exponentially distributed, so that $\mathbb E S = 60$~s. These values are illustrative, not measured on any device. The stream is the first, in the order of the seeds of the generator, in which the first round waits between $0.75$ and $1.25$ times the mean of \eqref{eq:ch09:pk}. In a session the first round waits $731$~s, and the $80$ rounds then follow in $654$~s, of which the device samples $160$~s. First come, first served, the second round waits $684$~s, behind the jobs that arrived during the first wait, close to $\rho(W_1+t_c) = 591$~s, and the later rounds wait seconds, except behind the sessions of others. With the others first, the first round waits $1\,653$~s, until the device has no other work. The client is done after $23.1$, $63.1$ and $63.4$ minutes.}
+\ona{\gdef\tlW{0.48\linewidth}\gdef\tlH{0.24\linewidth}}\onp{\gdef\tlW{5cm}\gdef\tlH{2.8cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\timelinefig{}\end{tikzpicture}
+\caption{The first $90$ minutes of one stream of the other users' jobs (grey) at the load $\rho = 0.8$, served together with the $80$ rounds of a client (blue) in a session (top, the reservation light blue), first come, first served (middle), and with the other users first (bottom), with the waits of the first rounds (red).}\label{fig:ch09:timeline}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.56\textwidth}\centering\begin{tikzpicture}\timelinefig{}\end{tikzpicture}\end{column}
+\begin{column}{0.42\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item One stream of other jobs (grey), $\rho = 0.8$, a tenth of them sessions; illustrative values.
+    \item Session: one wait of $731$~s, then $80$ rounds in $654$~s; done after $23.1$ min.
+    \item First come, first served: the second round waits $684$~s, the later ones seconds; $63.1$ min.
+    \item Others first: the first round waits $1\,653$~s; $63.4$ min.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% the mean wait of each of 80 rounds at the load 0.8 (mixture), over 4000 simulations: first come, first served (blue) with
+% the bounds of the proposition computed from the first wait (dashed, dotted), with the others first (red), and the mean
+% wait of the formula (grey)
+\mode<all>{\gdef\waitskfig#1{\begin{axis}[#1,width=\wkW,height=\wkH,scale only axis,clip mode=individual,ymode=log,xmin=0,xmax=81,ymin=4,ymax=1.5e4,xtick={1,20,40,60,80},xlabel={round $k$},ylabel={mean wait $\mathbb E\,W_k$ (s)}]
+  \draw[gray,densely dotted,thick] (axis cs:0,780) -- (axis cs:81,780);
+  \addplot[blue!70!black,densely dashed] table[x=k,y=hi] {figures/ch09/queue_rounds.dat};
+  \addplot[blue!70!black,densely dotted,thick] table[x=k,y=lo,restrict y to domain=0.1:2e4] {figures/ch09/queue_rounds.dat};
+  \addplot[red!75!black,only marks,mark=square*,mark size=0.9pt] table[x=k,y=last] {figures/ch09/queue_rounds.dat};
+  \addplot[blue!70!black,only marks,mark=*,mark size=1pt] table[x=k,y=fcfs] {figures/ch09/queue_rounds.dat};
+  \ona{\node[note,anchor=west] (w1) at (axis cs:95,6000) {the first round waits for the work that it finds:\\$766$~s on average, the $780$~s of \eqref{eq:ch09:pk} (grey)};
+  \draw[notearrow] (w1.west) to[bend right=10] (axis cs:2,800);
+  \node[note,anchor=west] (w2) at (axis cs:95,1200) {first come, first served (blue), each round waits\\for the work that arrived during the previous\\round trip: $611$, $488$, $391$~s, about $\rho = 0.8$\\times the wait before};
+  \draw[notearrow] (w2.west) to[bend right=10] (axis cs:4.5,400);
+  \node[note,anchor=west] (w3) at (axis cs:95,190) {the bounds \eqref{eq:ch09:loop} from the first wait\\(dashed, dotted): the means stay between\\them, up to the error of the simulation};
+  \draw[notearrow] (w3.west) to[bend right=10] (axis cs:15,90);
+  \node[note,anchor=west] (w4) at (axis cs:95,32) {in the long run, between $20.8$ and $32.8$~s:\\$28.9$~s over the last $20$ rounds};
+  \draw[notearrow] (w4.west) to[bend left=10] (axis cs:72,30);
+  \node[note,anchor=west] (w5) at (axis cs:95,7) {the others first (red): the first round waits\\$3\,971$~s, until the device is idle, and the\\later ones $30.2$~s};
+  \draw[notearrow] (w5.west) to[bend right=25] (axis cs:1.6,3900);}
+\end{axis}}}
+\begin{frame}\ft{Waits round by round, pictured}
+\ona{Figure~\ref{fig:ch09:waitsk} shows the mean wait of each of the $80$ rounds over $4\,000$ simulations at $\rho = 0.8$. First come, first served, the first round waits $766$~s on average, against $780$~s by \eqref{eq:ch09:pk}, and the next rounds $611$, $488$, $391$, $316$ and $256$~s, each about $0.8$ times the previous one, as \eqref{eq:ch09:loop} predicts. Over the last $20$ rounds the mean wait is $28.9$~s, between the limits $20.8$ and $32.8$~s of the bounds. With the other users first, the first round waits $3\,971$~s, until the device is idle, and the later ones $30.2$~s, as the queue was empty when the previous round started. On average, the $80$ rounds take $24$ minutes in a session, $111$ minutes first come, first served, of which $13$ are the first wait and $87$ the later waits, and $117$ minutes with the others first, against $10.9$ minutes of round trips.}
+\ona{\gdef\wkW{0.42\linewidth}\gdef\wkH{0.34\linewidth}}\onp{\gdef\wkW{4.8cm}\gdef\wkH{4.3cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\waitskfig{}\end{tikzpicture}
+\caption{The mean wait of each of $80$ rounds at the load $\rho = 0.8$, over $4\,000$ simulations: first come, first served (blue), with the bounds of Proposition~\ref{propn:ch09:loop} computed from the first wait (dashed, dotted), with the other users first (red), and the mean wait of a job by \eqref{eq:ch09:pk} (grey).}\label{fig:ch09:waitsk}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\waitskfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $\rho = 0.8$, $4\,000$ simulations of $80$ rounds.
+    \item First round: $766$~s, the formula's $780$~s (grey).
+    \item First come, first served (blue): $611$, $488$, $391$~s, a factor of about $0.8$ a round; $28.9$~s at the end, within the bounds.
+    \item Others first (red): $3\,971$~s, then $30.2$~s.
+    \item $80$ rounds: $24$ min in a session, $111$ min first come, first served, $117$ min with the others first.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% the mean wait against the load: of a job that arrives at random, by the formula for the mixture (solid) and the
+% exponential service (dashed), simulated (circles); of the first round with the others first (red); of the rounds of a
+% closed loop in the long run, first come, first served (blue), with the limits of the bounds (dashed, dotted)
+\mode<all>{\gdef\loadfig#1{\begin{axis}[#1,width=\ldW,height=\ldH,scale only axis,clip mode=individual,ymode=log,xmin=0,xmax=0.95,ymin=0.3,ymax=4e4,xtick={0,0.2,0.4,0.6,0.8},xlabel={load $\rho$},ylabel={mean wait (s)}]
+  \addplot[black,thick] table[x=rho,y=pkmix] {figures/ch09/queue_waits.dat};
+  \addplot[black,densely dashed] table[x=rho,y=pkexp] {figures/ch09/queue_waits.dat};
+  \addplot[black,only marks,mark=o,mark size=1.6pt] table[x=rho,y=simmix] {figures/ch09/queue_waits.dat};
+  \addplot[black,only marks,mark=o,mark size=1.6pt] table[x=rho,y=simexp] {figures/ch09/queue_waits.dat};
+  \addplot[red!75!black,thick,mark=square*,mark size=1.1pt] table[x=rho,y=lfirst] {figures/ch09/queue_waits.dat};
+  \addplot[blue!70!black,densely dashed] table[x=rho,y=hi] {figures/ch09/queue_waits.dat};
+  \addplot[blue!70!black,densely dotted,thick] table[x=rho,y=lo,restrict y to domain=0.01:1e5] {figures/ch09/queue_waits.dat};
+  \addplot[blue!70!black,only marks,mark=*,mark size=1.2pt] table[x=rho,y=late] {figures/ch09/queue_waits.dat};
+  \ona{\node[note,anchor=west] (l1) at (axis cs:1.05,9000) {a job that arrives at random waits $\lambda\,\mathbb ES^2/(2(1-\rho))$:\\with a tenth of the jobs sessions (solid), $3.25$\\times as long as with exponential service of the\\same mean (dashed); circles: simulated};
+  \draw[notearrow] (l1.west) to[bend right=10] (axis cs:0.84,1150);
+  \node[note,anchor=west] (l2) at (axis cs:1.05,800) {the factor $1/(1-\rho)$: $195$~s at $\rho = 0.5$, $780$~s\\at $0.8$, $1\,755$~s at $0.9$};
+  \draw[notearrow] (l2.west) to[bend left=10] (axis cs:0.9,1755);
+  \node[note,anchor=west] (l3) at (axis cs:1.05,60) {the first round with the others first (red) waits\\until the device is idle: $3\,971$~s at $\rho = 0.8$};
+  \draw[notearrow] (l3.west) to[bend right=20] (axis cs:0.81,3900);
+  \node[note,anchor=west] (l4) at (axis cs:1.05,3) {a closed loop first come, first served, in the\\long run (blue): seconds, within the bounds\\$(\rho t_c-t_{\rm net})/(1-\rho)$ and $\rho t_c/(1-\rho)$};
+  \draw[notearrow] (l4.west) to[bend left=10] (axis cs:0.7,17);}
+\end{axis}}}
+\begin{frame}\ft{Waits against the load, pictured}
+\ona{Figure~\ref{fig:ch09:load} shows the waits against the load. The simulated waits of jobs that arrive at random agree with \eqref{eq:ch09:pk}, which grows as $1/(1-\rho)$, from $195$~s at $\rho = 0.5$ to $780$~s at $0.8$ and $1\,755$~s at $0.9$ for the mixture of jobs and sessions, and is $3.25$ times smaller for exponential service of the same mean $60$~s, as $\mathbb E S^2$ is $7\,200$~s$^2$ instead of $23\,400$~s$^2$. The first round of a client served after the other users waits until the device is idle, $3\,971$~s at $\rho = 0.8$. The rounds of a closed loop served first come, first served wait, in the long run, between the limits of \eqref{eq:ch09:loop}: $28.9$~s at $\rho = 0.8$ against the limits $20.8$ and $32.8$~s, and $73.3$~s at $0.9$ against $49.8$ and $73.8$~s.}
+\ona{\gdef\ldW{0.42\linewidth}\gdef\ldH{0.34\linewidth}}\onp{\gdef\ldW{4.8cm}\gdef\ldH{4.3cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\loadfig{}\end{tikzpicture}
+\caption{The mean wait against the load $\rho$: of a job that arrives at random, by \eqref{eq:ch09:pk} for the mixture of jobs and sessions (solid) and for exponential service (dashed), and simulated (circles); of the first round of a client served after the other users (red); and of the rounds of a closed loop in the long run, first come, first served (blue), with the limits of the bounds of Proposition~\ref{propn:ch09:loop} (dashed, dotted).}\label{fig:ch09:load}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\loadfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Black: \eqref{eq:ch09:pk}, solid for the mixture, dashed for exponential service; circles simulated.
+    \item $195$, $780$, $1\,755$~s at $\rho = 0.5$, $0.8$, $0.9$: the factor $1/(1-\rho)$.
+    \item Red: the first round with the others first, $3\,971$~s at $0.8$.
+    \item Blue: a closed loop in the long run, seconds, within the bounds.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{Sessions}
+\onp{\footnotesize}
+\ona{A \emph{session} holds the device from the first round of a client to the last. For the client, it removes the waits after the first: at $\rho = 0.8$, the $80$ rounds take $24$ minutes on average in a session, against $111$ minutes first come, first served. For the other users, a session is a long job. By \eqref{eq:ch09:pk}, long jobs cost the others in proportion to the square of their length: sessions of length $X$, submitted at the rate $\lambda_X$, raise $\lambda\,\mathbb ES^2$ by $\lambda_XX^2$, and the mean wait by at least $\lambda_XX^2/(2(1-\rho))$. In the simulation, a session of $80$ rounds holds the device for $654$~s, of which it samples for $160$~s, and adds $11.1$ hours of waiting in all to the jobs that the other users submit in the next four hours, $61$ times its length.}
+\begin{itemize}\setlength\itemsep{0.25em}
+    \item For the client: one wait instead of $80$; at $\rho = 0.8$, $24$ minutes instead of $111$.
+    \item For the others: a long job, which by \eqref{eq:ch09:pk} costs in proportion to the square of its length.
+    \item In the simulation: $654$~s of reservation, $160$~s of sampling, $11.1$ hours of extra waiting for the others.
+    \item The device idles while the results travel: $24\%$ of a round is sampling (\onp{the round trip}\ona{Fig.~\ref{fig:ch09:roundtrip}}).
+\end{itemize}
+\end{frame}
+
+\section{Copies and rounds}\label{sec:ch09:copies}
+
+\begin{frame}\ft{How many copies a round}
+\onp{\footnotesize}
+\ona{\Chap~\chref{C.IterationComplexity} found that, with $N$ copies in all, many iterations with few copies are as good as few iterations with many, as far as the bounds are concerned \citep{sweke2020stochastic}. Latency changes this. Consider an ideal device and unbiased estimates of the gradient from $c$ circuits with $M$ copies each, whose variance is $V = V_1/M$, and let $L$, $\Delta = C(\boldsymbol\theta_0)-C^*$ and $\epsilon$ be as in \Chap~\chref{C.IterationComplexity}.}
+\begin{propn}\label{propn:ch09:copies}
+By the corollary on unbiased estimates of \Chap~\chref{C.IterationComplexity},
+\begin{equation}\label{eq:ch09:K}
+    K(M) = \max\{8L\Delta/\epsilon,\ 32L\Delta V_1/(M\epsilon^2)\}
+\end{equation}
+rounds give an $\epsilon$-stationary point. If each round takes $t_{\rm lat}+cMt_{\rm shot}$, the time
+\begin{equation}\label{eq:ch09:copies}
+    T(M) = K(M)\,(t_{\rm lat}+cMt_{\rm shot})
+\end{equation}
+does not increase with $M$ up to $M^* = 4V_1/\epsilon$, and increases beyond. It is constant up to $M^*$ if $t_{\rm lat} = 0$, and
+\begin{equation}\label{eq:ch09:ratio}
+    \frac{T(1)}{T(M^*)} = M^*\,\frac{t_{\rm lat}+ct_{\rm shot}}{t_{\rm lat}+cM^*t_{\rm shot}}.
+\end{equation}
+\end{propn}
+\ona{\emph{Proof.} For $M\le M^*$, $K(M) = 32L\Delta V_1/(M\epsilon^2)$, and $T(M) = (32L\Delta V_1/\epsilon^2)(t_{\rm lat}/M+ct_{\rm shot})$, which decreases with $M$ if $t_{\rm lat}>0$ and is constant if $t_{\rm lat} = 0$. For $M\ge M^*$, $K(M) = 8L\Delta/\epsilon$, and $T(M)$ increases with $M$. Since $K(1) = M^*K(M^*)$, \eqref{eq:ch09:ratio} follows. \qed}
+
+\ona{Without latency, only the total number of copies counts, up to $M^*$. With latency, a round should carry $M^*$ copies, the most that still reduce the number of rounds; beyond $M^*$ the bound needs $8L\Delta/\epsilon$ rounds whatever $M$, as gradient descent with exact gradients does. When $t_{\rm lat}$ dominates $cM^*t_{\rm shot}$, the ratio \eqref{eq:ch09:ratio} is about $M^*$. In the worked example of \Chap~\chref{C.VQE}, the gate-by-gate shift rule has $c = 16$ and $V_1 = 10\sigma^2 = 20$, and $L = 20$ and $\Delta = 0.923$; with $\epsilon = 0.5$, $M^* = 160$ and $K(M^*) = 295$, and with $t_{\rm lat} = 6$~s the ratio is $153$.}
+\onp{\begin{itemize}\setlength\itemsep{0.2em}
+    \item Without latency only the total of copies counts, up to $M^*$ (\Chap~\chref{C.IterationComplexity}); with latency a round should carry $M^*$ copies.
+    \item Worked example: $c = 16$, $V_1 = 20$, $L = 20$, $\Delta = 0.923$, $\epsilon = 0.5$: $M^* = 160$, $K(M^*) = 295$; with $6$~s a round, $T(1)/T(M^*) = 153$.
+\end{itemize}}
+\end{frame}
+
+% stochastic gradient descent with the shift rule on the worked example, epsilon = 0.5, the step min(1/L, eps M / (4 L V1)):
+% the time K (t_lat + 16 M t_shot) with the iterations measured over 100 runs (solid) and with the bound K(M) (dashed),
+% for t_lat = 0 (blue) and 6 s (red), against the copies M of each circuit
+\mode<all>{\gdef\copiesfig#1{\begin{axis}[#1,width=\cpW,height=\cpH,scale only axis,clip mode=individual,xmode=log,ymode=log,xmin=0.7,xmax=23000,ymin=4,ymax=7e5,xtick={1,10,100,1000,10000},ytick={10,100,1000,10000,100000},xlabel={copies $M$ of each circuit},ylabel={time (s)}]
+  \draw[gray,densely dotted] (axis cs:160,4) -- (axis cs:160,7e5);
+  \addplot[red!75!black,densely dashed] table[x=M,y=Tb6] {figures/ch09/copies.dat};
+  \addplot[blue!70!black,densely dashed] table[x=M,y=Tb0] {figures/ch09/copies.dat};
+  \addplot[red!75!black,thick,mark=*,mark size=1.3pt] table[x=M,y=T6] {figures/ch09/copies.dat};
+  \addplot[blue!70!black,thick,mark=square*,mark size=1.2pt] table[x=M,y=T0] {figures/ch09/copies.dat};
+  \node[font=\scriptsize,anchor=south west,inner sep=1.5pt] at (axis cs:160,4) {$M^*$};
+  \ona{\node[note,anchor=west] (c1) at (axis cs:60000,2.5e5) {with $6$~s a round (red), the rounds dominate:\\$K(M)$ falls as $1/M$, and so does the time,\\from $37\,072$~s at $M = 1$ to $250$~s at $M^* = 160$,\\$148$ times less};
+  \draw[notearrow] (c1.west) to[bend right=12] (axis cs:1.6,3.5e4);
+  \node[note,anchor=west] (c2) at (axis cs:60000,2.2e4) {the bound of the proposition (dashed): the\\same shape, about seven times higher,\\and the ratio $153$};
+  \draw[notearrow] (c2.west) to[bend right=10] (axis cs:30,1.0e4);
+  \node[note,anchor=west] (c3) at (axis cs:60000,2.0e3) {beyond $M^*$ the iterations no longer fall\\($40$ at $160$, $38$ at $16\,000$): more copies\\only add time};
+  \draw[notearrow] (c3.west) to[bend left=10] (axis cs:4000,520);
+  \node[note,anchor=west] (c4) at (axis cs:60000,1.6e2) {without latency (blue), the time is flat up\\to $M^*$: $9.9$~s at $M = 1$, $10.2$~s at $M^*$;\\only the total of copies counts};
+  \draw[notearrow] (c4.west) to[bend left=15] (axis cs:20,11);
+  \node[note,anchor=west] (c5) at (axis cs:60000,15) {$M^* = 4V_1/\epsilon$, where the two terms of\\$K(M)$ meet: the step reaches $1/L$};
+  \draw[notearrow] (c5.west) to[bend left=10] (axis cs:175,6);}
+\end{axis}}}
+\begin{frame}\ft{Copies against time, pictured}
+\ona{Figure~\ref{fig:ch09:copies} runs stochastic gradient descent with the shift rule on the worked example, from $(0.1,-0.1)$, with the step $\alpha(M) = \min\{1/L,\ \epsilon M/(4LV_1)\}$, which is that of the corollary of \Chap~\chref{C.IterationComplexity} for $K = K(M)$, and counts the iterations until the running average of $\|\nabla F\|^2$, averaged over $100$ runs, falls below $\epsilon = 0.5$. Below $M^*$ the measured iterations fall as $1/M$, from $6\,177$ at $M = 1$ to $40$ at $M^* = 160$; above, they stay between $38$ and $40$. Without latency, the time is $9.9$~s at $M = 1$ and $10.2$~s at $M^*$, and grows beyond. With $6$~s a round, it is $37\,072$~s at $M = 1$ and $250$~s at $M^*$, $148$ times less, against the ratio $153$ of \eqref{eq:ch09:ratio}. The bound $K(M)$ exceeds the measured iterations about sevenfold, but has the same shape.}
+\ona{\gdef\cpW{0.42\linewidth}\gdef\cpH{0.36\linewidth}}\onp{\gdef\cpW{4.8cm}\gdef\cpH{4.4cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\copiesfig{}\end{tikzpicture}
+\caption{The time to an $\epsilon$-stationary point, $\epsilon = 0.5$, for stochastic gradient descent with the shift rule on the worked example, against the copies $M$ of each of its $16$ circuits: with the iterations measured over $100$ runs (solid) and with the bound $K(M)$ of Proposition~\ref{propn:ch09:copies} (dashed), without latency (blue) and with $6$~s a round (red); $t_{\rm shot} = 100\,\mu$s.}\label{fig:ch09:copies}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\copiesfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Stochastic gradient descent, shift rule, worked example, until the running average of $\|\nabla F\|^2$ is below $0.5$.
+    \item Without latency (blue): flat up to $M^* = 160$, $9.9$~s and $10.2$~s.
+    \item With $6$~s a round (red): $37\,072$~s at $M = 1$, $250$~s at $M^*$.
+    \item Beyond $M^*$: $38$--$40$ iterations, and more copies only add time.
+    \item Dashed: the bound, seven times higher, the same shape.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% the mean of F - F* over 50 runs against the wall-clock time, M = 1000 copies of each circuit, 6 s a submission, 100 us a copy:
+% gradient descent with the shift rule, its 16 circuits together (blue) and one by one (blue, dashed), simultaneous
+% perturbation (green), COBYLA (orange), and the reconstruction of Lecture 7 from the 45 circuits of its grid in one round (red)
+\mode<all>{\gdef\methodsfig#1{\begin{axis}[#1,width=\mtW,height=\mtH,scale only axis,clip mode=individual,xmode=log,ymode=log,xmin=1,xmax=6000,ymin=8e-5,ymax=1.5,xlabel={wall-clock time (s)},ylabel={$F-F^*$, mean of $50$ runs},const plot,no markers]
+  \addplot[blue!70!black,densely dashed] table[x=t,y=v,restrict expr to domain={\thisrow{m}}{1:1}] {figures/ch09/rounds.dat};
+  \addplot[orange!85!black,thick] table[x=t,y=v,restrict expr to domain={\thisrow{m}}{3:3}] {figures/ch09/rounds.dat};
+  \addplot[green!45!black,thick] table[x=t,y=v,restrict expr to domain={\thisrow{m}}{2:2}] {figures/ch09/rounds.dat};
+  \addplot[blue!70!black,thick] table[x=t,y=v,restrict expr to domain={\thisrow{m}}{0:0}] {figures/ch09/rounds.dat};
+  \addplot[red!75!black,very thick] table[x=t,y=v,restrict expr to domain={\thisrow{m}}{4:4}] {figures/ch09/rounds.dat};
+  \ona{\node[note,anchor=west] (g1) at (axis cs:15000,0.9) {the reconstruction of \Chap~\chref{C.PSR} (red): the $45$\\circuits of its grid in a single round of $10.5$~s,\\and $F-F^* = 0.0024$ on average at the least\\value of the reconstruction};
+  \draw[notearrow] (g1.west) to[bend right=25] (axis cs:11,0.004);
+  \node[note,anchor=west] (g2) at (axis cs:15000,0.09) {gradient descent with the shift rule (blue), the\\$16$ circuits of an iteration in one round of $7.6$~s:\\below $0.01$ after $14$ rounds, $106$~s};
+  \draw[notearrow] (g2.west) to[bend left=10] (axis cs:120,0.0012);
+  \node[note,anchor=west] (g3) at (axis cs:15000,0.012) {the same iterations, their circuits submitted\\one by one (dashed): $97.6$~s a round, $1\,366$~s};
+  \draw[notearrow] (g3.west) to[bend left=10] (axis cs:1300,0.012);
+  \node[note,anchor=west] (g4) at (axis cs:15000,0.0019) {simultaneous perturbation (green), two circuits\\a round of $6.2$~s, the step $1/40$: $33$ rounds,\\$205$~s};
+  \draw[notearrow] (g4.west) to[bend left=12] (axis cs:600,0.0013);
+  \node[note,anchor=west] (g5) at (axis cs:15000,2.4e-4) {COBYLA (orange), one circuit a round of $6.1$~s:\\it stops near $0.043$, as the noise of $1000$\\copies misleads its linear models};
+  \draw[notearrow] (g5.west) to[bend right=10] (axis cs:900,0.045);
+  \node[note,anchor=west] (g6) at (axis cs:15000,3e-5) {each round costs $6$~s of latency, against $0.1$~s\\for $1000$ copies of one circuit: the time is\\counted in rounds};}
+\end{axis}}}
+\begin{frame}\ft{Counting rounds, pictured}
+\ona{With $t_{\rm lat} = 6$~s and $1000$ copies of a circuit taking $0.1$~s, the time is counted in rounds. Figure~\ref{fig:ch09:methods} compares, on the worked example from $(0.1,-0.1)$, gradient descent with the shift rule and the step $1/20$, simultaneous perturbation with $c = 0.1$ and the step $1/40$, COBYLA, and the reconstruction from a grid of \Chap~\chref{C.PSR}, with $M = 1000$ copies of each circuit. Gradient descent submits the $16$ circuits of an iteration together, in rounds of $7.6$~s, and its mean value comes within $0.01$ of $F^*$ after $14$ rounds, or $106$~s; submitted one by one, the same circuits take $97.6$~s a round and $1\,366$~s. Simultaneous perturbation, with two circuits in rounds of $6.2$~s, needs $33$ rounds, or $205$~s. COBYLA, with one circuit in rounds of $6.1$~s, stops near $F-F^* = 0.043$, as the noise misleads its linear models. The reconstruction is not adaptive: it submits the $45$ circuits of its grid in a single round of $10.5$~s, and the least value of the reconstruction lies at a point with $F-F^* = 0.0024$ on average, and at most $0.015$ over $50$ runs. Its grid has $\prod_j(2R_j+1)$ points, exponentially many in the number of parameters, so that it pays for its single round in copies; with few parameters and a long latency, one large round beats many small ones.}
+\ona{\citet{menickelly2023latency} design stochastic optimizers that take fewer rounds with more copies each, and choose between them by the ratio of $t_{\rm lat}$ to $t_{\rm shot}$; \citet{ha2025two} estimate the variance and allocate the copies under a budget of time. \citet{karalekas2020quantum} reduce $t_{\rm prep}$ by compiling a parametrised circuit once and updating only its angles on the control system, and \citet{wack2021quality} measure the speed of a device by the circuit layers it executes per second, including the updates of parameters between circuits.}
+\ona{\gdef\mtW{0.42\linewidth}\gdef\mtH{0.46\linewidth}}\onp{\gdef\mtW{4.5cm}\gdef\mtH{4.3cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\methodsfig{}\end{tikzpicture}
+\caption{The mean of $F-F^*$ over $50$ runs on the worked example against the wall-clock time, with $M = 1000$ copies of each circuit, $6$~s of latency a round and $100\,\mu$s a copy: gradient descent with the shift rule, its $16$ circuits submitted together (blue) and one by one (dashed), simultaneous perturbation (green), COBYLA (orange), and the reconstruction of \Chap~\chref{C.PSR} from the $45$ circuits of its grid in one round (red).}\label{fig:ch09:methods}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\methodsfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $1000$ copies a circuit, $6$~s a round: time is counted in rounds.
+    \item Reconstruction of \Chap~\chref{C.PSR} (red): $45$ circuits in one round, $10.5$~s, $F-F^* = 0.0024$.
+    \item Shift rule (blue): $16$ circuits a round, $14$ rounds, $106$~s; one by one (dashed), $1\,366$~s.
+    \item Simultaneous perturbation (green): $33$ rounds, $205$~s.
+    \item COBYLA (orange): one circuit a round; stops near $0.043$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
 \section{No budget rescues the worst case: training is NP-hard}
 
 \begin{frame}\ft{No budget rescues the worst case}
@@ -62,8 +381,8 @@
 \section{Angle setting at utility scale}
 
 \begin{frame}\ft{Three ways to set angles without a closed loop}
-\ona{Recall the QAOA state $\ket{\psi(\boldsymbol\theta)} = \prod_{k=1}^p U_M(\beta_k)U_C(\gamma_k)\ket{+}^{\otimes n}$ and its energy $\langle H_C\rangle$. Closed-loop optimization of $\boldsymbol\theta$ on hardware is (i) slow, given clock speeds and queueing; (ii) impossible to check, since at utility scale $\langle H_C\rangle$ cannot be simulated exactly; and (iii) \textbf{NP}-hard in the worst case, with many local optima even at $p=1$. Figure~\ref{fig:ch07:strategies} shows the alternatives:}
-\figslide[height=0.5\textheight]{figures/numerics/figure1.pdf}{Angle setting at utility scale \citep{marecek2026angles}. Angles are found classically, by evaluating the energy on (a) representative structured problems, (b) small representative instances with exact energy, or (c) the utility-scale instance with an approximate energy; they are transferred to the QAOA circuit (e) for the utility-scale instance (d), and only the final sampling (f) runs on hardware.}{fig:ch07:strategies}
+\ona{Recall the QAOA state $\ket{\psi(\boldsymbol\theta)} = \prod_{k=1}^p U_M(\beta_k)U_C(\gamma_k)\ket{+}^{\otimes n}$ and its energy $\langle H_C\rangle$. Closed-loop optimization of $\boldsymbol\theta$ on hardware is (i) slow, given clock speeds and queueing; (ii) impossible to check, since at utility scale $\langle H_C\rangle$ cannot be simulated exactly; and (iii) \textbf{NP}-hard in the worst case, with many local optima even at $p=1$. Figure~\ref{fig:ch09:strategies} shows the alternatives:}
+\figslide[height=0.5\textheight]{figures/numerics/figure1.pdf}{Angle setting at utility scale \citep{marecek2026angles}. Angles are found classically, by evaluating the energy on (a) representative structured problems, (b) small representative instances with exact energy, or (c) the utility-scale instance with an approximate energy; they are transferred to the QAOA circuit (e) for the utility-scale instance (d), and only the final sampling (f) runs on hardware.}{fig:ch09:strategies}
 \end{frame}
 
 \begin{frame}\ft{A taxonomy of angle-setting methods}
@@ -101,40 +420,40 @@
 \end{frame}
 
 \begin{frame}\ft{Quality: which method is best?}
-\figslide[height=0.55\textheight]{figures/numerics/figure5.pdf}{Proportion of the 37 graphs on which each method gives the best angles, per depth and per energy evaluator \citep{marecek2026angles}. Linear ramps and Interp.\ win most often; fixed angles are best when available but exist for only a quarter of the graph-depth pairs.}{fig:ch07:best}
+\figslide[height=0.55\textheight]{figures/numerics/figure5.pdf}{Proportion of the 37 graphs on which each method gives the best angles, per depth and per energy evaluator \citep{marecek2026angles}. Linear ramps and Interp.\ win most often; fixed angles are best when available but exist for only a quarter of the graph-depth pairs.}{fig:ch09:best}
 \end{frame}
 
 \begin{frame}\ft{Quality: method rankings depend on the problem class}
-\figslide[height=0.5\textheight]{figures/numerics/figure6.pdf}{Energy versus depth for MIS (a) and MaxCut (b) on ten 40-node random 3-regular graphs, PP evaluator \citep{marecek2026angles}. Fourier is the worst on MaxCut but among the best on MIS; MaxCut fixed angles do not transfer to MIS.}{fig:ch07:misvsmc}
+\figslide[height=0.5\textheight]{figures/numerics/figure6.pdf}{Energy versus depth for MIS (a) and MaxCut (b) on ten 40-node random 3-regular graphs, PP evaluator \citep{marecek2026angles}. Fourier is the worst on MaxCut but among the best on MIS; MaxCut fixed angles do not transfer to MIS.}{fig:ch09:misvsmc}
 \ona{At $p = 10$, approximation ratios of $94$--$98\%$ are typical for the best methods on MaxCut, $80$--$88\%$ for the worst; Fourier and TQA underperform on MaxCut, and RTS did not finish at utility scale. Iterative methods are sensitive to their $p=1$ initialisation, especially on LABS whose depth-one landscape has narrow basins; linear ramps sidestep this by parametrising the schedule globally and cost $5\%$ of the compute time.}
 \end{frame}
 
 \begin{frame}\ft{Validation I: do approximate energies find good angles?}
-\figslide[height=0.5\textheight]{figures/numerics/figure7.pdf}{40-qubit 3-regular MaxCut: energy of angles optimised with PP and MPS (solid) and their exact statevector energy (dotted), for (a) fixed angles and (b) TQA \citep{marecek2026angles}.}{fig:ch07:ppmpssv}
+\figslide[height=0.5\textheight]{figures/numerics/figure7.pdf}{40-qubit 3-regular MaxCut: energy of angles optimised with PP and MPS (solid) and their exact statevector energy (dotted), for (a) fixed angles and (b) TQA \citep{marecek2026angles}.}{fig:ch09:ppmpssv}
 \ona{The MPS energies are systematically below the truth, yet the angles they produce are as good as, and at larger depth better than, those from PP when re-evaluated exactly, and the MPS optimization was $1.5$--$3$ times faster. Accuracy of the evaluator and quality of the resulting angles are different things.}
 \end{frame}
 
 \begin{frame}\ft{Validation II: landscapes on 144 qubits}
-\figslide[height=0.45\textheight]{figures/numerics/figure8.pdf}{Energy landscape of depth-five linear-ramp QAOA over the two slopes for a 144-qubit heavy-hex MaxCut problem: (a) MPS, (b) PP, (c) \emph{ibm\_fez} with 1000 shots per point \citep{marecek2026angles}. Crosses mark each method's maximum.}{fig:ch07:landscape}
+\figslide[height=0.45\textheight]{figures/numerics/figure8.pdf}{Energy landscape of depth-five linear-ramp QAOA over the two slopes for a 144-qubit heavy-hex MaxCut problem: (a) MPS, (b) PP, (c) \emph{ibm\_fez} with 1000 shots per point \citep{marecek2026angles}. Crosses mark each method's maximum.}{fig:ch09:landscape}
 \ona{The two classical evaluations took 42 minutes on a 96-core node; the hardware scan took 3 minutes. Here PP is the closer approximation to the QPU landscape.}
 \end{frame}
 
 \begin{frame}\ft{Validation III: hardware ratios versus estimated ratios}
-\figslide[height=0.5\textheight]{figures/numerics/figure9.pdf}{Hardware approximation ratio on \emph{ibm\_boston} against the estimated ratio from training, ten 144-node heavy-hex graphs, $p=5$ (a) and $p=10$ (b) \citep{marecek2026angles}. Correlations: 0.66 and 0.61 for MPS, 0.93 and 0.89 for PP.}{fig:ch07:hw}
+\figslide[height=0.5\textheight]{figures/numerics/figure9.pdf}{Hardware approximation ratio on \emph{ibm\_boston} against the estimated ratio from training, ten 144-node heavy-hex graphs, $p=5$ (a) and $p=10$ (b) \citep{marecek2026angles}. Correlations: 0.66 and 0.61 for MPS, 0.93 and 0.89 for PP.}{fig:ch09:hw}
 \ona{Estimated and hardware ratios correlate positively, though hardware ratios are lower due to noise. Interp.\ and re-optimised fixed angles with PP perform best on both axes. Fourier with PP reports a high estimated ratio, but the QPU shows this outperformance is fake: its hardware ratios are the lowest. At $p=10$ most methods become statistically indistinguishable on hardware, even though they are distinguishable in estimated ratio: near the noise limit, it matters little how the angles were trained.}
 \end{frame}
 
 \section{Cost}
 
 \begin{frame}\ft{Quality against cost}
-\ona{Define the total duration $T_{\rm total} = T_{\rm AS} + T_{\rm QPU}$: the angle-setting time (mostly classical energy evaluations inside COBYLA, cumulative over depths for iterative methods) plus the sampling time $Q\,t_{\rm shot}$. Figure~\ref{fig:ch07:perf} places every strategy in the plane of cost and hardware quality.}
-\figslide[height=0.45\textheight]{figures/numerics/figure10.pdf}{Hardware approximation ratio against total duration for ten 144-node heavy-hex instances at (a) $p=5$ and (b) $p=10$ \citep{marecek2026angles}.}{fig:ch07:perf}
+\ona{Define the total duration $T_{\rm total} = T_{\rm AS} + T_{\rm QPU}$: the angle-setting time (mostly classical energy evaluations inside COBYLA, cumulative over depths for iterative methods) plus the sampling time $Q\,t_{\rm shot}$. Figure~\ref{fig:ch09:perf} places every strategy in the plane of cost and hardware quality.}
+\figslide[height=0.45\textheight]{figures/numerics/figure10.pdf}{Hardware approximation ratio against total duration for ten 144-node heavy-hex instances at (a) $p=5$ and (b) $p=10$ \citep{marecek2026angles}.}{fig:ch09:perf}
 \ona{Physics-inspired and transfer methods finish within $10^3$ s at ratios of $82$--$85\%$; iterative methods exceed $10^4$ s for a modest, sometimes unmeasurable, improvement on hardware.}
 \end{frame}
 
 \begin{frame}\ft{The Pareto frontier and the window sticker}
-\figslide[height=0.45\textheight]{figures/numerics/figure12.pdf}{Actionable Pareto frontier for 144-node heavy-hex MaxCut when the angles are trained on the quantum computer itself, emulated by an MPS sampler, under (a) shot time only and (b) a 6 s submission overhead per circuit \citep{marecek2026angles}. Solid: emulation; dotted: measured on \emph{ibm\_boston}.}{fig:ch07:pareto}
-\ona{Following the Stochastic Benchmark framework \citep{Neira2024}, one fits a \emph{prescription} for each method on training instances and evaluates it on test instances. Without latency, fixed angles dominate small budgets and instance-tailored fixed angles the rest. With today's 6 s latency per circuit submission, parameter transfer wins intermediate budgets and the same best ratio needs two orders of magnitude more time. Producing such a plot for real cost $5\times10^9$ emulated shots; on hardware, the submission overhead alone would take years.}
+\figslide[height=0.45\textheight]{figures/numerics/figure12.pdf}{Actionable Pareto frontier for 144-node heavy-hex MaxCut when the angles are trained on the quantum computer itself, emulated by an MPS sampler, under (a) shot time only and (b) a 6 s submission overhead per circuit \citep{marecek2026angles}. Solid: emulation; dotted: measured on \emph{ibm\_boston}.}{fig:ch09:pareto}
+\ona{Following the Stochastic Benchmark framework \citep{Neira2024}, one fits a \emph{prescription} for each method on training instances and evaluates it on test instances. Without latency, fixed angles dominate small budgets and instance-tailored fixed angles the rest. With today's 6 s latency per circuit submission, parameter transfer wins intermediate budgets and the same best ratio needs two orders of magnitude more time. Producing such a plot for real cost $5\times10^9$ emulated shots; on hardware, the submission overhead alone would take years. The overhead of $6$~s is the latency of Definition~\ref{defn:ch09:round}, paid for every circuit submitted, and COBYLA submits one circuit a round: Proposition~\ref{propn:ch09:copies} and Fig.~\ref{fig:ch09:methods} explain why the latency reorders the methods.}
 \end{frame}
 
 \section{Operational guidance}
@@ -148,8 +467,31 @@
     \item \textbf{Test several methods at small scale} for a new problem class: rankings change between MaxCut and MIS.
     \item \textbf{Near the noise limit}, small quality differences are unmeasurable; choose the fastest method.
     \item \textbf{Build a database} of good angles when similar problems recur; benchmarking ranks methods and tells you where to spend resources.
+    \item \textbf{Count rounds, not circuits:} submit the circuits of an iteration together, carry about $M^*$ copies a round\ona{, run a closed loop in a session, and prefer methods with few rounds when the latency dominates}.
 \end{enumerate}
 \ona{And keep the yardstick of \Chap~\chref{C.Motivation} in mind: standard MaxCut is solved classically in seconds. The insights should transfer to warm-start and recursive QAOA, which overcome the constant-depth obstructions that standard QAOA faces, and which we turn to next.}
+\end{frame}
+
+\ona{\section*{Exercises}}
+
+\begin{frame}\ft{Exercises}
+\onp{\footnotesize}
+\begin{exe}[The exponential queue]\label{exe:ch09:mm1}
+For exponential service times with the mean $1/\mu$, show from \eqref{eq:ch09:pk} that $\mathbb E W = \rho/(\mu-\lambda)$ and that the mean time from arrival to departure is $1/(\mu-\lambda)$. For $\mathbb E S = 60$~s, find the load at which a job waits ten minutes on average, and the load at which it does so when one job in ten is a session of $330$~s on average and the others take $30$~s.
+\end{exe}
+\begin{exe}[A closed loop in the long run]\label{exe:ch09:loop}
+Show that \eqref{eq:ch09:loop} implies $(\rho t_c-t_{\rm net})/(1-\rho)\le\liminf_k\mathbb E W_k\le\limsup_k\mathbb E W_k\le\rho t_c/(1-\rho)$. Evaluate the bounds for the round trip of \ona{Fig.~\ref{fig:ch09:roundtrip}}\onp{the measured round trip} at $\rho = 0.5$, $0.8$ and $0.9$, and compare them with the wait \eqref{eq:ch09:pk} of a single job for the service times of the previous exercise. At $\rho = 0.8$, after how many rounds is the bound on $\mathbb E W_k$ within $10\%$ of its limit?
+\end{exe}
+\end{frame}
+
+\begin{frame}\ft{Exercises, continued}
+\onp{\footnotesize}
+\begin{exe}[Circuits one by one]\label{exe:ch09:batch}
+If each of the $c$ circuits of a round is submitted on its own, a round takes $c\,(t_{\rm lat}+Mt_{\rm shot})$. Show that \ona{Proposition~\ref{propn:ch09:copies}}\onp{the proposition on copies} holds with the same $M^*$, and that submitting the circuits together divides the time at $M^*$ by $c\,(t_{\rm lat}+M^*t_{\rm shot})/(t_{\rm lat}+cM^*t_{\rm shot})$. Evaluate this for the worked example, with $c = 16$, $M^* = 160$, $t_{\rm lat} = 6$~s and $t_{\rm shot} = 100\,\mu$s.
+\end{exe}
+\begin{exe}[One round or many]\label{exe:ch09:grid}
+The reconstruction of \Chap~\chref{C.PSR} for $d$ parameters, each of degree $1$, submits the $3^d$ circuits of its grid in one round; gradient descent with the shift rule submits $2d$ circuits in each of $K$ rounds. With $M = 1000$ copies of each circuit, $t_{\rm lat} = 6$~s, $t_{\rm shot} = 100\,\mu$s and $K = 50$, find the largest $d$ for which the single round is faster. How does the answer change if the latency falls to $0.1$~s?
+\end{exe}
 \end{frame}
 
 \begin{frame}[allowframebreaks]\ft{References}
