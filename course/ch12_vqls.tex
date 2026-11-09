@@ -9,7 +9,7 @@
 \lecture{Applications: Variational Solvers for Systems of Linear Equations}{Lect12}
 \chapter{Applications: Variational Solvers for Systems of Linear Equations}\label{C.VQLS}
 
-\ona{This \chap{} applies the variational template to a problem outside combinatorial optimization: solving $Ax = b$. It follows the variational quantum linear solver (VQLS) of \citet{bravoprieto2023vqls}, with the classical-quantum comparison in the spirit of \Chap~\chref{C.EQA}.}
+\ona{This \chap{} applies the variational template to a problem outside combinatorial optimization: solving $Ax = b$. It follows the variational quantum linear solver (VQLS) of \citet{bravoprieto2023vqls}. We prove that its two costs certify the same solutions, that the cost bounds the error within a factor of the condition number in either direction, and how the Hadamard test evaluates it; we run it on an Ising-inspired worked example, measure the barren plateau of the global cost against the local one, and compare it with conjugate gradients, in the spirit of \Chap~\chref{C.EQA}. The numbers of this \chap{} are computed by \texttt{code/ch12\_figures.py}.}
 
 \section{The problem and its fault-tolerant solution}
 
@@ -29,69 +29,345 @@
 \section{The variational quantum linear solver}
 
 \begin{frame}\ft{Cost functions}
-\ona{Assume $A = \sum_{l=1}^{L} c_lA_l$ with unitaries $A_l$ (e.g., Pauli strings), and $\ket b = U_b\ket 0$. For a trial state $\ket{\psi(\boldsymbol\theta)} = V(\boldsymbol\theta)\ket0$, let $\ket\phi = A\ket{\psi}$. The \emph{global} cost is the infidelity of $\ket\phi$ with $\ket b$,}
+\onp{\footnotesize}
+\ona{Assume $A = \sum_{l=1}^{L} c_lA_l$ with real $c_l$ and Hermitian unitaries $A_l$, such as Pauli strings, and $\ket b = U_b\ket 0$. For a trial state $\ket{\psi(\boldsymbol\theta)} = V(\boldsymbol\theta)\ket0$, let $\ket\phi = A\ket{\psi}$. The \emph{global} cost is the infidelity of $\ket\phi$ with $\ket b$,}
 \begin{equation}\label{eq:ch12:global}
     C_G(\boldsymbol\theta) = 1 - \frac{|\braket{b|\phi}|^2}{\braket{\phi|\phi}} = \frac{\braket{\phi|(\one - \ket b\!\bra b)|\phi}}{\braket{\phi|\phi}},
 \end{equation}
-\ona{which is zero iff $A\ket\psi \propto \ket b$. Global costs suffer from barren plateaus (\Chap~\chref{C.VQE}), so \citet{bravoprieto2023vqls} introduce the \emph{local} cost}
+\ona{which is zero if and only if $A\ket\psi \propto \ket b$. Global costs suffer from barren plateaus (\Chap~\chref{C.VQE}), and \citet{bravoprieto2023vqls} introduce the \emph{local} cost}
 \begin{equation}\label{eq:ch12:local}
     C_L(\boldsymbol\theta) = \frac{\braket{\phi|H_L|\phi}}{\braket{\phi|\phi}},\qquad H_L = U_b\Big(\one - \frac1n\sum_{j=1}^n\ket0\!\bra0_j\otimes\one_{\bar j}\Big)U_b^\dagger,
 \end{equation}
-\ona{whose expectation involves only single-qubit projectors after undoing $U_b$; it is also zero exactly at the solution, and $C_L \le C_G \le nC_L$, so both certify the same solutions.}
-\onp{$C_G = 1 - |\braket{b|\phi}|^2/\braket{\phi|\phi}$ (global, barren plateaus); $C_L$ with local projectors (trainable); $C_L \le C_G \le nC_L$.}
+\ona{whose evaluation, after undoing $U_b$, needs only the probability that each qubit reads $0$.}
+\begin{propn}\label{propn:ch12:costs}
+$0\le C_L\le C_G\le nC_L$. In particular, $C_L$ and $C_G$ vanish at the same states, those with $A\ket\psi\propto\ket b$.
+\end{propn}
+\ona{\emph{Proof.} Let $\ket\chi = U_b^\dagger\ket\phi/\|\phi\|$, $P_0 = \ket{0^n}\!\bra{0^n}$ and $P_j = \ket0\!\bra0_j\otimes\one_{\bar j}$. Then $C_G = \braket{\chi|\one-P_0|\chi}$ and $C_L = \braket{\chi|\one-\frac1n\sum_jP_j|\chi}$. All these projectors are diagonal in the computational basis, so it suffices to compare their diagonals. A string other than $0^n$ has a $1$ in some position, so $\one-P_0\le\sum_j(\one-P_j) = n(\one-\frac1n\sum_jP_j)$, which gives $C_G\le nC_L$; and $P_0\le P_j$ for every $j$, so $P_0\le\frac1n\sum_jP_j$, which gives $C_L\le C_G$. \qed}
+\onp{Proof: with $\ket\chi = U_b^\dagger\ket\phi/\|\phi\|$, compare the diagonal projectors $\one-\ket{0^n}\!\bra{0^n}$ and $\one-\frac1n\sum_j\ket0\!\bra0_j$.}
 \end{frame}
 
-\begin{frame}\ft{Evaluating the cost on a quantum computer}
-\ona{Expanding $\ket\phi = \sum_lc_lA_l\ket\psi$, the numerator and denominator of \eqref{eq:ch12:global}--\eqref{eq:ch12:local} are sums of terms}
-\begin{equation}
-    \braket{\phi|\phi} = \sum_{l,l'}c_l^*c_{l'}\braket{0|V^\dagger A_l^\dagger A_{l'}V|0},\qquad
-    |\braket{b|\phi}|^2 = \sum_{l,l'}c_l^*c_{l'}\braket{0|U_b^\dagger A_{l'}V|0}\braket{0|V^\dagger A_l^\dagger U_b|0},
+\begin{frame}\ft{The Hadamard test}
+\onp{\footnotesize}
+\ona{Expanding $\ket\phi = \sum_lc_lA_l\ket\psi$, the two costs are sums of matrix elements of unitaries,}
+\begin{equation}\label{eq:ch12:terms}
+    \braket{\phi|\phi} = \sum_{l,l'}c_lc_{l'}\,\mathrm{Re}\braket{\psi|A_lA_{l'}|\psi},\qquad
+    \braket{b|\phi} = \sum_lc_l\braket{0|U_b^\dagger A_lV|0},
 \end{equation}
-\ona{each a matrix element of a unitary, estimated by a \emph{Hadamard test}: one ancilla, controlled application of the unitaries, and measurement of the ancilla in $X$ or $Y$ gives the real and imaginary parts. The local cost needs $\mathcal O(L^2)$ such circuits per evaluation, each of depth roughly that of $V$ plus two $A_l$; the ``Hadamard-overlap'' test avoids controlling $V$ at the price of doubling the qubits.}
+\ona{and each is estimated on a quantum computer by the following test.}
+\begin{lem}\label{lem:ch12:hadamard}
+Prepare an ancilla in $\ket0$ and $\ket\psi$, apply $H$ to the ancilla, then $U$ to $\ket\psi$ controlled by the ancilla, then $H$ to the ancilla, and measure it. Then $\mathrm{Pr}[0]-\mathrm{Pr}[1] = \mathrm{Re}\braket{\psi|U|\psi}$; with $S^\dagger$ applied to the ancilla before the controlled $U$, it is $\mathrm{Im}\braket{\psi|U|\psi}$.
+\end{lem}
+\ona{\emph{Proof.} After the controlled $U$ the state is $(\ket0\ket\psi+\ket1U\ket\psi)/\sqrt2$, and after the second $H$ it is $\frac12\ket0(\ket\psi+U\ket\psi)+\frac12\ket1(\ket\psi-U\ket\psi)$. Hence $\mathrm{Pr}[0] = \frac14\|\psi+U\psi\|^2 = \frac12(1+\mathrm{Re}\braket{\psi|U|\psi})$ and $\mathrm{Pr}[1] = \frac12(1-\mathrm{Re}\braket{\psi|U|\psi})$. The phase $S^\dagger$ multiplies the second branch by $-i$, and $\mathrm{Re}(-iz) = \mathrm{Im}\,z$. \qed}
+\onp{Proof: the ancilla interferes $\ket\psi$ with $U\ket\psi$; $\mathrm{Pr}[0] = \frac12(1+\mathrm{Re}\braket{\psi|U|\psi})$.}
 \begin{itemize}\setlength\itemsep{0.2em}
-    \item The cost, like every VQA cost, is estimated with shot noise and bias; the optimizer's convergence is governed by \Chap~\chref{C.IterationComplexity}.
-    \item Gradients follow from the parameter-shift rule (\Chap~\chref{C.PSR}) applied to each Hadamard test.
+    \item $\braket{\phi|\phi}$: $L(L+1)/2$ tests with $U = A_lA_{l'}$; the local cost needs as many for each of the $n$ projectors.
+    \item Each test is estimated with copies, with the noise and bias of \Chap~\chref{C.IterationComplexity}; gradients follow from the shift rule of \Chap~\chref{C.PSR} applied to each test.
 \end{itemize}
 \end{frame}
 
-\begin{frame}\ft{Guarantees and ansatz}
-\ona{VQLS has an operational guarantee relating the cost to the solution quality: if $C_G(\boldsymbol\theta) \le \epsilon$, then the trace distance between $\ket{\psi(\boldsymbol\theta)}$ and the true $\ket x$ satisfies}
-\begin{equation}
-    \tfrac12\big\|\ket\psi\!\bra\psi - \ket x\!\bra x\big\|_1 \le \kappa\sqrt{\epsilon},
-\end{equation}
-\ona{and similarly with $\kappa\sqrt{n\epsilon}$ for the local cost. The cost is a certificate; the condition number is the price, as in HHL.}
-\begin{itemize}\setlength\itemsep{0.2em}
-    \item \textbf{Ansatz.} Hardware-efficient layers of $R_Y$ rotations and CZ gates for generic $A$; a problem-inspired ``quantum alternating operator'' ansatz built from the $A_l$ and $U_b$ when $A$ has structure, cf.\ QAOA.
-    \item \textbf{Optimizer.} Gradient descent with parameter-shift gradients or COBYLA; the local cost has larger gradients than the global one for shallow circuits, avoiding the plateau at small $n$.
-    \item \textbf{Scaling in numerics.} On Ising-inspired linear systems with up to 50 qubits (simulated with tensor networks), the time to reach a fixed precision was observed to scale linearly in $\kappa$, logarithmically in $1/\epsilon$, and polylogarithmically in $N$, for that family.
+% the Hadamard test for Re <psi|A_l A_l'|psi>: an ancilla (top) in |+>, the ansatz V on the system (bottom), A_l' and A_l
+% controlled by the ancilla, H and a measurement; S^dagger (dashed) for the imaginary part
+\mode<all>{\gdef\hadamardfig{%
+  \draw (0,1.2) -- (6.6,1.2); \draw (0,0) -- (6.6,0);
+  \node[font=\scriptsize,anchor=east] at (-0.05,1.2) {$\ket0$}; \node[font=\scriptsize,anchor=east] at (-0.05,0) {$\ket{0^n}$};
+  \node[draw,fill=white,minimum width=0.55cm,minimum height=0.5cm,font=\scriptsize] at (0.6,1.2) {$H$};
+  \node[draw,fill=white,dashed,minimum width=0.55cm,minimum height=0.5cm,font=\scriptsize] at (1.5,1.2) {$S^\dagger$};
+  \node[draw,fill=blue!8,minimum width=1.1cm,minimum height=0.6cm,font=\scriptsize] at (1.0,0) {$V(\boldsymbol\theta)$};
+  \fill (2.9,1.2) circle (2pt); \draw (2.9,1.2) -- (2.9,0.3);
+  \node[draw,fill=orange!15,minimum width=0.7cm,minimum height=0.6cm,font=\scriptsize] at (2.9,0) {$A_{l'}$};
+  \fill (4.0,1.2) circle (2pt); \draw (4.0,1.2) -- (4.0,0.3);
+  \node[draw,fill=orange!15,minimum width=0.7cm,minimum height=0.6cm,font=\scriptsize] at (4.0,0) {$A_l$};
+  \node[draw,fill=white,minimum width=0.55cm,minimum height=0.5cm,font=\scriptsize] at (5.1,1.2) {$H$};
+  \node[draw,fill=white,minimum width=0.7cm,minimum height=0.5cm] (mt) at (6.1,1.2) {};
+  \draw (5.9,1.07) arc[start angle=160,end angle=20,radius=0.21]; \draw[-{Stealth[length=2.5pt]}] (6.1,1.03) -- (6.27,1.33);
+  \ona{\node[note,anchor=south west] (h1) at (-2.8,1.9) {$H$ puts the ancilla in $(\ket0+\ket1)/\sqrt2$;\\$S^\dagger$ (dashed), for the imaginary part};
+  \draw[notearrow] ([xshift=2.6cm]h1.south west) to[bend left=15] (0.6,1.48);
+  \node[note,anchor=south west] (h2) at (2.5,1.9) {$A_{l'}$, then $A_l$, applied only in the branch\\$\ket1$ of the ancilla: $U = A_lA_{l'}$};
+  \draw[notearrow] ([xshift=0.6cm]h2.south west) to[bend right=15] (2.95,1.3);
+  \draw[notearrow] ([xshift=0.6cm]h2.south west) to[bend left=10] (3.95,1.3);
+  \node[note,anchor=north west] (h3) at (-2.8,-0.6) {$V(\boldsymbol\theta)$ prepares the trial state $\ket\psi$};
+  \draw[notearrow] ([xshift=3.0cm]h3.north west) to[bend right=15] (0.9,-0.32);
+  \node[note,anchor=north west] (h4) at (2.3,-0.6) {$H$ interferes the two branches: the\\measurement gives $\mathrm{Pr}[0]-\mathrm{Pr}[1] = \mathrm{Re}\braket{\psi|A_lA_{l'}|\psi}$};
+  \draw[notearrow] ([xshift=3.4cm]h4.north west) to[bend right=20] (6.1,0.92);}}}
+\begin{frame}\ft{The Hadamard test, pictured}
+\ona{Figure~\ref{fig:ch12:hadamard} shows the circuit of Lemma~\ref{lem:ch12:hadamard} for one term of \eqref{eq:ch12:terms}. The ancilla controls $A_{l'}$ and then $A_l$, so that the system carries $\ket\psi$ in one branch and $A_lA_{l'}\ket\psi$ in the other, and the final $H$ makes the two interfere. For the worked example below, with $L = 6$ terms, $\braket{\phi|\phi}$ needs $21$ such circuits, and the local cost $21$ for each of its three projectors, each with its own copies.}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\hadamardfig\end{tikzpicture}
+\caption{The Hadamard test for $\mathrm{Re}\braket{\psi|A_lA_{l'}|\psi}$: an ancilla (top) prepared by $H$, the ansatz $V(\boldsymbol\theta)$ on the system (bottom), $A_{l'}$ and $A_l$ controlled by the ancilla, and $H$ and a measurement of the ancilla; with $S^\dagger$ (dashed), the test gives the imaginary part.}\label{fig:ch12:hadamard}\end{figure}}
+\onp{\begin{center}\begin{tikzpicture}\hadamardfig\end{tikzpicture}\end{center}
+\footnotesize\begin{itemize}\setlength\itemsep{0.2em}
+    \item $H$, then $A_{l'}$ and $A_l$ controlled by the ancilla, then $H$: $\mathrm{Pr}[0]-\mathrm{Pr}[1] = \mathrm{Re}\braket{\psi|A_lA_{l'}|\psi}$.
+    \item $S^\dagger$ (dashed): the imaginary part. In the worked example, $21$ circuits for $\braket{\phi|\phi}$.
+\end{itemize}}
+\end{frame}
+
+\begin{frame}\ft{Ansatz, optimizer, and reported scaling}
+\onp{\footnotesize}
+\begin{itemize}\setlength\itemsep{0.3em}
+    \item \textbf{Ansatz.} Hardware-efficient layers of $R_Y$ rotations and CZ gates for generic $A$; a problem-inspired alternating operator ansatz built from the $A_l$ and $U_b$ when $A$ has structure, as in QAOA.
+    \item \textbf{Optimizer.} Gradient descent with gradients from the shift rule, or COBYLA; the local cost has larger gradients than the global one for shallow circuits\ona{, as Section~\ref{sec:ch12:plateau} shows}.
+    \item \textbf{Reported scaling.} On Ising-inspired systems with up to $50$ qubits, simulated with tensor networks, \citet{bravoprieto2023vqls} observed a time to a fixed precision that grows linearly in $\kappa$, logarithmically in $1/\epsilon$ and polylogarithmically in $N$, for that family.
 \end{itemize}
 \end{frame}
 
-\section{An early fault-tolerant alternative}
+\section{A worked example}\label{sec:ch12:example}
 
-\begin{frame}\ft{Linear systems as a ground-state problem}
-\ona{The cost \eqref{eq:ch12:global} is the expectation of the Hamiltonian}
+\begin{frame}\ft{An Ising-inspired system}
+\onp{\footnotesize}
+\ona{Following \citet{bravoprieto2023vqls}, we take}
+\begin{equation}\label{eq:ch12:ising}
+    A = \frac1\zeta\Big(\sum_{j=1}^nX_j+J\sum_{j=1}^{n-1}Z_jZ_{j+1}+\eta\one\Big),\qquad J = 0.1,\qquad\ket b = H^{\otimes n}\ket0 = \ket+^{\otimes n},
+\end{equation}
+\ona{with $\eta$ and $\zeta$ chosen so that the eigenvalues of $A$ fill $[1/\kappa,1]$. For $n = 3$ and $\kappa = 10$, the Ising part has the eigenvalues from $-3.005$ to $3.005$, so that $\eta = 3.6728$ and $\zeta = 6.6778$, and $A$ has $L = 6$ terms: the three $X_j$ with the coefficient $0.1498$, the two $Z_jZ_{j+1}$ with $0.0150$, and the identity with $0.5500$. The solution $\ket x$ has the amplitudes between $0.328$ and $0.381$. It is close to $\ket b$, with $\braket{b|x} = 0.9986$, because $\ket b$ is the top eigenvector of $\sum_jX_j$ and the couplings $J$ perturb it only a little. The ansatz $V(\boldsymbol\theta)$ has three layers of $R_Y$ rotations on all qubits, separated by CZ gates on the pairs $(1,2)$ and $(2,3)$ alternately, and a final layer: $12$ angles. All computations are exact simulations by \texttt{code/ch12\_figures.py}.}
+\onp{\begin{itemize}\setlength\itemsep{0.2em}
+    \item $n = 3$, $\kappa = 10$: $\eta = 3.6728$, $\zeta = 6.6778$; $L = 6$ terms; the eigenvalues of $A$ fill $[0.1,1]$.
+    \item $\braket{b|x} = 0.9986$: $\ket b$ is the top eigenvector of $\sum_jX_j$, and $J = 0.1$ is small.
+    \item Ansatz: three layers of $R_Y$ and CZ, and a final layer of $R_Y$; $12$ angles.
+\end{itemize}}
+\end{frame}
+
+\section{Certificates}\label{sec:ch12:cert}
+
+\begin{frame}\ft{The cost certifies the solution}
+\onp{\footnotesize}
+\ona{Let $\kappa = \|A\|\,\|A^{-1}\|$ be the condition number of $A$, and let $D(\psi,x) = \sqrt{1-|\braket{x|\psi}|^2}$ be the trace distance between the pure states $\ket\psi$ and $\ket x$.}
+\begin{propn}\label{propn:ch12:cert}
+For every state $\ket\psi$,
+\begin{equation}\label{eq:ch12:cert}
+    \frac{\sqrt{C_G}}\kappa\le D(\psi,x)\le\kappa\sqrt{C_G},
+\end{equation}
+and hence $D(\psi,x)\le\kappa\sqrt{nC_L}$.
+\end{propn}
+\ona{\emph{Proof.} Write $\ket\psi = \alpha\ket x+\beta\ket{x^\perp}$, with $\ket{x^\perp}$ a unit vector orthogonal to $\ket x$, so that $D = |\beta|$, and let $P_b^\perp = \one-\ket b\!\bra b$, $P_x^\perp = \one-\ket x\!\bra x$. Since $A\ket x\propto\ket b$, the component of $\ket\phi = A\ket\psi$ along $\ket b$ is mapped by $A^{-1}$ to a multiple of $\ket x$, and
+\begin{equation*}
+    D = \|P_x^\perp\psi\| = \|P_x^\perp A^{-1}P_b^\perp\phi\|\le\|A^{-1}\|\,\|P_b^\perp\phi\| = \|A^{-1}\|\sqrt{C_G}\,\|\phi\|\le\|A^{-1}\|\,\|A\|\sqrt{C_G}.
+\end{equation*}
+Conversely, $P_b^\perp\phi = \beta P_b^\perp A\ket{x^\perp}$, so $\sqrt{C_G}\,\|\phi\| = \|P_b^\perp\phi\|\le D\,\|A\|$, while $\|\phi\| = \|A\psi\|\ge\|A^{-1}\|^{-1}$; hence $\sqrt{C_G}\le\kappa D$. The last bound follows from Proposition~\ref{propn:ch12:costs}. \qed}
+\onp{Proof: $D = \|P_x^\perp A^{-1}P_b^\perp\phi\|\le\|A^{-1}\|\sqrt{C_G}\|\phi\|$, and $\sqrt{C_G}\|\phi\| = |\beta|\,\|P_b^\perp Ax^\perp\|\le D\|A\|$.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item The cost is a certificate: $C_G\le\epsilon$ guarantees $D\le\kappa\sqrt\epsilon$, whatever the optimizer did.
+    \item To guarantee $D\le\epsilon$, the cost must be driven, and estimated, below $\epsilon^2/\kappa^2$.
+\end{itemize}
+\end{frame}
+
+% BFGS on the local cost for the worked example, from random angles: C_L (blue), C_G (black), the error D (red), and the
+% bounds kappa sqrt(C_G) (red, dashed) and kappa sqrt(n C_L) (red, dotted), after each iteration
+\mode<all>{\gdef\trainfig#1{\begin{axis}[#1,width=\trW,height=\trH,scale only axis,clip mode=individual,ymode=log,xmin=0,xmax=140,ymin=2e-10,ymax=30,xtick={0,20,40,60,80,100,120,140},xlabel={iteration of BFGS},ylabel={cost, error}]
+  \addplot[red!75!black,densely dotted,thick] table[x=it,y=bL] {figures/ch12/vqls_train.dat};
+  \addplot[red!75!black,densely dashed] table[x=it,y=bG] {figures/ch12/vqls_train.dat};
+  \addplot[black,thick] table[x=it,y=CG] {figures/ch12/vqls_train.dat};
+  \addplot[blue!70!black,thick] table[x=it,y=CL] {figures/ch12/vqls_train.dat};
+  \addplot[red!75!black,thick] table[x=it,y=D] {figures/ch12/vqls_train.dat};
+  \ona{\node[note,anchor=west] (t1) at (axis cs:155,8) {the certificates $\kappa\sqrt{nC_L}$ (dotted) and\\$\kappa\sqrt{C_G}$ (dashed) lie above the error at\\every iteration, and $\kappa\sqrt{C_G}$ meets it at\\the end: $D/(\kappa\sqrt{C_G}) = 0.996$};
+  \draw[notearrow] (t1.west) to[bend right=15] (axis cs:125,4e-4);
+  \node[note,anchor=west] (t2) at (axis cs:155,0.08) {the error $D$ (red), from $0.9995$ to $2.6\cdot10^{-4}$};
+  \draw[notearrow] (t2.west) to[bend right=10] (axis cs:15,0.15);
+  \node[note,anchor=west] (t3) at (axis cs:155,1e-4) {$C_L\le10^{-6}$ after $35$ iterations, where\\$D = 2.9\cdot10^{-3}$, below the certified $6.6\cdot10^{-3}$};
+  \draw[notearrow] (t3.west) to[bend left=10] (axis cs:36,3e-6);
+  \node[note,anchor=west] (t4) at (axis cs:155,3e-7) {the tail: the costs fall a hundredfold,\\from $8\cdot10^{-8}$ to $7\cdot10^{-10}$, and the error only\\tenfold, as $D\propto\sqrt{C_G}$};
+  \draw[notearrow] (t4.west) to[bend left=10] (axis cs:100,3e-9);
+  \node[note,anchor=west] (t5) at (axis cs:155,1.5e-9) {$C_L$ (blue) and $C_G$ (black): $C_L\le C_G\le3C_L$\\throughout, and both reach $7.0\cdot10^{-10}$};
+  \draw[notearrow] (t5.west) to[bend left=10] (axis cs:135,8e-10);}
+\end{axis}}}
+\begin{frame}\ft{Training, pictured}
+\ona{Figure~\ref{fig:ch12:train} shows BFGS on the local cost of the worked example from random angles, with exact costs. In $140$ iterations, $C_L$ falls from $0.4906$ to $7.0\cdot10^{-10}$, $C_G$ from $0.9833$ to $7.0\cdot10^{-10}$, and the error $D$ from $0.9995$ to $2.6\cdot10^{-4}$. After $35$ iterations, $C_L\le10^{-6}$, and $D = 2.9\cdot10^{-3}$, against $\kappa\sqrt{C_G} = 5.1\cdot10^{-3}$ and $\kappa\sqrt{nC_L} = 6.6\cdot10^{-3}$. The bound of Proposition~\ref{propn:ch12:cert} holds at every iteration; the ratio $D/(\kappa\sqrt{C_G})$ is $0.101$ at the start and $0.996$ at the end, where the remaining error lies along the eigenvector of the least eigenvalue of $A$, and the bound is attained. In the tail, the costs fall a hundredfold and the error tenfold.}
+\ona{\gdef\trW{0.42\linewidth}\gdef\trH{0.34\linewidth}}\onp{\gdef\trW{4.5cm}\gdef\trH{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\trainfig{}\end{tikzpicture}
+\caption{BFGS on the local cost of the worked example ($n = 3$, $\kappa = 10$, $12$ angles): $C_L$ (blue), $C_G$ (black), the error $D$ (red), and the certificates $\kappa\sqrt{C_G}$ (dashed) and $\kappa\sqrt{nC_L}$ (dotted), after each iteration.}\label{fig:ch12:train}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\trainfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item BFGS on $C_L$, exact costs, $140$ iterations.
+    \item $C_L$ (blue), $C_G$ (black): to $7.0\cdot10^{-10}$; the error $D$ (red) to $2.6\cdot10^{-4}$.
+    \item The certificates (dashed, dotted) always lie above $D$; at the end $D/(\kappa\sqrt{C_G}) = 0.996$.
+    \item In the tail, a hundredfold in cost buys a tenfold in error.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% the error D against sqrt(C_G) on the worked example: states of the ansatz at random angles (grey), the training (blue),
+% |x> perturbed along the eigenvector of the least (red) and of the largest (green) eigenvalue of A, and the band
+% sqrt(C_G)/kappa <= D <= kappa sqrt(C_G) of the proposition (dashed)
+\mode<all>{\gdef\certfig#1{\begin{axis}[#1,width=\ceW,height=\ceH,scale only axis,clip mode=individual,xmode=log,ymode=log,xmin=1e-6,xmax=1.2,ymin=1e-6,ymax=1.5,xlabel={$\sqrt{C_G}$},ylabel={error $D$}]
+  \addplot[gray,densely dashed,domain=1e-6:1.2,samples=2] {10*x};
+  \addplot[gray,densely dashed,domain=1e-6:1.2,samples=2] {0.1*x};
+  \addplot[gray!70,only marks,mark=*,mark size=0.6pt,restrict expr to domain={\thisrow{kind}}{0:0}] table[x=sCG,y=D] {figures/ch12/vqls_cert.dat};
+  \addplot[red!75!black,thick,restrict expr to domain={\thisrow{kind}}{2:2}] table[x=sCG,y=D] {figures/ch12/vqls_cert.dat};
+  \addplot[green!45!black,thick,restrict expr to domain={\thisrow{kind}}{3:3}] table[x=sCG,y=D] {figures/ch12/vqls_cert.dat};
+  \addplot[blue!70!black,only marks,mark=*,mark size=0.9pt,restrict expr to domain={\thisrow{kind}}{1:1}] table[x=sCG,y=D] {figures/ch12/vqls_cert.dat};
+  \ona{\node[note,anchor=west] (r1) at (axis cs:3,0.9) {the band of Proposition~\ref{propn:ch12:cert} (dashed):\\$\sqrt{C_G}/\kappa\le D\le\kappa\sqrt{C_G}$, with $\kappa = 10$};
+  \draw[notearrow] (r1.west) to[bend right=15] (axis cs:0.05,0.5);
+  \node[note,anchor=west] (r2) at (axis cs:3,0.08) {$\ket x$ perturbed along the eigenvector of the\\least eigenvalue (red): $D/\sqrt{C_G}$ up to $9.97$,\\the upper edge};
+  \draw[notearrow] (r2.west) to[bend right=10] (axis cs:1e-3,9.5e-3);
+  \node[note,anchor=west] (r3) at (axis cs:3,4e-3) {along the largest eigenvalue (green):\\between $1.35$ and $2.50$};
+  \draw[notearrow] (r3.west) to[bend left=10] (axis cs:3e-3,6e-3);
+  \node[note,anchor=west] (r4) at (axis cs:3,2e-4) {states at random angles (grey): between\\$1.00$ and $3.41$; the training (blue) leaves\\them for the upper edge};
+  \draw[notearrow] (r4.west) to[bend left=10] (axis cs:0.3,0.5);
+  \draw[notearrow] (r4.west) to[bend left=15] (axis cs:3e-5,2.7e-4);}
+\end{axis}}}
+\begin{frame}\ft{The certificate, pictured}
+\ona{Figure~\ref{fig:ch12:cert} plots the error against $\sqrt{C_G}$ on the worked example. All points lie in the band \eqref{eq:ch12:cert}. States of the ansatz at random angles have $D/\sqrt{C_G}$ between $1.00$ and $3.41$. Perturbing $\ket x$ along the eigenvector of the least eigenvalue of $A$ gives ratios up to $9.97$: $A$ shrinks the error by $\lambda_{\min} = 1/\kappa$ before the cost can see it, and the upper edge is attained. Perturbing it along the eigenvector of the largest eigenvalue gives ratios between $1.35$ and $2.50$. The training ends on the upper edge, where the slowest direction of the error is the least visible one.}
+\ona{\gdef\ceW{0.38\linewidth}\gdef\ceH{0.34\linewidth}}\onp{\gdef\ceW{4.6cm}\gdef\ceH{4.3cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\certfig{}\end{tikzpicture}
+\caption{The error $D$ against $\sqrt{C_G}$ on the worked example: states of the ansatz at random angles (grey), the training (blue), $\ket x$ perturbed along the eigenvectors of the least (red) and of the largest (green) eigenvalue of $A$, and the band of Proposition~\ref{propn:ch12:cert} (dashed).}\label{fig:ch12:cert}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\certfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item The band $\sqrt{C_G}/\kappa\le D\le\kappa\sqrt{C_G}$ (dashed), $\kappa = 10$.
+    \item Along the least eigenvalue (red): up to $9.97$, the upper edge.
+    \item Along the largest (green): $1.35$ to $2.50$; random angles (grey): $1.00$ to $3.41$.
+    \item The training (blue) ends on the upper edge.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{A ground-state problem}
+\onp{\footnotesize}
+\ona{The cost \eqref{eq:ch12:global} is the generalised Rayleigh quotient $C_G = \braket{\psi|H_G|\psi}/\braket{\psi|A^\dagger A|\psi}$ of the Hamiltonian}
 \begin{equation}\label{eq:ch12:HG}
-    H_G = A^\dagger(\one - \ket b\!\bra b)A,
+    H_G = A^\dagger(\one - \ket b\!\bra b)A.
 \end{equation}
-\ona{whose ground state is $\ket x$ with energy $0$, and whose gap is at least $\lambda_{\min}(A^\dagger A) = \Omega(\kappa^{-2})$ by Weyl's inequality, since $A^\dagger\ket b\!\bra bA$ has rank one. \citet{zhang2022computing} exploit this: instead of \emph{optimising} an ansatz to the ground state, prepare any state with $\Omega(1)$ overlap with $\ket x$ (a constant-precision run of an adiabatic linear-systems solver takes $\widetilde{\mathcal O}(\kappa)$ time), then estimate $\braket{x|M|x}$ by their ground-state property estimation, evaluating the $M$-weighted CDF directly at energy zero, which is known.}
+\begin{propn}\label{propn:ch12:gap}
+$H_G\succeq0$ has the ground state $\ket x$, with the eigenvalue $0$, and its next eigenvalue is at least $\lambda_{\min}(A^\dagger A) = \|A^{-1}\|^{-2}$, which is $1/\kappa^2$ if $\|A\| = 1$.
+\end{propn}
+\ona{\emph{Proof.} $H_G = A^\dagger A-\ket a\!\bra a$ with $\ket a = A^\dagger\ket b$, and $H_G\ket x\propto A^\dagger(\one-\ket b\!\bra b)\ket b = 0$. By the Courant--Fischer theorem, the second eigenvalue is the maximum over vectors $u$ of the minimum of the Rayleigh quotient of $H_G$ over unit vectors orthogonal to $u$. Choosing $u = a$, the rank-one term vanishes on these vectors, and the minimum is at least $\lambda_{\min}(A^\dagger A)$. \qed}
+\ona{\citet{zhang2022computing} exploit this. Instead of optimising an ansatz to the ground state, they prepare any state with an overlap of order one with $\ket x$, by a constant-precision run of an adiabatic linear-systems solver, which takes $\widetilde{\mathcal O}(\kappa)$ time. They then estimate $\braket{x|M|x}$ by ground-state property estimation, evaluating the $M$-weighted cumulative distribution function directly at the energy zero, where the gap \eqref{eq:ch12:HG} separates $\ket x$ from the rest of the spectrum.}
 \begin{itemize}\setlength\itemsep{0.2em}
-    \item Gap amplification: the block Hamiltonian $\bar H_G' = \sigma^+\otimes\bar A^\dagger(\one-\ket{\bar b}\!\bra{\bar b}) + \sigma^-\otimes(\one - \ket{\bar b}\!\bra{\bar b})\bar A$ has eigenvalues $\pm\sqrt{\lambda_j}$, so the gap improves from $\kappa^{-2}$ to $\kappa^{-1}$.
-    \item Result: circuit depth $\widetilde{\mathcal O}(\kappa)$ and expected total runtime $\widetilde{\mathcal O}(\kappa\epsilon^{-2}\alpha^2)$ for an $\alpha$-block-encoded $M$, with a \emph{guarantee} on $\epsilon$; compared with VQLS, no optimizer, no local minima, and a depth independent of $\epsilon$.
+    \item Gap amplification: $\sigma^+\otimes A^\dagger(\one-\ket b\!\bra b)+\sigma^-\otimes(\one-\ket b\!\bra b)A$ has the eigenvalues $\pm\sqrt{\lambda_j(H_G)}$, so the gap improves from $\kappa^{-2}$ to $\kappa^{-1}$.
+    \item The result: depth $\widetilde{\mathcal O}(\kappa)$ and expected time $\widetilde{\mathcal O}(\kappa\epsilon^{-2}\alpha^2)$ for an $\alpha$-block-encoded $M$, with a guarantee on $\epsilon$, no optimizer and no local minima.
 \end{itemize}
-\ona{As in chemistry (\Chap~\chref{C.VQE}), the variational solver's natural role becomes producing the initial state with overlap, while the guarantee comes from the Fourier post-processing.}
+\end{frame}
+
+\section{Global and local plateaus}\label{sec:ch12:plateau}
+
+\begin{frame}\ft{Barren plateaus, global and local}
+\onp{\footnotesize}
+\ona{The proposition above makes the two costs equivalent as certificates, but not as landscapes. \citet{McClean_2018} showed that, for parametrised circuits random enough to form approximate $2$-designs, the variance of every derivative of a cost vanishes exponentially in the number of qubits; \citet{Cerezo_2021_costfunct} showed that global costs, which compare all $n$ qubits at once, have such barren plateaus already for shallow circuits, while local costs, which compare one qubit at a time, have derivatives whose variance vanishes at most polynomially in $n$ when the depth grows as $\mathcal O(\log n)$. The cost $C_L$ was designed for this. Figure~\ref{fig:ch12:plateau} measures it on the family \eqref{eq:ch12:ising}, with four layers, for $n = 2,\dots,12$: the variance over $400$ random angles of the derivative of each cost with respect to the first angle.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item Global costs: the variance of the derivatives vanishes exponentially in $n$ \citep{McClean_2018,Cerezo_2021_costfunct}.
+    \item Local costs with logarithmic depth: at most polynomially \citep{Cerezo_2021_costfunct}.
+    \item A derivative of standard deviation $s$ needs about $1/s^2$ copies to be resolved: the plateau multiplies the copies.
+\end{itemize}
+\end{frame}
+
+% the variance over 400 random angles of the derivative of C_G (black) and C_L (blue) with respect to the first angle,
+% four layers, against the number n of qubits
+\mode<all>{\gdef\plateaufig#1{\begin{axis}[#1,width=\plW,height=\plH,scale only axis,clip mode=individual,ymode=log,xmin=1.5,xmax=12.5,ymin=5e-7,ymax=0.3,xtick={2,4,6,8,10,12},xlabel={qubits $n$},ylabel={variance of $\partial C/\partial\theta_1$}]
+  \addplot[black,thick,mark=square*,mark size=1.3pt] table[x=n,y=vG] {figures/ch12/vqls_plateau.dat};
+  \addplot[blue!70!black,thick,mark=*,mark size=1.4pt] table[x=n,y=vL] {figures/ch12/vqls_plateau.dat};
+  \ona{\node[note,anchor=west] (v1) at (axis cs:13.5,0.08) {the global cost (black): about $2^{-1.56n}$, a\\factor of $2.9$ for each qubit, $92\,000$\\from $n = 2$ to $n = 12$};
+  \draw[notearrow] (v1.west) to[bend right=10] (axis cs:9,8e-5);
+  \node[note,anchor=west] (v2) at (axis cs:13.5,5e-3) {the local cost (blue): about $n^{-2.2}$, a factor\\of $62$ from $n = 2$ to $n = 12$};
+  \draw[notearrow] (v2.west) to[bend right=10] (axis cs:11,7e-4);
+  \node[note,anchor=west] (v3) at (axis cs:13.5,1e-4) {the curves cross between $n = 5$ and $6$;\\at $n = 12$ the global derivative has the\\variance $1.2\cdot10^{-6}$, $460$ times smaller};
+  \draw[notearrow] (v3.west) to[bend left=10] (axis cs:5.5,2.3e-3);
+  \draw[notearrow] (v3.west) to[bend left=15] (axis cs:12,1.4e-6);
+  \node[note,anchor=west] (v4) at (axis cs:13.5,3e-6) {four layers, $400$ random angles for\\each $n$, exact simulations};}
+\end{axis}}}
+\begin{frame}\ft{Plateaus, pictured}
+\ona{In Fig.~\ref{fig:ch12:plateau}, the variance of the derivative of $C_G$ falls from $0.107$ at $n = 2$ to $1.2\cdot10^{-6}$ at $n = 12$, by a factor of $92\,000$, about $2^{-1.56n}$; that of $C_L$ falls from $0.033$ to $5.4\cdot10^{-4}$, by a factor of $62$, about $n^{-2.2}$. The curves cross between $n = 5$ and $n = 6$. At $n = 12$, resolving the derivative of the global cost takes about $460$ times as many copies as that of the local one.}
+\ona{\gdef\plW{0.42\linewidth}\gdef\plH{0.32\linewidth}}\onp{\gdef\plW{4.8cm}\gdef\plH{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\plateaufig{}\end{tikzpicture}
+\caption{The variance of the derivative of $C_G$ (black) and $C_L$ (blue) with respect to the first angle, over $400$ random angles, with four layers, against the number of qubits.}\label{fig:ch12:plateau}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\plateaufig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Four layers, $400$ random angles for each $n$.
+    \item Global (black): about $2^{-1.56n}$, a factor of $92\,000$ from $n = 2$ to $12$.
+    \item Local (blue): about $n^{-2.2}$, a factor of $62$.
+    \item At $n = 12$, $460$ times as many copies for the global derivative.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% the two costs along the first angle, the other angles random: n = 4 (dashed) and n = 12 (solid), C_G (black), C_L (blue)
+\mode<all>{\gdef\slicefig#1{\begin{axis}[#1,width=\slW,height=\slH,scale only axis,clip mode=individual,xmin=0,xmax=6.2832,ymin=0.3,ymax=1.04,xtick={0,1.5708,3.1416,4.7124,6.2832},xticklabels={$0$,$\frac\pi2$,$\pi$,$\frac{3\pi}2$,$2\pi$},ytick={0.4,0.6,0.8,1},yticklabel style={/pgf/number format/fixed},xlabel={first angle $\theta_1$},ylabel={cost}]
+  \addplot[black,densely dashed] table[x=t,y=G4] {figures/ch12/vqls_slice.dat};
+  \addplot[blue!70!black,densely dashed] table[x=t,y=L4] {figures/ch12/vqls_slice.dat};
+  \addplot[black,thick] table[x=t,y=G12] {figures/ch12/vqls_slice.dat};
+  \addplot[blue!70!black,thick] table[x=t,y=L12] {figures/ch12/vqls_slice.dat};
+  \ona{\node[note,anchor=west] (w1) at (axis cs:6.9,1.0) {$C_G$ at $n = 12$ (solid black): between $0.9967$\\and $1$, a plateau on which the gradient\\is hidden in the noise};
+  \draw[notearrow] (w1.west) to[bend right=10] (axis cs:4.5,0.998);
+  \node[note,anchor=west] (w2) at (axis cs:6.9,0.85) {$C_G$ at $n = 4$ (dashed black): between\\$0.935$ and $1$};
+  \draw[notearrow] (w2.west) to[bend left=10] (axis cs:3.3,0.95);
+  \node[note,anchor=west] (w3) at (axis cs:6.9,0.62) {$C_L$ at $n = 4$ (dashed blue): between\\$0.379$ and $0.775$};
+  \draw[notearrow] (w3.west) to[bend left=10] (axis cs:4.6,0.7);
+  \node[note,anchor=west] (w4) at (axis cs:6.9,0.4) {$C_L$ at $n = 12$ (solid blue): between $0.360$\\and $0.471$: still a signal};
+  \draw[notearrow] (w4.west) to[bend left=10] (axis cs:5.4,0.42);}
+\end{axis}}}
+\begin{frame}\ft{Slices, pictured}
+\ona{Figure~\ref{fig:ch12:slice} shows the two costs along the first angle, with the other angles random, for $n = 4$ and $n = 12$. At $n = 12$, $C_G$ stays between $0.9967$ and $1$: a random state is almost orthogonal to $\ket b$ in a space of dimension $4096$, and $A$ does not change that. $C_L$, which asks each qubit separately, stays between $0.360$ and $0.471$, and its slope remains visible.}
+\ona{\gdef\slW{0.42\linewidth}\gdef\slH{0.3\linewidth}}\onp{\gdef\slW{4.8cm}\gdef\slH{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\slicefig{}\end{tikzpicture}
+\caption{The global (black) and local (blue) costs along the first angle, the other angles random, for $n = 4$ (dashed) and $n = 12$ (solid).}\label{fig:ch12:slice}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\slicefig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $C_G$ at $n = 12$ (solid black): between $0.9967$ and $1$, a plateau.
+    \item $C_L$ at $n = 12$ (solid blue): between $0.360$ and $0.471$.
+    \item $n = 4$ (dashed): $C_G$ from $0.935$, $C_L$ from $0.379$ to $0.775$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\section{The classical baseline}\label{sec:ch12:baseline}
+
+% iterations against kappa: conjugate gradients until C_G <= 1e-8 on n = 10 qubits for |b> = |+>^10 (grey) and a random
+% |b> (black), with the bound (1/2) sqrt(kappa) ln(2/1e-4) (dashed), and VQLS (BFGS on C_L, n = 4, six layers) until
+% C_G <= 1e-6, the median and the quartiles of five starts (blue)
+\mode<all>{\gdef\kappafig#1{\begin{axis}[#1,width=\kpW,height=\kpH,scale only axis,clip mode=individual,xmode=log,ymode=log,xmin=1.6,xmax=650,ymin=1.5,ymax=200,xlabel={condition number $\kappa$},ylabel={iterations}]
+  \addplot[black,densely dashed] table[x=kappa,y=bound] {figures/ch12/vqls_kappa.dat};
+  \addplot[gray,thick,mark=square*,mark size=1.3pt] table[x=kappa,y=cgplus] {figures/ch12/vqls_kappa.dat};
+  \addplot[black,thick,mark=*,mark size=1.4pt] table[x=kappa,y=cgrand] {figures/ch12/vqls_kappa.dat};
+  \addplot[blue!70!black,thick,mark=diamond*,mark size=1.8pt,unbounded coords=discard,error bars/.cd,y dir=both,y explicit,error bar style={blue!70!black}] table[x=kappa,y=vq50,y error plus expr=\thisrow{vq75}-\thisrow{vq50},y error minus expr=\thisrow{vq50}-\thisrow{vq25}] {figures/ch12/vqls_kappa.dat};
+  \ona{\node[note,anchor=west] (b1) at (axis cs:1000,150) {VQLS, $n = 4$, BFGS on $C_L$ with exact costs\\(blue): the median $50$ iterations at $\kappa = 2$ and\\$73$ at $\kappa = 100$; each needs $L(L+1)/2$ Hadamard\\tests per cost, and a gradient twice the angles};
+  \draw[notearrow] (b1.west) to[bend right=10] (axis cs:110,75);
+  \node[note,anchor=west] (b2) at (axis cs:1000,40) {the bound of conjugate gradients (dashed),\\$\frac12\sqrt\kappa\ln(2\cdot10^4)$, from $7$ to $111$};
+  \draw[notearrow] (b2.west) to[bend left=10] (axis cs:400,95);
+  \node[note,anchor=west] (b3) at (axis cs:1000,12) {conjugate gradients on $1024$ unknowns with\\a random $\ket b$ (black): $6$ iterations at $\kappa = 2$, $21$\\at $500$, each one product with $A$};
+  \draw[notearrow] (b3.west) to[bend left=10] (axis cs:300,20);
+  \node[note,anchor=west] (b4) at (axis cs:1000,2.5) {with $\ket b = \ket+^{\otimes10}$ (grey): $3$ iterations at\\every $\kappa$, as $\ket x$ is almost $\ket b$};
+  \draw[notearrow] (b4.west) to[bend left=10] (axis cs:300,3.1);}
+\end{axis}}}
+\begin{frame}\ft{Against conjugate gradients}
+\ona{Conjugate gradients \citep{hestenes1952methods} solve a positive definite system with $\kappa$ by reducing the error in the norm of $A$ by the factor $2((\sqrt\kappa-1)/(\sqrt\kappa+1))^k$ after $k$ iterations, each a product with $A$ \citep{saad2003iterative}: about $\frac12\sqrt\kappa\ln(2/\epsilon)$ iterations for the relative error $\epsilon$. Figure~\ref{fig:ch12:kappa} counts iterations on the family \eqref{eq:ch12:ising}. On $n = 10$ qubits, that is $1024$ unknowns, conjugate gradients reach $C_G\le10^{-8}$ in $3$ iterations at every $\kappa$ for $\ket b = \ket+^{\otimes10}$, since $\ket x$ is almost $\ket b$, and in $6$ to $21$ iterations for a random $\ket b$, as $\kappa$ grows from $2$ to $500$, below the bound. VQLS on $n = 4$ qubits, with six layers and BFGS on the exact local cost, reaches $C_G\le10^{-6}$ in a median of $50$ iterations at $\kappa = 2$ and $73$ at $\kappa = 100$.}
+\ona{The comparison of iterations is not a comparison of cost. An iteration of conjugate gradients is one product with $A$, of the order of $nN$ operations here. An iteration of VQLS needs $L(L+1)/2$ Hadamard tests for each term of each cost, $21$ in the worked example, each with $M$ copies, and twice as many for every angle of a gradient. By Proposition~\ref{propn:ch12:cert}, guaranteeing $D\le\epsilon$ requires $C_G\le\epsilon^2/\kappa^2$, estimated to that precision: for $\epsilon = 0.01$, $10^{-6}$ at $\kappa = 10$ and $10^{-8}$ at $\kappa = 100$, which Hoeffding's inequality turns into about $10^{12}$ and $10^{16}$ copies. Where VQLS may pay off is where the classical algorithm cannot run at all: $N = 2^n$ too large to store, $\ket b$ available only as a state, and only a few expectations of $\ket x$ needed, as \citet{bravoprieto2023vqls} argue; the honest comparison is then with quantum-inspired and Monte Carlo methods, instance family by instance family (\Chap~\chref{C.EQA}).}
+\ona{\gdef\kpW{0.42\linewidth}\gdef\kpH{0.34\linewidth}}\onp{\gdef\kpW{4.8cm}\gdef\kpH{4.3cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\kappafig{}\end{tikzpicture}
+\caption{Iterations against the condition number: conjugate gradients on $n = 10$ qubits until $C_G\le10^{-8}$, for $\ket b = \ket+^{\otimes10}$ (grey) and a random $\ket b$ (black), with their bound (dashed), and VQLS on $n = 4$ qubits until $C_G\le10^{-6}$, the median and the quartiles of five starts (blue).}\label{fig:ch12:kappa}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\kappafig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Conjugate gradients, $1024$ unknowns: $3$ iterations for $\ket+^{\otimes10}$ (grey), $6$ to $21$ for a random $\ket b$ (black); bound $\frac12\sqrt\kappa\ln(2/\epsilon)$ (dashed).
+    \item VQLS, $n = 4$ (blue): medians from $50$ to $73$.
+    \item But an iteration of VQLS is $21$ Hadamard tests per term, each with $M$ copies; certifying $D\le0.01$ at $\kappa = 100$ needs $C_G\le10^{-8}$.
+\end{itemize}\end{column}\end{columns}}
 \end{frame}
 
 \section{Assessment}
 
 \begin{frame}\ft{What can and cannot be claimed}
+\onp{\footnotesize}
 \begin{itemize}\setlength\itemsep{0.3em}
-    \item \textbf{Trainability.} The local cost avoids the barren plateau of the global one at the sizes tested; whether it does so asymptotically for generic $A$ is not guaranteed, and problem-inspired ansätze face the same local-minima issues as QAOA (\Chap~\chref{C.QAOA}).
-    \item \textbf{Cost per iteration.} $\mathcal O(L^2)$ Hadamard tests with shots $\mathcal O(1/\epsilon^2)$ each, times $2\times$(parameters) for gradients: the per-iteration accounting of \Chap~\chref{C.PerIteration} applies verbatim.
-    \item \textbf{Classical baseline.} Conjugate gradients solve sparse well-conditioned systems in $\mathcal O(N\sqrt\kappa\log(1/\epsilon))$; quantum-inspired sampling algorithms match the polylog$(N)$ scaling of HHL for low-rank $A$. The honest comparison is against these, per instance family, in the sense of \Chap~\chref{C.EQA}.
-    \item \textbf{Where it may pay off.} When $\ket b$ is naturally available as a quantum state and only a few expectations of $\ket x$ are needed, e.g., as a subroutine inside a larger quantum algorithm, or for Hamiltonians whose $A_l$ are cheap to control.
+    \item \textbf{Certificates.} The cost certifies the solution, $D\le\kappa\sqrt{C_G}$, and on the worked example the bound is attained: guaranteeing $D\le\epsilon$ means estimating the cost below $\epsilon^2/\kappa^2$.
+    \item \textbf{Trainability.} The local cost avoids the barren plateau of the global one at shallow depth, as \ona{Fig.~\ref{fig:ch12:plateau}}\onp{the plateau figure} shows up to $n = 12$; problem-inspired ans\"atze face the local minima of QAOA (\Chap~\chref{C.QAOA}).
+    \item \textbf{Cost per iteration.} $\mathcal O(L^2)$ Hadamard tests, each with $M$ copies, and twice the angles for a gradient: the accounting of \Chap~\chref{C.PerIteration}, with its latency, applies verbatim.
+    \item \textbf{Classical baseline.} Conjugate gradients need $\mathcal O(\sqrt\kappa\log(1/\epsilon))$ products with $A$, and on the Ising-inspired family with $\ket b = \ket+^{\otimes n}$ only three; quantum-inspired sampling algorithms match the polylogarithmic scaling in $N$ for low-rank $A$. The comparison must be made per instance family (\Chap~\chref{C.EQA}).
+    \item \textbf{Where it may pay off.} When $\ket b$ is available only as a quantum state, $N$ is too large to store, and only a few expectations of $\ket x$ are needed, as a subroutine of a larger quantum algorithm.
 \end{itemize}
 \ona{The template is the same as in every \chap{} of this course: a cost with a certificate at zero, a circuit family, a noisy optimizer, and a classical competitor that must be beaten instance by instance.}
+\end{frame}
+
+\ona{\section*{Exercises}}
+
+\begin{frame}\ft{Exercises}
+\onp{\footnotesize}
+\begin{exe}[The two costs]\label{exe:ch12:costs}
+Show that $C_L = C_G$ when $U_b^\dagger\ket\phi$ is a combination of $\ket{0^n}$ and $\ket{1^n}$, and that $C_G = nC_L$ when it is a combination of $\ket{0^n}$ and the strings with a single $1$, so that both inequalities of \ona{Proposition~\ref{propn:ch12:costs}}\onp{the proposition on the two costs} are tight.
+\end{exe}
+\begin{exe}[The edges of the certificate]\label{exe:ch12:edges}
+Let $A = \mathrm{diag}(1,1/\kappa)$. For $\ket b = (1,0)$ and $\ket\psi = (\cos t,\sin t)$, compute $C_G$ and $D$, and show that $D/\sqrt{C_G}\to\kappa$ as $t\to0$. For $\ket b = (0,1)$ and $\ket\psi = (\sin t,\cos t)$, show that $D/\sqrt{C_G}\to1/\kappa$. Which edge of \eqref{eq:ch12:cert} does each case attain, and why?
+\end{exe}
+\end{frame}
+
+\begin{frame}\ft{Exercises, continued}
+\onp{\footnotesize}
+\begin{exe}[Counting circuits]\label{exe:ch12:count}
+For the family \eqref{eq:ch12:ising} on $n$ qubits, with $L = 2n$ terms and an ansatz of $\ell$ layers, count the Hadamard tests for one evaluation of $C_G$ and of $C_L$, and for a gradient by the shift rule. With $M$ copies of each and the round trips of \Chap~\chref{C.PerIteration}, estimate the time of one iteration for $n = 10$, $\ell = 4$ and $M = 1000$.
+\end{exe}
+\begin{exe}[An easy right-hand side]\label{exe:ch12:easy}
+Show that $\ket+^{\otimes n}$ is the eigenvector of $\sum_jX_j$ with the largest eigenvalue, and that $A\ket+^{\otimes n} = \frac{n+\eta}\zeta\ket+^{\otimes n}+\frac J\zeta\sum_jZ_jZ_{j+1}\ket+^{\otimes n}$. Deduce that $1-\braket{b|x}^2 = \mathcal O(J^2)$ as $J\to0$, and explain why conjugate gradients need so few iterations in \ona{Fig.~\ref{fig:ch12:kappa}}\onp{the figure on conjugate gradients}.
+\end{exe}
 \end{frame}
 
 \begin{frame}[allowframebreaks]\ft{References}

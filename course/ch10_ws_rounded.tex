@@ -9,7 +9,7 @@
 \lecture{Warm-Started Quantum Optimization: Rounded}{Lect10}
 \chapter{Warm-Started Quantum Optimization: Rounded}\label{C.WSRounded}
 
-\ona{This \chap{} and the next follow \citet{egger2021warm}, \emph{Warm-starting quantum optimization}. Classical solvers for integer programs employ relaxations, and under the Unique Games Conjecture these relaxations often provide the best performance ratios available in polynomial time (\Chap~\chref{C.Inapprox}). Here we warm-start QAOA from a \emph{rounded} solution of a relaxation, the Goemans--Williamson cut of \Chap~\chref{C.Motivation}, so that the quantum algorithm inherits the classical guarantee; the next \chap{} warm-starts from the continuous relaxation itself.}
+\ona{This \chap{} and the next follow \citet{egger2021warm}, \emph{Warm-starting quantum optimization}. Classical solvers for integer programs employ relaxations, and under the Unique Games Conjecture these relaxations often provide the best performance ratios available in polynomial time (\Chap~\chref{C.Inapprox}). Here we warm-start QAOA from a \emph{rounded} solution of a relaxation, the Goemans--Williamson cut of \Chap~\chref{C.Motivation}, so that the quantum algorithm inherits the classical guarantee. We picture the rounding and the warm start on a worked instance with six nodes, prove that the warm start can always return its cut, run the recursion that builds on it, view roundings as Brownian motions, and test the method by our own simulations. The numbers of this \chap{} are computed by \texttt{code/ch10\_figures.py}.}
 
 \section{Relaxations and roundings}
 
@@ -56,50 +56,438 @@
 \end{itemize}
 \end{frame}
 
+% the GW vectors of the worked example, which lie on a circle since the SDP solution has rank two (red: z_i = +1 in the
+% warm cut, blue: z_i = -1), a hyperplane (dashed) with its normal r that produces the warm cut, and a ring of the
+% directions of r: the arcs giving the maximum cut (green), the warm cut (orange) and the other cuts (grey)
+\mode<all>{\gdef\gwfig#1{\begin{axis}[#1,width=\gwW,height=\gwW,scale only axis,axis equal image,hide axis,xmin=-1.45,xmax=1.45,ymin=-1.45,ymax=1.45,clip=false]
+  \draw[gray!60] (axis cs:0,0) circle[radius=1];
+  \addplot[green!50!black,line width=2.4pt,domain=0:1.179,samples=40,variable=\t] ({1.25*cos(deg(\t))},{1.25*sin(deg(\t))});
+  \addplot[green!50!black,line width=2.4pt,domain=2.186:3.1416,samples=40,variable=\t] ({1.25*cos(deg(\t))},{1.25*sin(deg(\t))});
+  \addplot[green!50!black,line width=2.4pt,domain=3.1416:4.3206,samples=40,variable=\t] ({1.25*cos(deg(\t))},{1.25*sin(deg(\t))});
+  \addplot[green!50!black,line width=2.4pt,domain=5.3276:6.2832,samples=40,variable=\t] ({1.25*cos(deg(\t))},{1.25*sin(deg(\t))});
+  \addplot[orange!85!black,line width=2.4pt,domain=1.700:2.1852,samples=30,variable=\t] ({1.25*cos(deg(\t))},{1.25*sin(deg(\t))});
+  \addplot[orange!85!black,line width=2.4pt,domain=4.8416:5.3268,samples=30,variable=\t] ({1.25*cos(deg(\t))},{1.25*sin(deg(\t))});
+  \addplot[gray!70,line width=2.4pt,domain=1.1798:1.6991,samples=30,variable=\t] ({1.25*cos(deg(\t))},{1.25*sin(deg(\t))});
+  \addplot[gray!70,line width=2.4pt,domain=4.3214:4.8407,samples=30,variable=\t] ({1.25*cos(deg(\t))},{1.25*sin(deg(\t))});
+  \draw[black,densely dashed,thick] (axis cs:-1.3043,-0.5086) -- (axis cs:1.3043,0.5086);
+  \draw[-{Stealth[length=5pt]},black,thick] (axis cs:0,0) -- (axis cs:-0.3631,0.9318);
+  \node[font=\scriptsize,anchor=south] at (axis cs:-0.3631,0.94) {$r$};
+  \addplot[-{Stealth[length=4pt]},red!75!black,thick,quiver={u=\thisrow{x},v=\thisrow{y}},restrict expr to domain={\thisrow{side}}{1:1}] table[x expr=0,y expr=0] {figures/ch10/gw_vectors.dat};
+  \addplot[-{Stealth[length=4pt]},blue!70!black,thick,quiver={u=\thisrow{x},v=\thisrow{y}},restrict expr to domain={\thisrow{side}}{-1:-1}] table[x expr=0,y expr=0] {figures/ch10/gw_vectors.dat};
+  \node[font=\scriptsize] at (axis cs:-1.1,0.30) {$1$}; \node[font=\scriptsize] at (axis cs:-1.12,0.06) {$6$};
+  \node[font=\scriptsize] at (axis cs:0.86,0.73) {$4$}; \node[font=\scriptsize] at (axis cs:1.11,0.21) {$5$};
+  \node[font=\scriptsize] at (axis cs:1.12,0.0) {$2$}; \node[font=\scriptsize] at (axis cs:1.02,-0.44) {$3$};
+  \ona{\node[note,anchor=west] (g1) at (axis cs:1.75,1.25) {the SDP solution has rank two: the six unit\\vectors lie on a circle; red for the side $z_i = +1$\\of the warm cut, blue for $z_i = -1$};
+  \draw[notearrow] (g1.west) to[bend right=15] (axis cs:0.75,0.55);
+  \node[note,anchor=west] (g2) at (axis cs:1.75,0.45) {a hyperplane (dashed) with the normal $r$:\\$z_i = \mathrm{sign}(u_i^\top r)$ gives the warm cut, $\{1,4,6\}$\\against $\{2,3,5\}$, of value $15$};
+  \draw[notearrow] (g2.west) to[bend left=10] (axis cs:1.15,0.46);
+  \node[note,anchor=west] (g3) at (axis cs:1.75,-0.4) {the ring: the directions of $r$, each arc one cut,\\with the probability of its length over $\pi$: the\\maximum cut, $19$, with $0.679$ (green); the\\warm cut with $0.154$ (orange); three others\\(grey)};
+  \draw[notearrow] (g3.west) to[bend left=15] (axis cs:1.2,-0.4);
+  \draw[notearrow] (g3.west) to[bend left=25] (axis cs:0.6,-1.1);
+  \node[note,anchor=west] (g4) at (axis cs:1.75,-1.25) {$1000$ random hyperplanes: the mean $16.55$, the\\maximum cut in $67\%$ of them; the SDP value $19.105$};}
+\end{axis}}}
+\begin{frame}\ft{The rounding, pictured}
+\ona{Figure~\ref{fig:ch10:gw} shows the Goemans--Williamson rounding of the worked example, the first instance of the generator on six nodes, with integer weights uniform in $\{-10,\dots,10\}$. Its maximum cut is $19$, and its SDP value $19.105$. The SDP solution has rank two, so the six vectors lie on a circle, in two clusters, $\{1,6\}$ and $\{2,3,4,5\}$. A random normal $r$ projects to a uniformly random direction in their plane, and each arc of directions gives one cut, with the probability of its length over $\pi$: the maximum cut, which separates the clusters, with $0.679$, and the cut $\{1,4,6\}$ against $\{2,3,5\}$, of value $15$, with $0.154$. Of $1000$ random hyperplanes, $67\%$ give the maximum cut, and the mean is $16.55$. We warm-start below from the cut of value $15$, the suboptimal cut produced most often.}
+\ona{\gdef\gwW{0.34\linewidth}}\onp{\gdef\gwW{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\gwfig{}\end{tikzpicture}
+\caption{The Goemans--Williamson rounding of the worked example: the six vectors of the SDP solution, which lie on a circle (red and blue, the two sides of the warm cut), a hyperplane (dashed) with its normal $r$ that produces the warm cut, and the ring of the directions of $r$, each arc labelled by the cut it produces: the maximum cut (green), the warm cut (orange), and others (grey).}\label{fig:ch10:gw}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.45\textwidth}\centering\begin{tikzpicture}\gwfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.53\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Six nodes, weights in $\{-10,\dots,10\}$: maximum cut $19$, SDP $19.105$.
+    \item Rank two: the vectors lie on a circle, in two clusters.
+    \item Each arc of the normal $r$ is a cut, with probability length$/\pi$: the maximum cut $0.679$ (green), the warm cut, $15$, $0.154$ (orange).
+    \item $1000$ hyperplanes: mean $16.55$; the maximum cut in $67\%$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
 \section{Warm-starting from a rounded solution}
 
-\begin{frame}\ft{Rounded warm start and the GW guarantee}
-\ona{For MaxCut, $\Sigma$ is not positive semidefinite and one warm-starts from a \emph{rounded} solution: a GW cut $z \in \{\pm1\}^n$, encoded as in \eqref{eq:ch10:init}--\eqref{eq:ch10:eps} with $\varepsilon \in (0,0.5)$ so the circuit can deviate from it. To retain the GW bound, the mixer is modified so its time evolution is $R_Y(-\theta_i)R_Z(-2\beta)R_Y(\theta_i)$, i.e., the off-diagonal elements of the continuous warm-start mixer of \Chap~\chref{C.WSContinuous} change sign. With $\varepsilon = 0.25$, the choice $\beta_1 = \pi/2$, $\gamma_1 = 0$ maps each qubit to}
-\begin{equation}
-    R_Y(-\theta_i)R_Z(-\pi)R_Y(2\theta_i)\ket0 = -i\ket1 \text{ or } -i\ket0 \quad\text{for } c_i^\star = \varepsilon \text{ or } 1-\varepsilon,
+\begin{frame}\ft{Rounded warm start}
+\onp{\footnotesize}
+\ona{For MaxCut, $\Sigma$ is not positive semidefinite, \eqref{eq:ch10:qp} is not convex, and one warm-starts from a \emph{rounded} solution: a cut $z\in\{\pm1\}^n$ produced by the random hyperplane, encoded as in \eqref{eq:ch10:init}--\eqref{eq:ch10:eps} with $\varepsilon\in(0,\frac12)$, so that the circuit can leave it. The mixer differs from that of the continuous warm start of \Chap~\chref{C.WSContinuous} in the sign of its off-diagonal entries.}
+\begin{defn}\label{defn:ch10:ws}
+For a cut $z$ and $\varepsilon\in(0,\frac12)$, let $c_i = \varepsilon$ if $z_i = +1$ and $c_i = 1-\varepsilon$ if $z_i = -1$, and $\theta_i = 2\arcsin\sqrt{c_i}$. The \emph{rounded warm start} prepares $\bigotimes_iR_Y(\theta_i)\ket0$, and its layers apply $e^{-i\gamma H_C}$, with $H_C$ minus the cut, and then the \emph{modified mixer}
+\begin{equation}\label{eq:ch10:mixer}
+    U_M(\beta) = \bigotimes_{i=1}^nR_Y(-\theta_i)\,R_Z(-2\beta)\,R_Y(\theta_i) = \bigotimes_{i=1}^n\big(\cos\beta\,\one+i\sin\beta\,\boldsymbol n_i'\cdot\boldsymbol\sigma\big),
 \end{equation}
-\ona{which is the GW cut itself (up to the global flip $z \leftrightarrow -z$). Therefore:}
-\begin{propn}\label{prop:ch10:gw}
-Depth-one WS-QAOA warm-started from a GW cut with the modified mixer and $\varepsilon = 0.25$ can reproduce the GW cut for some angles, hence its optimised energy is at least the GW cut value, and the algorithm inherits the $\alpha_{\rm GW}$ guarantee in expectation over the rounding. Any quantum circuit that preserves or improves the ratio preserves or improves the overall guarantee.
-\end{propn}
-\ona{The price: the initial state is no longer an eigenstate of the mixer, so the adiabatic convergence argument no longer applies; convergence in $p$ is studied numerically below.}
+with $\boldsymbol n_i' = (-\sin\theta_i,0,\cos\theta_i)$: a rotation of each qubit by $2\beta$ about the axis through $\boldsymbol n_i'$, the mirror image of its warm state $\boldsymbol n_i = (\sin\theta_i,0,\cos\theta_i)$ in the $z$ axis.
+\end{defn}
+\ona{The second form in \eqref{eq:ch10:mixer} follows as in \Chap~\chref{C.WSContinuous}: conjugation by $R_Y(-\theta_i)$ turns $Z$ into $\boldsymbol n_i'\cdot\boldsymbol\sigma$, and $R_Z(-2\beta) = e^{i\beta Z}$. Unlike the continuous warm start, the warm state is not an eigenstate of this mixer, so that the mixer moves it even when $\gamma = 0$.}
 \end{frame}
+
+\begin{frame}\ft{The warm start keeps the guarantee}
+\onp{\footnotesize}
+\begin{propn}\label{propn:ch10:gw}
+Let $\varepsilon = \frac14$. The circuit of depth one with $\gamma = 0$ and $\beta = \pi/2$ prepares, up to a phase, the computational basis state of $-z$, which is the cut $z$ with its sides exchanged. Hence, at every depth, the largest expected cut over the angles is at least the cut $C(z)$; and if $z$ is drawn by the random hyperplane and the weights are non-negative, it is at least $\alpha_{\rm GW}\,\mathrm{SDP}\ge\alpha_{\rm GW}\,\mathrm{OPT}$ in expectation over $z$.
+\end{propn}
+\ona{\emph{Proof.} With $\gamma = 0$ only the mixer acts, qubit by qubit, and $U_M(\pi/2) = \bigotimes_ii\,\boldsymbol n_i'\cdot\boldsymbol\sigma$: a rotation by $\pi$ about $\boldsymbol n_i'$. It maps the Bloch vector $\boldsymbol n_i$ to $2(\boldsymbol n_i\cdot\boldsymbol n_i')\boldsymbol n_i'-\boldsymbol n_i = 2\cos(2\theta_i)\,\boldsymbol n_i'-\boldsymbol n_i$, whose third coordinate is $\cos\theta_i\,(2\cos2\theta_i-1)$ and whose first is $-\sin\theta_i\,(2\cos2\theta_i+1)$. For $c_i = \frac14$, $\theta_i = \pi/3$, and for $c_i = \frac34$, $\theta_i = 2\pi/3$; in both cases $\cos2\theta_i = -\frac12$, the first coordinate vanishes, and the third is $-2\cos\theta_i = \mp1$. So a qubit with $z_i = +1$ ends in $\ket1$, which encodes $z_i = -1$, and one with $z_i = -1$ ends in $\ket0$: the state is that of $-z$, and $C(-z) = C(z)$. A layer with $\beta = \gamma = 0$ is the identity, so every depth can prepare it. For non-negative weights, the random hyperplane gives $\mathbb E\,C(z)\ge\alpha_{\rm GW}\,\mathrm{SDP}$, as shown in \Chap~\chref{C.Motivation}. \qed}
+\onp{Proof: $U_M(\pi/2)$ rotates each $\boldsymbol n_i$ by $\pi$ about $\boldsymbol n_i'$, to the height $\cos\theta_i(2\cos2\theta_i-1) = \mp1$ when $\cos2\theta_i = -\frac12$, that is $\varepsilon = \frac14$.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item The guarantee of the rounding survives any circuit that can reproduce its cut; the circuit can only add to it.
+    \item Only $\varepsilon = \frac14$ lands exactly on the poles; the initial state is not an eigenstate of the mixer, and the convergence theorem of \Chap~\chref{C.QAOA} does not apply.
+\end{itemize}
+\end{frame}
+
+% the Bloch sphere: the warm states for z_i = +1 (c = 1/4, 60 degrees from |0>) and z_i = -1 (c = 3/4, 60 degrees from
+% |1>) (blue), the axes of the modified mixer through their mirror images in the z axis (dotted), and the half turns of
+% beta = pi/2 that take them to the opposite poles (red)
+\mode<all>{\gdef\blochtenfig#1{\begin{axis}[#1,width=\btW,height=\btW,scale only axis,axis equal image,hide axis,xmin=-1.3,xmax=1.3,ymin=-1.3,ymax=1.3,clip=false]
+  \draw[gray!60,thin] (axis cs:0,0) circle[radius=1];
+  \addplot[gray!60,thin] table[x=eqfu,y=eqfv] {figures/ch10/bloch.dat};
+  \addplot[gray!60,thin,densely dotted] table[x=eqbu,y=eqbv] {figures/ch10/bloch.dat};
+  \addplot[gray!60,thin] table[x=merfu,y=merfv] {figures/ch10/bloch.dat};
+  \addplot[gray!60,thin,densely dotted] table[x=merbu,y=merbv] {figures/ch10/bloch.dat};
+  \draw[blue!60!black,densely dashed] (axis cs:0,0.95106) -- (axis cs:0,-0.95106);
+  \draw[black,densely dotted,thick] (axis cs:0,0) -- (axis cs:0.43301,0.70729);
+  \draw[black,densely dotted,thick] (axis cs:0,0) -- (axis cs:0.43301,-0.24377);
+  \addplot[red!75!black,thick] table[x=pathafu,y=pathafv] {figures/ch10/bloch.dat};
+  \addplot[red!75!black,thick,densely dotted] table[x=pathabu,y=pathabv] {figures/ch10/bloch.dat};
+  \addplot[red!75!black,thick] table[x=pathbfu,y=pathbfv] {figures/ch10/bloch.dat};
+  \addplot[red!75!black,thick,densely dotted] table[x=pathbbu,y=pathbbv] {figures/ch10/bloch.dat};
+  \fill[blue!70!black] (axis cs:-0.43301,0.24377) circle (2pt);
+  \fill[blue!70!black] (axis cs:-0.43301,-0.70729) circle (2pt);
+  \draw[black,fill=white] (axis cs:0.43301,0.70729) circle (1.5pt);
+  \draw[black,fill=white] (axis cs:0.43301,-0.24377) circle (1.5pt);
+  \fill[red!75!black] (axis cs:0,0.95106) circle (1.8pt); \fill[red!75!black] (axis cs:0,-0.95106) circle (1.8pt);
+  \node[font=\scriptsize,anchor=south] at (axis cs:0,0.98) {$\ket0$, $z_i = +1$};
+  \node[font=\scriptsize,anchor=north] at (axis cs:0,-0.98) {$\ket1$, $z_i = -1$};
+  \ona{\node[note,anchor=east] (o1) at (axis cs:-1.35,0.75) {$z_i = +1$: the warm state at $c = \frac14$,\\$60^\circ$ from $\ket0$ (blue)};
+  \draw[notearrow] (o1.east) to[bend left=15] (axis cs:-0.47,0.27);
+  \node[note,anchor=east] (o2) at (axis cs:-1.35,-0.55) {$z_i = -1$: the warm state at $c = \frac34$,\\$60^\circ$ from $\ket1$ (blue)};
+  \draw[notearrow] (o2.east) to[bend right=15] (axis cs:-0.47,-0.70);
+  \node[note,anchor=west] (o3) at (axis cs:1.35,0.95) {the axis of the modified mixer: the mirror\\image of the warm state in the $z$ axis\\(open circles, dotted)};
+  \draw[notearrow] (o3.west) to[bend right=10] (axis cs:0.46,0.72);
+  \draw[notearrow] (o3.west) to[bend left=20] (axis cs:0.46,-0.22);
+  \node[note,anchor=west] (o4) at (axis cs:1.35,0.1) {$\beta = \pi/2$ turns each state by $\pi$ about its\\axis (red): the state at $60^\circ$ from $\ket0$ reaches\\$\ket1$, and that at $60^\circ$ from $\ket1$ reaches $\ket0$};
+  \draw[notearrow] (o4.west) to[bend left=15] (axis cs:0.18,-0.9);
+  \node[note,anchor=west] (o5) at (axis cs:1.35,-0.75) {every bit of the cut is flipped: $-z$, the same\\cut; only $60^\circ$, that is $\varepsilon = \frac14$, lands\\exactly on the poles};}
+\end{axis}}}
+\begin{frame}\ft{The half turn, pictured}
+\ona{Figure~\ref{fig:ch10:bloch} shows the proof of Proposition~\ref{propn:ch10:gw} on the Bloch sphere. With $\varepsilon = \frac14$, a qubit with $z_i = +1$ starts $60^\circ$ from $\ket0$, and one with $z_i = -1$ starts $60^\circ$ from $\ket1$. The modified mixer turns each about the mirror image of its state in the $z$ axis, at $120^\circ$ from it, and a half turn, $\beta = \pi/2$, carries it to the opposite pole. On the worked example, $\beta = \pi/2$ and $\gamma = 0$ produce the string $-z$ with probability one, and the expected cut $15$; the warm state itself, at zero angles, has the expected cut $2.25$.}
+\ona{\gdef\btW{0.3\linewidth}}\onp{\gdef\btW{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\blochtenfig{}\end{tikzpicture}
+\caption{The proof of Proposition~\ref{propn:ch10:gw} on the Bloch sphere: the warm states for $z_i = \pm1$ with $\varepsilon = \frac14$ (blue), the axes of the modified mixer (dotted, through the open circles), and the half turns of $\beta = \pi/2$ to the opposite poles (red). Dotted curves: the far side of the sphere.}\label{fig:ch10:bloch}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.45\textwidth}\centering\begin{tikzpicture}\blochtenfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.53\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $\varepsilon = \frac14$: the warm states at $60^\circ$ from the poles (blue).
+    \item The axis of the modified mixer: the mirror image in the $z$ axis (open circles).
+    \item $\beta = \pi/2$: a half turn to the opposite pole (red); the cut is reproduced.
+    \item Worked example: the expected cut $15$ at $(\pi/2,0)$, against $2.25$ for the warm state.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% the depth-one landscapes of the expected cut of the worked example over beta in [0, pi] and gamma in [-0.4, 0.4], on a
+% common colour scale: (a) the rounded warm start from the cut of value 15, eps = 1/4; (b) standard QAOA
+\mode<all>{\gdef\landten#1#2#3{\begin{axis}[#1,width=\ltW,height=\ltH,scale only axis,enlargelimits=false,axis on top,clip mode=individual,xmin=0,xmax=3.1416,ymin=-0.4,ymax=0.4,xtick={0,0.7854,1.5708,2.3562,3.1416},xticklabels={$0$,$\frac\pi4$,$\frac\pi2$,$\frac{3\pi}4$,$\pi$},ytick={-0.4,0,0.4},yticklabel style={/pgf/number format/fixed},xlabel={$\beta$},ylabel={$\gamma$},colormap={ylgnbur}{rgb255(0cm)=(255,255,204); rgb255(1cm)=(199,233,180); rgb255(2cm)=(127,205,187); rgb255(3cm)=(65,182,196); rgb255(4cm)=(29,145,192); rgb255(5cm)=(34,94,168); rgb255(6cm)=(12,44,132)},point meta min=-16,point meta max=19,colorbar horizontal,colorbar style={at={(0.5,-0.42)},anchor=north,height=0.15cm,font=\tiny,xtick={-15,-10,-5,0,5,10,15}}]
+  \addplot graphics[xmin=0,xmax=3.1416,ymin=-0.4,ymax=0.4] {figures/ch10/#2_land.png};
+  #3
+\end{axis}}
+\gdef\landtenA#1{\landten{#1}{ws10}{%
+  \draw[red!80!black,very thick] (axis cs:1.5308,-0.02) -- (axis cs:1.6108,0.02); \draw[red!80!black,very thick] (axis cs:1.5308,0.02) -- (axis cs:1.6108,-0.02);
+  \ona{\node[note,anchor=west] (l1) at (axis cs:3.5,0.33) {the half turn, $\beta = \pi/2$, $\gamma = 0$ (cross): the cut\\itself, $15$, the largest expected cut at depth one};
+  \draw[notearrow] (l1.west) to[bend right=15] (axis cs:1.62,0.03);
+  \node[note,anchor=west] (l2) at (axis cs:3.5,0.0) {at $\beta = 0$ and $\beta = \pi$ the warm state, $2.25$;\\a narrow ridge in $\gamma$ around the cut};
+  \draw[notearrow] (l2.west) to[bend left=10] (axis cs:3.05,0.0);
+  \node[note,anchor=west] (l3) at (axis cs:3.5,-0.3) {the expected cut from $-15.3$ to $15$: the same\\colour scale as in (b)};}}}
+\gdef\landtenB#1{\landten{#1}{std10}{%
+  \draw[red!80!black,very thick] (axis cs:2.8010,-0.08) -- (axis cs:2.8810,-0.04); \draw[red!80!black,very thick] (axis cs:2.8010,-0.04) -- (axis cs:2.8810,-0.08);
+  \ona{\node[note,anchor=west] (l4) at (axis cs:3.5,0.2) {standard QAOA: the best, $7.65$ (cross), at\\$\beta = 2.84$, $\gamma = -0.060$, less than half the\\maximum cut};
+  \draw[notearrow] (l4.west) to[bend left=10] (axis cs:2.9,-0.05);
+  \node[note,anchor=west] (l5) at (axis cs:3.5,-0.25) {the expected cut from $-22.7$ to $7.65$};}}}}
+\begin{frame}\ft{The warm landscape, pictured}
+\ona{Figure~\ref{fig:ch10:land} shows the expected cut of the worked example at depth one, over $\beta\in[0,\pi]$ and $\gamma\in[-0.4,0.4]$, for the rounded warm start from the cut of value $15$ with $\varepsilon = \frac14$, and for standard QAOA. For the warm start, the largest expected cut is the cut itself, $15$, at the half turn $\beta = \pi/2$, $\gamma = 0$; the warm state at $\beta = 0$ has only $2.25$. Standard QAOA reaches at most $7.65$, at $\beta = 2.84$ and $\gamma = -0.060$. At depth one the warm start therefore returns its cut, and no more.}
+\ona{\gdef\ltW{0.38\linewidth}\gdef\ltH{0.2\linewidth}}\onp{\gdef\ltW{4.8cm}\gdef\ltH{2.8cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\landtenA{name=lta}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.6cm]lta.north west) {(a)};
+\landtenB{at={(lta.south west)},anchor=north west,yshift=-3.0cm,name=ltb}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.6cm]ltb.north west) {(b)};
+\end{tikzpicture}
+\caption{The expected cut of the worked example at depth one: (a) the rounded warm start from the cut of value $15$, $\varepsilon = \frac14$; (b) standard QAOA; the largest values (crosses).}\label{fig:ch10:land}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\landtenA{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Rounded warm start, $\varepsilon = \frac14$, from the cut of value $15$.
+    \item The largest expected cut: the cut itself, at the half turn (cross).
+    \item The warm state, at $\beta = 0$: $2.25$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{The standard landscape, pictured}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\landtenB{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Standard QAOA on the same instance, the same colour scale.
+    \item The best, $7.65$ (cross): less than half the maximum cut, $19$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% depth 1 to 5 on the worked example: the best expected cut found (60 starts of L-BFGS) for the rounded warm start (blue)
+% and standard QAOA (black), with the warm cut 15, the GW mean 16.55 and the maximum cut 19 (dashed)
+\mode<all>{\gdef\depthten#1{\begin{axis}[#1,width=\dtW,height=\dtH,scale only axis,clip mode=individual,xmin=0.6,xmax=5.4,ymin=6,ymax=20,xtick={1,2,3,4,5},xlabel={depth $p$},ylabel={best expected cut}]
+  \draw[gray,densely dashed] (axis cs:0.6,19) -- (axis cs:5.4,19); \draw[gray,densely dotted] (axis cs:0.6,16.55) -- (axis cs:5.4,16.55);
+  \draw[orange!85!black,densely dashed] (axis cs:0.6,15) -- (axis cs:5.4,15);
+  \addplot[black,thick,mark=square*,mark size=1.4pt] table[x=p,y=estd] {figures/ch10/ws10_depth.dat};
+  \addplot[blue!70!black,thick,mark=*,mark size=1.5pt] table[x=p,y=ews] {figures/ch10/ws10_depth.dat};
+  \ona{\node[note,anchor=west] (d1) at (axis cs:5.9,19.3) {the maximum cut, $19$, and the mean of the\\random hyperplane, $16.55$ (dotted)};
+  \draw[notearrow] (d1.west) to[bend right=10] (axis cs:5.2,19.05);
+  \node[note,anchor=west] (d2) at (axis cs:5.9,16.2) {the warm start (blue): the cut, $15$, up to\\depth four, and $15.91$ at depth five, where\\the maximum cut has probability $0.643$};
+  \draw[notearrow] (d2.west) to[bend right=10] (axis cs:5.05,15.9);
+  \node[note,anchor=west] (d3) at (axis cs:5.9,12) {standard QAOA (black): from $7.65$ to\\$14.64$; the maximum cut with probability\\$0.118$ at depth one and $0.524$ at five};
+  \draw[notearrow] (d3.west) to[bend left=10] (axis cs:4.0,14.2);
+  \node[note,anchor=west] (d4) at (axis cs:5.9,8) {the best of $60$ starts at each depth; the\\warm start keeps the circuit near its cut};}
+\end{axis}}}
+\begin{frame}\ft{Depth, pictured}
+\ona{Figure~\ref{fig:ch10:depth} shows the best expected cut found at depths one to five, from $60$ starts of a quasi-Newton method at each depth, a third of them near the half turn for the warm start. The warm start returns its cut, $15$, up to depth four, where the optimizer finds $15.04$ to $15.13$, and reaches $15.91$ at depth five, where the maximum cut has the probability $0.643$. Standard QAOA climbs from $7.65$ to $14.64$, and its probability of the maximum cut from $0.118$ to $0.524$. The warm start keeps the circuit near its cut, which is good when the cut is good, and slow to leave when it is not.}
+\ona{\gdef\dtW{0.4\linewidth}\gdef\dtH{0.3\linewidth}}\onp{\gdef\dtW{4.8cm}\gdef\dtH{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\depthten{}\end{tikzpicture}
+\caption{The best expected cut of the worked example at depths one to five, for the rounded warm start from the cut of value $15$ (blue) and standard QAOA (black), with the warm cut (orange), the mean of the random hyperplane (dotted) and the maximum cut (dashed).}\label{fig:ch10:depth}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\depthten{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Best of $60$ starts at each depth.
+    \item Warm start (blue): $15$ up to depth four, $15.91$ at five, the maximum cut with probability $0.643$.
+    \item Standard (black): from $7.65$ to $14.64$.
+    \item The warm start stays near its cut.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% the depth-one expected cut relative to the maximum cut against eps, quartiles over 46 pairs of a ten-node graph and a
+% GW cut: the modified mixer (blue) and the continuous mixer of Lecture 11 (green), and the GW cuts themselves (dashed)
+\mode<all>{\gdef\epsten#1{\begin{axis}[#1,width=\etW,height=\etH,scale only axis,clip mode=individual,xmin=-0.02,xmax=0.52,ymin=0.35,ymax=1.02,xtick={0,0.1,0.2,0.3,0.4,0.5},ytick={0.4,0.6,0.8,1},yticklabel style={/pgf/number format/fixed},xlabel={regularisation $\varepsilon$},ylabel={expected cut / maximum cut}]
+  \draw[gray,densely dashed] (axis cs:-0.02,0.8987) -- (axis cs:0.52,0.8987);
+  \addplot[green!45!black,thick,mark=triangle*,mark size=1.6pt,error bars/.cd,y dir=both,y explicit,error bar style={green!45!black}] table[x expr=\thisrow{eps}+0.006,y=c50,y error plus expr=\thisrow{c75}-\thisrow{c50},y error minus expr=\thisrow{c50}-\thisrow{c25}] {figures/ch10/ws10_eps.dat};
+  \addplot[blue!70!black,thick,mark=*,mark size=1.5pt,error bars/.cd,y dir=both,y explicit,error bar style={blue!70!black}] table[x expr=\thisrow{eps}-0.006,y=m50,y error plus expr=\thisrow{m75}-\thisrow{m50},y error minus expr=\thisrow{m50}-\thisrow{m25}] {figures/ch10/ws10_eps.dat};
+  \ona{\node[note,anchor=west] (e1) at (axis cs:0.6,0.98) {$\varepsilon = 0$: the cut itself, frozen; the GW cuts\\have the median ratio $0.899$ (dashed)};
+  \draw[notearrow] (e1.west) to[bend right=15] (axis cs:0.0,0.91);
+  \node[note,anchor=west] (e2) at (axis cs:0.6,0.82) {$\varepsilon = \frac14$, the modified mixer (blue): the half\\turn reproduces the cut, the same quartiles;\\the cut on all $46$ pairs, and better\\on one of them};
+  \draw[notearrow] (e2.west) to[bend right=10] (axis cs:0.25,0.91);
+  \node[note,anchor=west] (e3) at (axis cs:0.6,0.65) {in between, the half turn misses the poles:\\the median falls to $0.745$ at $\varepsilon = 0.15$};
+  \draw[notearrow] (e3.west) to[bend left=10] (axis cs:0.15,0.74);
+  \node[note,anchor=west] (e4) at (axis cs:0.6,0.5) {the continuous mixer (green): the warm state\\is its ground state, and the cut is lost; $0.692$\\at $\varepsilon = \frac14$};
+  \draw[notearrow] (e4.west) to[bend left=10] (axis cs:0.26,0.69);
+  \node[note,anchor=west] (e5) at (axis cs:0.6,0.38) {$\varepsilon = \frac12$: standard QAOA, $0.588$};
+  \draw[notearrow] (e5.west) to[bend left=10] (axis cs:0.5,0.58);}
+\end{axis}}}
+\begin{frame}\ft{The regularisation, pictured}
+\ona{\citet{egger2021warm} report, for fully connected graphs on $30$ nodes, that the depth-one median rises from $0.907$ of the maximum cut at $\varepsilon = 0$ to $0.929$ at $\varepsilon = \frac14$. Figure~\ref{fig:ch10:eps} repeats the experiment on ten graphs on $10$ nodes, with weights in $\{-10,\dots,10\}$ and up to five distinct GW cuts each, $46$ pairs in all, optimising the two angles of depth one over a grid refined by the Nelder--Mead method. At $\varepsilon = 0$ the circuit is frozen on the cut, and the median is $0.899$. With the modified mixer, the half turn at $\varepsilon = \frac14$ reproduces the cut, and the quartiles coincide with those of the cuts: on all $46$ pairs the circuit attains the cut, as Proposition~\ref{propn:ch10:gw} guarantees, and on one of them it improves on it, by $0.117$ of the maximum cut. In between, the half turn misses the poles, and the median falls to $0.745$ at $\varepsilon = 0.15$. With the continuous mixer of \Chap~\chref{C.WSContinuous}, the cut is lost as soon as $\varepsilon>0$: $0.692$ at $\varepsilon = \frac14$. At $\varepsilon = \frac12$ both are standard QAOA, with $0.588$.}
+\ona{\gdef\etW{0.42\linewidth}\gdef\etH{0.32\linewidth}}\onp{\gdef\etW{4.8cm}\gdef\etH{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\epsten{}\end{tikzpicture}
+\caption{The largest expected cut at depth one relative to the maximum cut, against $\varepsilon$: the medians and quartiles over $46$ pairs of a graph on $10$ nodes and a GW cut, with the modified mixer (blue) and the continuous mixer (green), and the median of the GW cuts (dashed).}\label{fig:ch10:eps}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\epsten{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $10$ graphs on $10$ nodes, $46$ GW cuts in all, depth one.
+    \item Modified mixer (blue): the cut at $\varepsilon = 0$ and $\frac14$ (median $0.899$), less in between.
+    \item Continuous mixer (green): the cut is lost, $0.692$ at $\frac14$.
+    \item $\varepsilon = \frac12$: standard QAOA, $0.588$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\section{Warm-start recursive QAOA}
 
 \begin{frame}\ft{Warm-start recursive QAOA}
-\ona{Rounding in the classical pre-processing combines naturally with recursive QAOA (RQAOA) \citep{Bravyi2020}: at each recursion, run several depth-one WS-QAOAs, each initialised with a different GW cut (the $M$ best of $N$), aggregate the resulting distributions, form the correlation matrix $\mathcal M_{ij} = \langle Z_iZ_j\rangle$, and eliminate the variable with the largest $|\mathcal M_{ij}|$ by $z_i \leftarrow \sgn(\mathcal M_{ij})z_j$; recurse until $n_{\rm stop}$ variables remain and solve those exactly. Depth-one correlators are classically computable from the two-qubit reduced density matrices, which is what makes the simulations below possible.}
-\figslide[height=0.4\textheight]{figures/warmstart/figure03.pdf}{Warm-start RQAOA for MaxCut \citep{egger2021warm}: several WS-QAOAs initialised from GW cuts are aggregated into the correlation matrix that RQAOA uses to eliminate one variable per round.}{fig:ch10:wsrqaoa}
-\end{frame}
-
-\begin{frame}\ft{A stochastic-analysis viewpoint on rounding}
-\ona{Many randomized roundings, including GW's, can be seen as follows: from unit vectors $u_1,\dots,u_n$ one runs a Brownian motion $B(t)$ in $\R^n$ and reads off the sign $\sigma_i = u_i^\top B(T_i)$ at the first time $T_i$ when $|u_i^\top B(t)|$ reaches $1$ (sticky Brownian motion). Slowing the motion down by a speed function $\varphi$ vanishing at $\pm1$, $dW_u = \varphi(W_u)\,u^\top dB$, gives a family of roundings, and for the Krivine-type speed $\varphi(s) = \sqrt{2/\pi}\,e^{-\Phi^{-1}((1-s)/2)^2/2}$ one recovers exactly}
-\begin{equation}
-    \mathbb E[\sigma_u\sigma_v] = \frac2\pi\arcsin(u^\top v),
-\end{equation}
-\ona{the GW correlation, since $\arccos t + \arcsin t = \pi/2$. Why this matters here: a quantum circuit acting on the warm product state and then measured is also a randomized rounding of the relaxation, and such tools let one analyse its guarantees. Any circuit that preserves or improves the correlation structure preserves or improves the ratio.}
-\onp{Roundings as sticky Brownian motions; the GW rounding is one speed function; measuring a warm-started circuit is another rounding, analysable with the same tools.}
-\end{frame}
-
-\section{Simulations}
-
-\begin{frame}\ft{Rounded warm start: MaxCut}
-\ona{Ten fully connected 30-node graphs with weights in $\{-10,\dots,10\}$, five GW cuts each, depth one, $(\beta_1,\gamma_1)$ from a grid scan in $\gamma_1$ with an analytic fit in $\beta_1$ followed by COBYLA. The median energy relative to the maximum cut is $0.907$ at $\varepsilon = 0$ (the GW cut itself) and rises to $0.929$ at $\varepsilon = 0.25$ (Fig.~\ref{fig:ch01:eps}): warm-started quantum optimization can outperform the rounding it started from. With the unmodified mixer of \Chap~\chref{C.WSContinuous} this does not happen.}
-\ona{WS-RQAOA on 100 graphs per family ($n = 20, 30$; sparse $\pm1$ weights or fully connected random weights), $N = 10$ GW cuts, $M = 5$ best, $\varepsilon = 0.25$, $n_{\rm stop} = n/2$: warm-start RQAOA finds the maximum cut more often than standard RQAOA, than the best GW cut, and than a classical recursion on GW correlations (Fig.~\ref{fig:ch01:maxcut}). The optimum $\beta_1^\star = \pi/2$, $\gamma_1^\star = 0$ is found systematically, so when RQAOA fails it is because depth one cannot capture the correlations of the maximum cut.}
-\figslide[height=0.4\textheight]{figures/warmstart/figure09.pdf}{(a) A six-node instance; energy landscape over $(\beta_1,\gamma_1)$ for depth-one (b) and depth-three (c) WS-QAOA from the cut 001111 of size 23 (maximum 27), $\varepsilon = 0.25$; (d) the ten most probable cuts of the optimised depth-three state \citep{egger2021warm}.}{fig:ch10:landscape}
-\end{frame}
-
-\begin{frame}\ft{Deeper circuits}
-\ona{Beyond depth one, on the six-node instance of Fig.~\ref{fig:ch10:landscape}, the optimal state is no longer the initial GW cut, the probability of the maximum cut grows and the energy decreases with $p$ (Fig.~\ref{fig:ch01:depthmc} in \Chap~\chref{C.Motivation}), as it must since depth $p+1$ contains depth $p$. The decrease is slow: the landscape is non-convex with many local minima, and even at depth one COBYLA from random starts does not always find $\beta_1 = \pi/2,\gamma_1 = 0$, which is why the grid scan matters.}
+\onp{\footnotesize}
+\ona{Rounding in the classical pre-processing combines with recursive QAOA (RQAOA) \citep{Bravyi2020}. At each step, run depth-one circuits, form the correlations $\mathcal M_{ij} = \braket{Z_iZ_j}$, and eliminate the variable of the pair with the largest $|\mathcal M_{ij}|$ by $z_i\leftarrow\mathrm{sgn}(\mathcal M_{ij})\,z_j$. The weights of $i$ move to $j$, with the sign of $\mathcal M_{ij}$, and the edge $ij$ becomes a constant. Recurse until $n_{\rm stop}$ variables remain, and solve those exactly. In the warm-started variant (WS-RQAOA), each step draws ten GW cuts of the current graph, runs a rounded warm start with $\varepsilon = \frac14$ from each of the five best distinct ones, and averages their correlations \citep{egger2021warm}.}
 \begin{itemize}\setlength\itemsep{0.2em}
-    \item Warm starts help most at low depth, i.e., on the dense problems and noisy hardware where deep circuits are not an option.
-    \item $\varepsilon$ continuously connects WS-QAOA to standard QAOA and can be tuned.
-    \item Other warm starts: polynomially solvable special cases, low-rank approximations of $\Sigma$, time-limited runs of CPLEX or Gurobi, the particle-hole representation in VQE.
-    \item An implementation is available in Qiskit Optimization.
+    \item One elimination per step: $z_i\leftarrow\mathrm{sgn}(\mathcal M_{ij})\,z_j$ for the largest $|\mathcal M_{ij}|$; the graph loses a node.
+    \item WS-RQAOA: the correlations of rounded warm starts from the five best of ten GW cuts.
+    \item By \ona{Proposition~\ref{propn:ch10:gw}}\onp{the proposition on the guarantee}, a depth-one warm start can return its cut, with correlations $\pm1$, so that the recursion follows the consensus of the cuts.
 \end{itemize}
+\end{frame}
+
+% WS-RQAOA on the worked example: the graph at each step (blue: positive weights, red: negative, width proportional to the
+% weight), the pair eliminated (orange) with the rule, and the final graph of two nodes, solved exactly
+\mode<all>{\gdef\stripfig{%
+  \draw[blue!70!black,line width=1.03pt] (0.000,0.750) -- (0.650,0.375);
+  \draw[blue!70!black,line width=0.58pt] (0.000,0.750) -- (0.650,-0.375);
+  \draw[red!75!black,line width=0.81pt] (0.000,0.750) -- (-0.650,-0.375);
+  \draw[red!75!black,line width=0.69pt] (0.000,0.750) -- (-0.650,0.375);
+  \draw[red!75!black,line width=1.36pt] (0.650,0.375) -- (0.650,-0.375);
+  \draw[red!75!black,line width=1.25pt] (0.650,0.375) -- (0.000,-0.750);
+  \draw[red!75!black,line width=1.36pt] (0.650,0.375) -- (-0.650,-0.375);
+  \draw[red!75!black,line width=1.03pt] (0.650,0.375) -- (-0.650,0.375);
+  \draw[blue!70!black,line width=1.03pt] (0.650,-0.375) -- (0.000,-0.750);
+  \draw[blue!70!black,line width=0.58pt] (0.650,-0.375) -- (-0.650,-0.375);
+  \draw[blue!70!black,line width=1.25pt] (0.650,-0.375) -- (-0.650,0.375);
+  \draw[blue!70!black,line width=0.47pt] (0.000,-0.750) -- (-0.650,0.375);
+  \draw[blue!70!black,line width=1.36pt] (-0.650,-0.375) -- (-0.650,0.375);
+  \draw[orange!90!black,line width=3pt,opacity=0.55] (0.650,-0.375) -- (-0.650,0.375);
+  \node[font=\scriptsize,anchor=north] at (0.000,-0.95) {$z_3=-z_6$};
+  \node[circle,draw,fill=white,inner sep=0.8pt,font=\tiny] at (0.000,0.750) {1};
+  \node[circle,draw,fill=white,inner sep=0.8pt,font=\tiny] at (0.650,0.375) {2};
+  \node[circle,draw,fill=white,inner sep=0.8pt,font=\tiny] at (0.650,-0.375) {3};
+  \node[circle,draw,fill=white,inner sep=0.8pt,font=\tiny] at (0.000,-0.750) {4};
+  \node[circle,draw,fill=white,inner sep=0.8pt,font=\tiny] at (-0.650,-0.375) {5};
+  \node[circle,draw,fill=white,inner sep=0.8pt,font=\tiny] at (-0.650,0.375) {6};
+  \node[font=\scriptsize,anchor=south] at (0.000,0.88) {step 0};
+  \draw[blue!70!black,line width=1.03pt] (2.150,0.750) -- (2.800,0.375);
+  \draw[red!75!black,line width=0.81pt] (2.150,0.750) -- (1.500,-0.375);
+  \draw[red!75!black,line width=1.03pt] (2.150,0.750) -- (1.500,0.375);
+  \draw[red!75!black,line width=1.25pt] (2.800,0.375) -- (2.150,-0.750);
+  \draw[red!75!black,line width=1.36pt] (2.800,0.375) -- (1.500,-0.375);
+  \draw[blue!70!black,line width=0.58pt] (2.800,0.375) -- (1.500,0.375);
+  \draw[red!75!black,line width=0.81pt] (2.150,-0.750) -- (1.500,0.375);
+  \draw[blue!70!black,line width=1.03pt] (1.500,-0.375) -- (1.500,0.375);
+  \draw[orange!90!black,line width=3pt,opacity=0.55] (2.150,-0.750) -- (1.500,0.375);
+  \node[font=\scriptsize,anchor=north] at (2.150,-0.95) {$z_4=-z_6$};
+  \node[circle,draw,fill=white,inner sep=0.8pt,font=\tiny] at (2.150,0.750) {1};
+  \node[circle,draw,fill=white,inner sep=0.8pt,font=\tiny] at (2.800,0.375) {2};
+  \node[circle,draw,fill=white,inner sep=0.8pt,font=\tiny] at (2.150,-0.750) {4};
+  \node[circle,draw,fill=white,inner sep=0.8pt,font=\tiny] at (1.500,-0.375) {5};
+  \node[circle,draw,fill=white,inner sep=0.8pt,font=\tiny] at (1.500,0.375) {6};
+  \node[font=\scriptsize,anchor=south] at (2.150,0.88) {step 1};
+  \draw[blue!70!black,line width=1.03pt] (4.300,0.750) -- (4.950,0.375);
+  \draw[red!75!black,line width=0.81pt] (4.300,0.750) -- (3.650,-0.375);
+  \draw[red!75!black,line width=1.03pt] (4.300,0.750) -- (3.650,0.375);
+  \draw[red!75!black,line width=1.36pt] (4.950,0.375) -- (3.650,-0.375);
+  \draw[blue!70!black,line width=1.58pt] (4.950,0.375) -- (3.650,0.375);
+  \draw[blue!70!black,line width=1.03pt] (3.650,-0.375) -- (3.650,0.375);
+  \draw[orange!90!black,line width=3pt,opacity=0.55] (4.300,0.750) -- (3.650,-0.375);
+  \node[font=\scriptsize,anchor=north] at (4.300,-0.95) {$z_1=-z_5$};
+  \node[circle,draw,fill=white,inner sep=0.8pt,font=\tiny] at (4.300,0.750) {1};
+  \node[circle,draw,fill=white,inner sep=0.8pt,font=\tiny] at (4.950,0.375) {2};
+  \node[circle,draw,fill=white,inner sep=0.8pt,font=\tiny] at (3.650,-0.375) {5};
+  \node[circle,draw,fill=white,inner sep=0.8pt,font=\tiny] at (3.650,0.375) {6};
+  \node[font=\scriptsize,anchor=south] at (4.300,0.88) {step 2};
+  \draw[red!75!black,line width=2.14pt] (7.100,0.375) -- (5.800,-0.375);
+  \draw[blue!70!black,line width=1.58pt] (7.100,0.375) -- (5.800,0.375);
+  \draw[blue!70!black,line width=1.81pt] (5.800,-0.375) -- (5.800,0.375);
+  \draw[orange!90!black,line width=3pt,opacity=0.55] (7.100,0.375) -- (5.800,-0.375);
+  \node[font=\scriptsize,anchor=north] at (6.450,-0.95) {$z_2=z_5$};
+  \node[circle,draw,fill=white,inner sep=0.8pt,font=\tiny] at (7.100,0.375) {2};
+  \node[circle,draw,fill=white,inner sep=0.8pt,font=\tiny] at (5.800,-0.375) {5};
+  \node[circle,draw,fill=white,inner sep=0.8pt,font=\tiny] at (5.800,0.375) {6};
+  \node[font=\scriptsize,anchor=south] at (6.450,0.88) {step 3};
+  \draw[blue!70!black,line width=3.14pt] (7.950,-0.375) -- (7.950,0.375);
+  \node[font=\scriptsize,anchor=north] at (8.600,-0.95) {$z_5=-z_6$};
+  \node[circle,draw,fill=white,inner sep=0.8pt,font=\tiny] at (7.950,-0.375) {5};
+  \node[circle,draw,fill=white,inner sep=0.8pt,font=\tiny] at (7.950,0.375) {6};
+  \node[font=\scriptsize,anchor=south] at (8.600,0.88) {solve};
+  \ona{\node[note,anchor=north west] (s1) at (-0.9,-1.45) {each step eliminates the pair with the largest $|\braket{Z_iZ_j}|$ (orange): here all\\four have $|\braket{Z_iZ_j}| = 1$, as the five warm starts return their cuts, which agree on them};
+  \draw[notearrow] ([xshift=1.2cm]s1.north west) to[bend left=15] (0.4,-0.1);
+  \node[note,anchor=north west] (s2) at (-0.9,-2.25) {the weights of the eliminated node move to its partner: $5$ and $6$ remain, joined by the weight $26$,\\and are cut: $\{1,6\}$ against $\{2,3,4,5\}$, the maximum cut, $19$};
+  \draw[notearrow] ([xshift=9.6cm]s2.north west) to[bend right=25] (8.6,-0.1);}}}
+\begin{frame}\ft{The recursion, pictured}
+\ona{Figure~\ref{fig:ch10:rqaoa} runs WS-RQAOA on the worked example down to two nodes. At every step the five best distinct GW cuts of the current graph agree on the pair eliminated, and the warm starts return their cuts, so that $|\braket{Z_iZ_j}| = 1$: the recursion sets $z_3 = -z_6$, $z_4 = -z_6$, $z_1 = -z_5$ and $z_2 = z_5$. The two remaining nodes are joined by the weight $26$ and are cut, which gives $\{1,6\}$ against $\{2,3,4,5\}$, the maximum cut, $19$.}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\stripfig\end{tikzpicture}
+\caption{WS-RQAOA on the worked example: the graph at each step (blue: positive weights, red: negative, the width proportional to the absolute value), the pair eliminated (orange) with the rule, and the final graph on two nodes, solved exactly.}\label{fig:ch10:rqaoa}\end{figure}}
+\onp{\begin{center}\begin{tikzpicture}\stripfig\end{tikzpicture}\end{center}
+\footnotesize\begin{itemize}\setlength\itemsep{0.2em}
+    \item Each step: the pair with the largest $|\braket{Z_iZ_j}|$, here always $1$ (orange); the node's weights move to its partner.
+    \item Two nodes remain, joined by $26$: cut them; the maximum cut, $19$.
+\end{itemize}}
+\end{frame}
+
+% 40 graphs on ten nodes: the cut found relative to the maximum cut by RQAOA, WS-RQAOA and the best of ten GW roundings
+\mode<all>{\gdef\cmpfig#1{\begin{axis}[#1,width=\cmW,height=\cmH,scale only axis,clip mode=individual,xmin=0.4,xmax=3.6,ymin=0.83,ymax=1.012,xtick={1,2,3},xticklabels={RQAOA,WS-RQAOA,GW},xticklabel style={font=\scriptsize},ytick={0.85,0.9,0.95,1},yticklabel style={/pgf/number format/fixed},ylabel={cut / maximum cut}]
+  \addplot[black,only marks,mark=*,mark size=1.6pt,fill opacity=0.35,draw opacity=0.6] table[x expr=1,y=rstd] {figures/ch10/rqaoa_cmp.dat};
+  \addplot[blue!70!black,only marks,mark=*,mark size=1.6pt,fill opacity=0.35,draw opacity=0.6] table[x expr=2,y=rws] {figures/ch10/rqaoa_cmp.dat};
+  \addplot[orange!85!black,only marks,mark=*,mark size=1.6pt,fill opacity=0.35,draw opacity=0.6] table[x expr=3,y=rgw] {figures/ch10/rqaoa_cmp.dat};
+  \node[font=\scriptsize,anchor=south] at (axis cs:1,1.0) {$35/40$}; \node[font=\scriptsize,anchor=south] at (axis cs:2,1.0) {$39/40$}; \node[font=\scriptsize,anchor=south] at (axis cs:3,1.0) {$39/40$};
+  \ona{\node[note,anchor=west] (c1) at (axis cs:4.0,1.0) {the maximum cut (counts above the dots):\\RQAOA on $35$ of the $40$ graphs, WS-RQAOA\\and the best of ten GW roundings on $39$};
+  \draw[notearrow] (c1.west) to[bend right=10] (axis cs:3.15,1.003);
+  \node[note,anchor=west] (c2) at (axis cs:4.0,0.93) {the worst: $0.846$ (RQAOA), $0.960$ (WS-RQAOA)\\and $0.989$ (best GW)};
+  \draw[notearrow] (c2.west) to[bend left=15] (axis cs:1.1,0.85);
+  \node[note,anchor=west] (c3) at (axis cs:4.0,0.87) {at this size the rounding alone is hard to beat;\\the warm start repairs most failures of RQAOA};}
+\end{axis}}}
+\begin{frame}\ft{Recursion against rounding, pictured}
+\ona{Figure~\ref{fig:ch10:cmp} compares, on $40$ fully connected graphs on $10$ nodes with weights in $\{-10,\dots,10\}$ and $n_{\rm stop} = 4$, the cut found by RQAOA, by WS-RQAOA, and by the best of ten GW roundings of the whole graph. RQAOA finds the maximum cut on $35$ graphs, with the worst ratio $0.846$; WS-RQAOA on $39$, with the worst $0.960$; and the best GW rounding also on $39$, with the worst $0.989$. At this size the rounding alone is hard to beat, and the warm start repairs most failures of RQAOA; \citet{egger2021warm} report gains of WS-RQAOA over both on graphs of $20$ and $30$ nodes.}
+\ona{\gdef\cmW{0.36\linewidth}\gdef\cmH{0.3\linewidth}}\onp{\gdef\cmW{4.9cm}\gdef\cmH{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\cmpfig{}\end{tikzpicture}
+\caption{The cut found relative to the maximum cut on $40$ graphs on $10$ nodes, by RQAOA, WS-RQAOA and the best of ten GW roundings, with the number of graphs on which each finds the maximum cut.}\label{fig:ch10:cmp}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\cmpfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $40$ graphs on $10$ nodes, $n_{\rm stop} = 4$.
+    \item The maximum cut: RQAOA $35$, WS-RQAOA $39$, best of ten GW $39$.
+    \item The worst: $0.846$, $0.960$, $0.989$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\section{Roundings as Brownian motions}\label{sec:ch10:bm}
+
+\begin{frame}\ft{Sticky Brownian motions}
+\onp{\footnotesize}
+\ona{A randomised rounding turns unit vectors $u_1,\dots,u_n$ into signs $\sigma_1,\dots,\sigma_n$, and the measurement of a warm-started circuit is one too. \citet{abbasi2020sticky} view roundings through a Brownian motion $B$ in $\R^d$: the \emph{sticky Brownian motion} follows $W_{u_i}(t) = u_i^\top B(t)$ until it first reaches $\pm1$, and stays there, so that $\sigma_i = W_{u_i}(\infty)$. More generally, a \emph{speed function} $\xi$, positive on $(-1,1)$ and vanishing at $\pm1$, slows the motion down near the boundary, $\mathrm dW_u = \xi(W_u)\,u^\top\mathrm dB$, and the signs are the limits $\sigma_u = \lim_{t\to\infty}W_u(t)$. Each speed function is a rounding, with its own correlations $\mathbb E[\sigma_u\sigma_v]$, and so its own ratio $\min_t(1-\mathbb E[\sigma_u\sigma_v])/(1-t)$ over $t = u^\top v$.}
+\begin{propn}[\citet{eldan2019krivine}]\label{propn:ch10:krivine}
+Let $W_u(t) = 2\Phi\big(u^\top B(t)/\sqrt{1-t}\big)-1$ for $0\le t<1$, with $\Phi$ the standard normal distribution function. After the time change $s = -\ln(1-t)$, $W_u$ satisfies $\mathrm dW_u = \xi(W_u)\,\mathrm d\beta_s$, with a standard Brownian motion $\beta$ and
+\begin{equation}\label{eq:ch10:krivine}
+    \xi(w) = \sqrt{2/\pi}\,e^{-\Phi^{-1}((1-w)/2)^2/2},
+\end{equation}
+and $W_u(t)\to\mathrm{sign}(u^\top B(1))$ as $t\to1$. Hence this rounding is the random hyperplane with the normal $B(1)$, and $\mathbb E[\sigma_u\sigma_v] = \frac2\pi\arcsin(u^\top v)$.
+\end{propn}
+\ona{\emph{Proof.} Given the path up to $t$, $u^\top B(1)$ is normal with the mean $u^\top B(t)$ and the variance $1-t$, so $\mathrm{Pr}[u^\top B(1)>0\,|\,B(r),r\le t] = \Phi(u^\top B(t)/\sqrt{1-t})$, and $W_u(t)$ is the conditional expectation of $\mathrm{sign}(u^\top B(1))$: a martingale that converges to it. By It\^o's formula, with $x = u^\top B(t)/\sqrt{1-t}$, the martingale has no drift, and $\mathrm dW_u = 2\Phi'(x)\,u^\top\mathrm dB/\sqrt{1-t}$, where $2\Phi'(x) = \sqrt{2/\pi}\,e^{-x^2/2}$ and $x^2 = \Phi^{-1}((1+W_u)/2)^2 = \Phi^{-1}((1-W_u)/2)^2$. Finally, $\mathrm d\beta_s = u^\top\mathrm dB/\sqrt{1-t}$ has the quadratic variation $\mathrm dt/(1-t) = \mathrm ds$. Two vectors are separated by a random hyperplane with the probability $\arccos(u^\top v)/\pi$, so $\mathbb E[\sigma_u\sigma_v] = 1-\frac2\pi\arccos(u^\top v) = \frac2\pi\arcsin(u^\top v)$. \qed}
+\onp{Proof: $W_u(t)$ is the conditional expectation of $\mathrm{sign}(u^\top B(1))$; It\^o's formula and $s = -\ln(1-t)$ give the speed $\xi$.}
+\end{frame}
+
+% sample paths of (W_u, W_v) for u.v = -1/2: (a) the sticky Brownian motion, which follows u.B and v.B until each reaches
+% +-1 and then stays; (b) the Krivine diffusion W = 2 Phi(u.B(t)/sqrt(1 - t)) - 1, which slows down near the boundary
+\mode<all>{\gdef\bmaxis#1#2#3{\begin{axis}[#1,width=\bmW,height=\bmW,scale only axis,axis equal image,clip mode=individual,xmin=-1.08,xmax=1.08,ymin=-1.08,ymax=1.08,xtick={-1,0,1},ytick={-1,0,1},xlabel={$W_u$},ylabel={$W_v$},no markers]
+  \draw[gray!70] (axis cs:-1,-1) rectangle (axis cs:1,1);
+  \pgfplotsinvokeforeach{0,...,5}{\addplot[#2,semithick,opacity=0.8] table[x=#3##1u,y=#3##1v] {figures/ch10/bm_paths.dat};}
+  \fill[red!75!black] (axis cs:1,-1) circle (2.2pt); \fill[red!75!black] (axis cs:-1,1) circle (2.2pt);
+  \fill[blue!70!black] (axis cs:1,1) circle (2.2pt); \fill[blue!70!black] (axis cs:-1,-1) circle (2.2pt);
+  \fill[black] (axis cs:0,0) circle (1.5pt);
+\end{axis}}
+\gdef\bmfigA#1{\bmaxis{#1}{red!60!black}{s}}
+\gdef\bmfigB#1{\bmaxis{#1}{blue!60!black}{k}}}
+\begin{frame}\ft{Two roundings, pictured}
+\ona{Figure~\ref{fig:ch10:bm} shows six paths of each rounding for two unit vectors with $u^\top v = -\frac12$, the angle at which MaxCut's edges sit when the SDP spreads a triangle evenly. All paths start at the centre of the square and end at a corner, $(\sigma_u,\sigma_v)$. The sticky Brownian motion moves at the full speed of $u^\top B$ and $v^\top B$ until one coordinate reaches $\pm1$, sticks to that edge, and slides along it to a corner. The Krivine diffusion slows down near the boundary and approaches the corners smoothly; by Proposition~\ref{propn:ch10:krivine} it ends in an opposite corner, $\sigma_u\ne\sigma_v$, with the probability $\arccos(-\frac12)/\pi = \frac23$, as the random hyperplane does.}
+\ona{\gdef\bmW{0.3\linewidth}}\onp{\gdef\bmW{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\bmfigA{name=bma}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.6cm]bma.north west) {(a)};
+\bmfigB{at={(bma.south east)},anchor=south west,xshift=1.6cm,name=bmb}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.6cm]bmb.north west) {(b)};
+\end{tikzpicture}
+\caption{Six paths of $(W_u,W_v)$ for $u^\top v = -\frac12$: (a) the sticky Brownian motion, which sticks to an edge when one coordinate reaches $\pm1$; (b) the Krivine diffusion, which slows down near the boundary. The corners $\sigma_u = \sigma_v$ (blue) and $\sigma_u\ne\sigma_v$ (red).}\label{fig:ch10:bm}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.45\textwidth}\centering\begin{tikzpicture}\bmfigA{}\end{tikzpicture}\end{column}
+\begin{column}{0.53\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $u^\top v = -\frac12$; six paths from the centre to a corner $(\sigma_u,\sigma_v)$.
+    \item Sticky Brownian motion: full speed, then stuck to an edge, sliding to a corner.
+    \item Red corners: the edge is cut.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{The Krivine diffusion, pictured}
+\onp{\begin{columns}[c]\begin{column}{0.45\textwidth}\centering\begin{tikzpicture}\bmfigB{}\end{tikzpicture}\end{column}
+\begin{column}{0.53\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item The Krivine diffusion slows down near the boundary.
+    \item It is the random hyperplane, revealed gradually: an opposite corner with probability $\frac23$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% the per-edge ratio (1 - E[sigma_u sigma_v])/(1 - u.v) against u.v: the sticky Brownian motion (red, 6000 simulated
+% paths for each value), the Krivine diffusion (blue dots, 40000 samples) and the random hyperplane (blue line)
+\mode<all>{\gdef\ratiofig#1{\begin{axis}[#1,width=\raW,height=\raH,scale only axis,clip mode=individual,xmin=-1.02,xmax=0.32,ymin=0.82,ymax=1.2,xtick={-1,-0.75,-0.5,-0.25,0,0.25},xticklabel style={/pgf/number format/fixed},yticklabel style={/pgf/number format/fixed},xlabel={$u^\top v$},ylabel={$(1-\mathbb E[\sigma_u\sigma_v])/(1-u^\top v)$}]
+  \draw[gray,densely dashed] (axis cs:-1.02,0.87857) -- (axis cs:0.32,0.87857);
+  \addplot[blue!70!black,thick,domain=-0.999:0.32,samples=200] {(1-2/pi*rad(asin(x)))/(1-x)};
+  \addplot[blue!70!black,only marks,mark=*,mark size=1.2pt,restrict x to domain=-1:0.32] table[x=t,y=rkrivine] {figures/ch10/bm_corr.dat};
+  \addplot[red!75!black,thick,mark=square*,mark size=1.2pt,restrict x to domain=-1:0.32] table[x=t,y=rsticky] {figures/ch10/bm_corr.dat};
+  \ona{\node[note,anchor=west] (q1) at (axis cs:0.42,1.15) {the random hyperplane, and the Krivine diffusion\\(blue): the least ratio is $\alpha_{\rm GW} = 0.8786$ (dashed),\\at $u^\top v = -0.689$};
+  \draw[notearrow] (q1.west) to[bend right=10] (axis cs:-0.6,0.885);
+  \node[note,anchor=west] (q2) at (axis cs:0.42,0.97) {the sticky Brownian motion (red): $0.848$ at\\$u^\top v = -0.7$, below $\alpha_{\rm GW}$ by more than\\the standard error of about $0.007$};
+  \draw[notearrow] (q2.west) to[bend left=10] (axis cs:-0.7,0.845);
+  \node[note,anchor=west] (q3) at (axis cs:0.42,0.86) {each speed function is a rounding with its own\\ratio; the measurement of a warm-started\\circuit is another};}
+\end{axis}}}
+\begin{frame}\ft{Ratios, pictured}
+\ona{The approximation ratio of a rounding for MaxCut with non-negative weights is the least over $t = u^\top v$ of the ratio of the probability of cutting an edge, $(1-\mathbb E[\sigma_u\sigma_v])/2$, to its contribution to the SDP, $(1-t)/2$. Figure~\ref{fig:ch10:ratio} plots it. For the random hyperplane, and hence for the Krivine diffusion, whose simulated values agree with $\frac2\pi\arcsin t$ to within $0.008$, the least value is $\alpha_{\rm GW} = 0.8786$, at $t = -0.689$. For the sticky Brownian motion, simulated with $6000$ paths for each $t$, it is about $0.848$, at $t = -0.7$, with a standard error of about $0.007$: moving at full speed until the boundary costs some of the guarantee, and \citet{abbasi2020sticky} show how slowing down recovers it.}
+\ona{\gdef\raW{0.4\linewidth}\gdef\raH{0.3\linewidth}}\onp{\gdef\raW{4.8cm}\gdef\raH{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\ratiofig{}\end{tikzpicture}
+\caption{The ratio of the probability of cutting an edge to its contribution to the SDP, against $u^\top v$: the random hyperplane (line) and the Krivine diffusion (dots, simulated), and the sticky Brownian motion (squares, simulated), with $\alpha_{\rm GW}$ (dashed).}\label{fig:ch10:ratio}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\ratiofig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Hyperplane and Krivine diffusion (blue): least $0.8786$ at $-0.689$.
+    \item Sticky Brownian motion (red): about $0.848$ at $-0.7$.
+    \item Each speed function is a rounding with its own ratio.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\section{Lessons}
+
+\begin{frame}\ft{What the simulations show}
+\onp{\footnotesize}
+\begin{itemize}\setlength\itemsep{0.3em}
+    \item A warm start from a cut can always return that cut, with $\varepsilon = \frac14$, and so keeps the guarantee of the rounding; at depth one on graphs of $10$ nodes it returns the cut, and improved on it for one pair in $46$.
+    \item Deeper circuits stay near the cut: on the worked example the warm start leaves it only at depth five, while standard QAOA climbs steadily from far below.
+    \item The regularisation must match the mixer: only $\varepsilon = \frac14$ lands the half turn on the poles, and the continuous mixer loses the cut.
+    \item WS-RQAOA repairs most failures of RQAOA; on graphs of $10$ nodes, ten GW roundings are already hard to beat.
+\end{itemize}
+\ona{\citet{egger2021warm} report larger gains on graphs of $20$ and $30$ nodes, where the rounding leaves more room. An implementation of WS-QAOA is available in Qiskit Optimization.}
 \end{frame}
 
 \section{The design space}
@@ -111,6 +499,28 @@ Depth-one WS-QAOA warm-started from a GW cut with the modified mixer and $\varep
     \item[How to round?] coordinate-wise uniformly at random ($1/2$ for MaxCut); random hyperplane ($\alpha_{\rm GW}$); iterative ``sticky'' roundings analysable by Brownian motion, which match the SDP guarantees; or a measurement.
 \end{description}
 \ona{Representing the matrix-valued SDP solution $Y^\star$ directly in a quantum state would need $\Theta(n^2)$ qubits, too many for the near term, but would inherit the strongest guarantees. Under the Unique Games Conjecture no variant can improve on GW unless quantum computers solve \textbf{NP}-hard problems in polynomial time; if the conjecture is false, both classical and quantum improvements may be possible.}
+\end{frame}
+
+\ona{\section*{Exercises}}
+
+\begin{frame}\ft{Exercises}
+\onp{\footnotesize}
+\begin{exe}[The warm state of a cut]\label{exe:ch10:warm}
+For the warm state of a cut $z$ with the regularisation $\varepsilon$, show that $\mathbb E[z_iz_j] = (1-2\varepsilon)^2z_iz_j$ for $i\ne j$, and hence that the expected cut is $\frac12(1-(1-2\varepsilon)^2)\sum_{i<j}w_{ij}+(1-2\varepsilon)^2C(z)$. Check the value $2.25$ of the worked example, whose weights add up to $-4$.
+\end{exe}
+\begin{exe}[The half turn triples the angle]\label{exe:ch10:triple}
+Show that the half turn $\beta = \pi/2$ of \eqref{eq:ch10:mixer} moves a qubit at the polar angle $\theta$ to the polar angle $3\theta$, so that it reads the flipped bit with the probability $\sin^2(3\theta/2)$. Deduce that it lands on the pole only for $\varepsilon = \frac14$ in $(0,\frac12)$, and compute the probability for $\varepsilon = 0.15$; compare with \ona{Fig.~\ref{fig:ch10:eps}}\onp{the figure on regularisation}.
+\end{exe}
+\end{frame}
+
+\begin{frame}\ft{Exercises, continued}
+\onp{\footnotesize}
+\begin{exe}[The speed of the Krivine diffusion]\label{exe:ch10:speed}
+Show that the speed \eqref{eq:ch10:krivine} satisfies $\xi(0) = \sqrt{2/\pi}$ and $\xi(w)\to0$ as $w\to\pm1$, and that $\xi(w)^2/(1-w^2)\to0$, so that the diffusion slows down near the boundary faster than $(1-w^2)^{1/2}$. Simulate it with the Euler method, and compare $\mathbb E[\sigma_u\sigma_v]$ with $\frac2\pi\arcsin(u^\top v)$.
+\end{exe}
+\begin{exe}[An elimination]\label{exe:ch10:elim}
+For the elimination $z_i\leftarrow sz_j$, $s = \pm1$, show that the cut of the reduced graph, with the weights $w_{jk}+sw_{ik}$, differs from that of the original graph by $\frac12w_{ij}(1-s)+\frac12(1-s)\sum_{k\ne i,j}w_{ik}$. Verify the weight $26$ between nodes $5$ and $6$ in \ona{Fig.~\ref{fig:ch10:rqaoa}}\onp{the figure of the recursion}.
+\end{exe}
 \end{frame}
 
 \begin{frame}[allowframebreaks]\ft{References}

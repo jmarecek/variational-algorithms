@@ -9,67 +9,476 @@
 \lecture{Warm-Started Quantum Optimization: Continuous}{Lect11}
 \chapter{Warm-Started Quantum Optimization: Continuous}\label{C.WSContinuous}
 
-\ona{This \chap{} continues \citet{egger2021warm}. Instead of rounding the relaxation classically and warm-starting from a cut (\Chap~\chref{C.WSRounded}), we warm-start from the \emph{continuous} solution of a convex relaxation and let the quantum measurement do the rounding. The mixer is modified so that the warm state is its ground state, which keeps the convergence guarantee of \Chap~\chref{C.QAOA}, and the regularisation $\varepsilon$ connects the method continuously to standard QAOA.}
+\ona{This \chap{} continues \citet{egger2021warm}. Instead of rounding a relaxation classically and warm-starting from a cut (\Chap~\chref{C.WSRounded}), we warm-start from the \emph{continuous} solution of a convex relaxation, and let the measurement do the rounding. The mixer is rotated so that the warm state is its ground state, which keeps the convergence theorem of \Chap~\chref{C.QAOA}, and a regularisation $\varepsilon$ connects the method continuously to standard QAOA. We picture the construction on the Bloch sphere, prove what it guarantees at every depth and in the limit of large depth, and simulate it on a worked portfolio and on $250$ random ones: its landscapes, its behaviour with the depth, and the annealing that it accelerates.}
 
-\section{Warm-starting from a continuous relaxation}
+\section{The warm state and its mixer}\label{sec:ch11:warm}
 
 \begin{frame}\ft{Continuous warm start}
-\ona{In QAOA each binary variable $x_i$ corresponds to a qubit via $x_i = (1-z_i)/2$ and $z_i \mapsto Z_i$ gives $H_C$. The final measurement is a randomized rounding. The simplest warm start (WS-QAOA) replaces $\ket{+}^{\otimes n}$ by the product state encoding the \eqref{eq:ch10:qp} optimum $c^\star$,}
+\onp{\footnotesize}
+\ona{We write the problem of \Chap~\chref{C.WSRounded} as}
+\begin{equation}\label{eq:ch11:qubo}
+    \min_{x\in\{0,1\}^n}f(x),\qquad f(x) = x^\top Ax+b^\top x+a_0,
+\end{equation}
+\ona{with $A$ symmetric. If $A\succeq0$, the relaxation}
+\begin{equation}\label{eq:ch11:qp}
+    \min_{x\in[0,1]^n}f(x)
+\end{equation}
+\ona{is a convex quadratic program, with a minimiser $c^\star\in[0,1]^n$; since $\{0,1\}^n\subset[0,1]^n$, $f(c^\star)\le F^*$, the least value of \eqref{eq:ch11:qubo}. Each bit corresponds to a qubit, and the final measurement of QAOA is a randomised rounding. The continuous warm start replaces $\ket+^{\otimes n}$ by}
 \begin{equation}\label{eq:ch11:init}
-    \ket{\phi^\star} = \bigotimes_{i=1}^n R_Y(\theta_i)\ket{0}, \qquad \theta_i = 2\arcsin\sqrt{c_i^\star},
+    \ket{\phi^\star} = \bigotimes_{i=1}^nR_Y(\theta_i)\ket0,\qquad\theta_i = 2\arcsin\sqrt{c_i^\star},
 \end{equation}
-\ona{so that qubit $i$ reads $1$ with probability $c_i^\star$ (Fig.~\ref{fig:ch11:bloch}), and replaces the mixer by}
-\begin{align}\label{eq:ch11:mixer}
-    H_M^{(\rm ws)} &= \sum_i H_{M,i}^{(\rm ws)},\\
-    H_{M,i}^{(\rm ws)} &= \begin{pmatrix} 2c_i^\star - 1 & -2\sqrt{c_i^\star(1-c_i^\star)}\\ -2\sqrt{c_i^\star(1-c_i^\star)} & 1-2c_i^\star\end{pmatrix} = -\sin\theta_i\,X - \cos\theta_i\,Z,\nonumber
-\end{align}
-\ona{which has $R_Y(\theta_i)\ket0$ as ground state with eigenvalue $-1$, so $\ket{\phi^\star}$ is the ground state of $H_M^{(\rm ws)}$ with eigenvalue $-n$. The mixing gate $e^{-i\beta H_{M,i}^{(\rm ws)}}$ is a rotation about the axis $(-\sin\theta_i, 0, -\cos\theta_i)$ and compiles to $R_Y(\theta_i)R_Z(-2\beta)R_Y(-\theta_i)$, Fig.~\ref{fig:ch11:circuit}.}
-\onp{Initial state: product state with $\Pr[x_i = 1] = c_i^\star$. Mixer: rotated so that $\ket{\phi^\star}$ is its ground state; compiles to $R_Y(\theta_i)R_Z(-2\beta)R_Y(-\theta_i)$.}
+\ona{whose qubit $i$ reads $1$ with probability $\sin^2(\theta_i/2) = c_i^\star$, and the mixer $-\sum_iX_i$ by}
+\begin{equation}\label{eq:ch11:mixer}
+    H_M^{(\rm ws)} = \sum_{i=1}^nH_{M,i},\qquad H_{M,i} = \begin{pmatrix}2c_i^\star-1 & -2\sqrt{c_i^\star(1-c_i^\star)}\\ -2\sqrt{c_i^\star(1-c_i^\star)} & 1-2c_i^\star\end{pmatrix} = -\sin\theta_i\,X_i-\cos\theta_i\,Z_i,
+\end{equation}
+\ona{acting on qubit $i$. A layer applies $e^{-i\gamma H_C}$, with $H_C$ diagonal with the entries $f(x)$, and then $e^{-i\beta H_M^{(\rm ws)}}$. At $c_i^\star = \frac12$ for all $i$, $\theta_i = \pi/2$, and the state and the mixer are those of standard QAOA \citep{egger2021warm}.}
 \end{frame}
 
-\begin{frame}\ft{The warm initial state and circuit}
-\onp{\begin{center}\includegraphics[height=0.45\textheight]{figures/warmstart/figure01.pdf}\hspace{0.5cm}\includegraphics[height=0.3\textheight]{figures/warmstart/figure02.pdf}\end{center}}
-\ona{\begin{figure}[htb]\centering\includegraphics[width=0.42\linewidth]{figures/warmstart/figure01.pdf}\hfill\includegraphics[width=0.5\linewidth]{figures/warmstart/figure02.pdf}\caption{Left: initial state $R_Y(\theta_i)\ket0$ on the Bloch sphere; the dashed line from $\ket0$ to $\ket1$ is the interval $[0,1]$, the red line the relaxed solution $c_i^\star$, and $\varepsilon$ restricts the allowed angles; the orange path is the evolution under the mixer at $c_i^\star = 0$, $\varepsilon = 0.25$, $\beta = \pi/2$. Right: the WS-QAOA circuit \citep{egger2021warm}.}\label{fig:ch11:bloch}\end{figure}}
-\ona{\label{fig:ch11:circuit}}
-\end{frame}
-
-\begin{frame}\ft{Reachability and the regularisation $\varepsilon$}
-\ona{If $c_i^\star \in \{0,1\}$, qubit $i$ starts in $\ket0$ or $\ket1$ and, since $H_C$ contains only $Z_iZ_j$ and identity terms, stays there forever: if the relaxed and the binary optimum disagree on that coordinate, the optimum is unreachable. Hence a regularisation $\varepsilon \in [0,0.5]$:}
-\begin{equation}\label{eq:ch11:eps}
-    \theta_i = \begin{cases} 2\arcsin\sqrt{c_i^\star} & c_i^\star \in [\varepsilon, 1-\varepsilon],\\ 2\arcsin\sqrt{\varepsilon} & c_i^\star < \varepsilon,\\ 2\arcsin\sqrt{1-\varepsilon} & c_i^\star > 1-\varepsilon,\end{cases}
+\begin{frame}\ft{The mixer and its ground state}
+\onp{\footnotesize}
+\begin{lem}\label{lem:ch11:mixer}
+Let $\boldsymbol n_i = (\sin\theta_i,0,\cos\theta_i)$, the Bloch vector of $R_Y(\theta_i)\ket0$, and $\boldsymbol n_i\cdot\boldsymbol\sigma = \sin\theta_iX+\cos\theta_iZ$. Then $H_{M,i} = -\boldsymbol n_i\cdot\boldsymbol\sigma$ has the ground state $R_Y(\theta_i)\ket0$, with the eigenvalue $-1$; $\ket{\phi^\star}$ is the ground state of $H_M^{(\rm ws)}$, with the eigenvalue $-n$; and
+\begin{equation}\label{eq:ch11:rot}
+    e^{-i\beta H_{M,i}} = \cos\beta\,\one+i\sin\beta\,\boldsymbol n_i\cdot\boldsymbol\sigma = R_Y(\theta_i)\,R_Z(-2\beta)\,R_Y(-\theta_i),
 \end{equation}
-\ona{with the mixer adjusted accordingly.}
+a rotation of the Bloch sphere by the angle $2\beta$ about the axis through $\boldsymbol n_i$.
+\end{lem}
+\ona{\emph{Proof.} Since $|\boldsymbol n_i| = 1$, $(\boldsymbol n_i\cdot\boldsymbol\sigma)^2 = \one$, and its eigenvectors are the states with the Bloch vectors $\pm\boldsymbol n_i$, with the eigenvalues $\pm1$. The rotation $R_Y(\theta_i)$ turns the north pole by $\theta_i$ in the $x$--$z$ plane, so $R_Y(\theta_i)\ket0$ has the Bloch vector $\boldsymbol n_i$, and it is the eigenvector of $H_{M,i}$ with the eigenvalue $-1$. The terms of $H_M^{(\rm ws)}$ act on different qubits and commute, so the product of their ground states is the ground state of the sum, with the eigenvalue $-n$. Since $(\boldsymbol n_i\cdot\boldsymbol\sigma)^2 = \one$, the series of the exponential gives the first equality in \eqref{eq:ch11:rot}. Conjugation by $R_Y(\theta_i)$ turns $Z$ into $\cos\theta_iZ+\sin\theta_iX = \boldsymbol n_i\cdot\boldsymbol\sigma$, so $R_Y(\theta_i)e^{i\beta Z}R_Y(-\theta_i) = e^{i\beta\,\boldsymbol n_i\cdot\boldsymbol\sigma}$, and $e^{i\beta Z} = R_Z(-2\beta)$. \qed}
+\onp{Proof: $(\boldsymbol n_i\cdot\boldsymbol\sigma)^2 = \one$, $R_Y(\theta_i)\ket0$ has the Bloch vector $\boldsymbol n_i$, and $R_Y(\theta_i)ZR_Y(-\theta_i) = \boldsymbol n_i\cdot\boldsymbol\sigma$.}
 \begin{itemize}\setlength\itemsep{0.2em}
-    \item $\varepsilon$ interpolates continuously between WS-QAOA and standard QAOA: at $\varepsilon = 0.5$ the initial state is $\ket{+}^{\otimes n}$ and the mixer is $-\sum X_i$.
-    \item If all $c_i^\star \in (0,1)$ or $\varepsilon > 0$, WS-QAOA converges to the optimum as $p\to\infty$, exactly as standard QAOA: the initial state is the ground state of the mixer and overlaps every basis state, so the adiabatic argument of \Chap~\chref{C.QAOA} applies.
-    \item The point of optimising angles is to \emph{beat} the adiabatic schedule at small $p$.
+    \item The mixer leaves the warm state where it is: only the cost layer moves it, and the mixer then turns it about $\boldsymbol n_i$.
+    \item On hardware, two extra rotations $R_Y(\pm\theta_i)$ for each qubit and layer.
 \end{itemize}
 \end{frame}
 
-\section{Simulations}
-
-\begin{frame}\ft{Continuous warm start: portfolio optimization}
-\ona{The test problem is portfolio selection \citep{Markowitz1952} with a budget: $\min_x q\,x^\top\Sigma x - \mu^\top x$ subject to $\boldsymbol 1^\top x = B$, with $n = 6$ assets, $B = 3$, $q = 2$, the constraint enforced by a penalty $\lambda(\boldsymbol 1^\top x - B)^2$, $\lambda = 3$. Covariances and returns come from simulated price series; $c^\star$ from CPLEX; angles from COBYLA seeded uniformly in $\pm2\pi$; statevector simulation.}
-\figslide[height=0.5\textheight]{figures/warmstart/figure04.pdf}{(a) Probability of sampling the optimal portfolio and (b) energy of the optimised state versus depth for standard QAOA, WS-QAOA, and the warm initial state with the standard mixer; medians and quartiles over ten seeds \citep{egger2021warm}.}{fig:ch11:pevo}
+% the Bloch sphere of qubit 5 of the worked example, orthographic, azimuth 30 and elevation 18 degrees: the interval [0, 1]
+% on the z axis (dashed blue), the warm state at the height 1 - 2c = -0.755 (blue), the axis of the mixer through it
+% (black), its latitude, along which the cost layer turns it (grey), the orbit of the mixer from the turned point (red),
+% and the band c in [0.25, 0.75] allowed by eps = 0.25 on the meridian (orange)
+\mode<all>{\gdef\blochfig#1{\begin{axis}[#1,width=\bsW,height=\bsW,scale only axis,axis equal image,hide axis,xmin=-1.3,xmax=1.3,ymin=-1.3,ymax=1.3,clip=false]
+  \draw[gray!60,thin] (axis cs:0,0) circle[radius=1];
+  \addplot[gray!60,thin] table[x=eqfu,y=eqfv] {figures/ch11/bloch.dat};
+  \addplot[gray!60,thin,densely dotted] table[x=eqbu,y=eqbv] {figures/ch11/bloch.dat};
+  \addplot[gray!60,thin] table[x=merfu,y=merfv] {figures/ch11/bloch.dat};
+  \addplot[gray!60,thin,densely dotted] table[x=merbu,y=merbv] {figures/ch11/bloch.dat};
+  \addplot[orange!85!black,line width=2.2pt,domain=1.0472:2.0944,samples=30,variable=\t] ({-0.5*sin(deg(\t))},{-0.26762*sin(deg(\t))+0.95106*cos(deg(\t))});
+  \draw[blue!60!black,densely dashed,thick] (axis cs:0,0.95106) -- (axis cs:0,-0.95106);
+  \draw[blue!60!black,thick] (axis cs:-0.03,0.47553) -- (axis cs:0.03,0.47553); \draw[blue!60!black,thick] (axis cs:-0.03,-0.47553) -- (axis cs:0.03,-0.47553);
+  \draw[blue!60!black,thick] (axis cs:-0.03,0) -- (axis cs:0.03,0);
+  \addplot[gray!80!black,semithick] table[x=latfu,y=latfv] {figures/ch11/bloch.dat};
+  \addplot[gray!80!black,semithick,densely dotted] table[x=latbu,y=latbv] {figures/ch11/bloch.dat};
+  \addplot[red!75!black,semithick] table[x=orbfu,y=orbfv] {figures/ch11/bloch.dat};
+  \addplot[red!75!black,semithick,densely dotted] table[x=orbbu,y=orbbv] {figures/ch11/bloch.dat};
+  \draw[black,densely dotted] (axis cs:0.32781,0.89358) -- (axis cs:-0.32781,-0.89358);
+  \draw[black,thick] (axis cs:-0.32781,-0.89358) -- (axis cs:-0.40976,-1.11698);
+  \draw[black,densely dotted] (axis cs:-0.32781,-0.89358) -- (axis cs:0,-0.71813);
+  \draw[-{Stealth[length=4pt]},gray!80!black,thick] (axis cs:-0.2,-0.905) to[bend right=12] (axis cs:0.30,-0.893);
+  \draw[-{Stealth[length=4pt]},red!75!black,thick] (axis cs:0.3318,-0.8148) to[bend right=6] (axis cs:0.2103,-0.6987);
+  \fill[blue!70!black] (axis cs:-0.32781,-0.89358) circle (2pt);
+  \fill[red!75!black] (axis cs:0.35732,-0.88799) circle (1.6pt);
+  \draw[orange!85!black,thick,fill=white] (axis cs:-0.43301,-0.70720) circle (1.8pt);
+  \fill[black] (axis cs:0,0.95106) circle (1.3pt); \fill[black] (axis cs:0,-0.95106) circle (1.3pt);
+  \node[font=\scriptsize,anchor=south] at (axis cs:0,0.98) {$\ket0$, $c = 0$};
+  \node[font=\scriptsize,anchor=north] at (axis cs:0.08,-0.99) {$\ket1$, $c = 1$};
+  \ona{\node[note,anchor=west] (b1) at (axis cs:1.35,1.15) {the interval $[0,1]$ on the $z$ axis (dashed): a\\state at the height $1-2c$ reads $1$ with\\probability $c$; ticks at $c = \frac14,\frac12,\frac34$};
+  \draw[notearrow] (b1.west) to[bend right=15] (axis cs:0.04,0.5);
+  \node[note,anchor=west] (b2) at (axis cs:1.35,0.55) {the band $\frac14\le c\le\frac34$ that $\varepsilon = 0.25$ allows\\(orange): the regularised state of this qubit\\(open circle) sits at its lower edge};
+  \draw[notearrow] (b2.west) to[bend left=10] (axis cs:-0.40,-0.66);
+  \node[note,anchor=west] (b3) at (axis cs:1.35,-0.05) {the warm state of qubit $5$, $c_5^\star = 0.878$, at the\\height $-0.755$ (blue): it lies on the axis of the\\mixer (black), which therefore leaves it in place};
+  \draw[notearrow] (b3.west) to[bend left=20] (axis cs:-0.30,-0.87);
+  \node[note,anchor=west] (b4) at (axis cs:1.35,-0.62) {the cost layer turns it about $z$, along its\\latitude (grey), here by $1.1$ radians};
+  \draw[notearrow] (b4.west) to[bend left=10] (axis cs:0.20,-0.95);
+  \node[note,anchor=west] (b5) at (axis cs:1.35,-1.1) {the mixer then turns the moved state about\\the axis, on a circle of angular radius $40^\circ$\\(red): the two layers explore the sphere};
+  \draw[notearrow] (b5.west) to[bend left=15] (axis cs:0.36,-0.92);}
+\end{axis}}}
+\begin{frame}\ft{The warm state, pictured}
+\ona{Figure~\ref{fig:ch11:bloch} shows the Bloch sphere of one qubit of the worked example below, with $c^\star = 0.878$. A state reads $1$ with the probability $c$ if its height is $1-2c$, so that the interval $[0,1]$ lies on the $z$ axis, from $\ket0$ at the top to $\ket1$ at the bottom, and the warm state sits at the height $-0.755$ on the meridian in the $x$--$z$ plane. By Lemma~\ref{lem:ch11:mixer}, it lies on the axis of the mixer, which leaves it in place. The cost layer turns the state of each qubit about the $z$ axis, here by $1.1$ radians along its latitude, and entangles the qubits; the mixer then turns the moved state about the tilted axis, on a circle of angular radius $40^\circ$ about the warm state. With $\varepsilon = 0.25$ the qubit starts instead at $c = 0.75$, on the edge of the allowed band.}
+\ona{\gdef\bsW{0.3\linewidth}}\onp{\gdef\bsW{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\blochfig{}\end{tikzpicture}
+\caption{The Bloch sphere of qubit $5$ of the worked example, $c_5^\star = 0.878$: the interval $[0,1]$ on the $z$ axis (dashed), the warm state (blue) on the axis of the mixer (black), its latitude, along which the cost layer turns it (grey), the orbit of the mixer from the turned state (red), and the band allowed by $\varepsilon = 0.25$ (orange), with the regularised state (open circle). Dotted: the far side of the sphere.}\label{fig:ch11:bloch}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.45\textwidth}\centering\begin{tikzpicture}\blochfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.53\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Height $1-2c$: the interval $[0,1]$ on the $z$ axis (dashed).
+    \item Qubit $5$, $c_5^\star = 0.878$ (blue), on the axis of the mixer (black): the mixer leaves it in place.
+    \item The cost layer turns it along its latitude (grey); the mixer then turns it about the axis (red).
+    \item $\varepsilon = 0.25$: the band $\frac14\le c\le\frac34$ (orange), the regularised state (open circle).
+\end{itemize}\end{column}\end{columns}}
 \end{frame}
 
-\begin{frame}\ft{Continuous warm start: 250 instances and annealing}
-\ona{At depth one on 250 random instances, standard QAOA piles up at $0.74\,E_0$ while WS-QAOA spreads up to $E_0$, with the gain largest when relaxed and binary optima overlap (Fig.~\ref{fig:ch01:depth1} in \Chap~\chref{C.Motivation}). From the annealing viewpoint, Trotterised evolution from the mixer ground state needs less time $T$ and fewer steps $N$ with the warm-start mixer than with the transverse field:}
-\figslide[height=0.45\textheight]{figures/warmstart/figure06.pdf}{Normalised energy after Trotterised annealing with the warm-start mixer (a) and the equal-superposition mixer (b), as a function of total time $T$ and number of steps $N$; (c) time-resolved energy at the marked points \citep{egger2021warm}.}{fig:ch11:anneal}
+\begin{frame}\ft{Frozen qubits and the regularisation}
+\onp{\footnotesize}
+\begin{lem}\label{lem:ch11:frozen}
+If $c_i^\star\in\{0,1\}$, every state that the circuit prepares, at every depth and for all angles, is $\ket{c_i^\star}\otimes\ket\varphi$ for a state $\ket\varphi$ of the other qubits, and its measurement returns $x_i = c_i^\star$ with probability one. If every optimal string has $x_i\ne c_i^\star$, no optimal string is ever sampled.
+\end{lem}
+\ona{\emph{Proof.} Then $\theta_i\in\{0,\pi\}$, qubit $i$ starts in $\ket{c_i^\star}$, and $H_{M,i} = -\cos\theta_i\,Z_i$ is diagonal, as is $H_C$. Every gate commutes with $Z_i$, and maps $\ket{c_i^\star}\otimes\ket\varphi$ to a state of the same form. \qed}
+\ona{This is the obstruction of \Chap~\chref{C.QAOA}: a coordinate subspace invariant under every layer. The remedy is to keep the angles away from the poles, with a regularisation $\varepsilon\in[0,\frac12]$,}
+\begin{equation}\label{eq:ch11:eps}
+    \theta_i = 2\arcsin\sqrt{c_i^\varepsilon},\qquad c_i^\varepsilon = \min\{\max\{c_i^\star,\varepsilon\},1-\varepsilon\},
+\end{equation}
+\ona{with the mixer \eqref{eq:ch11:mixer} built from the same angles.}
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item $\varepsilon$ interpolates between the warm start, at $\varepsilon = 0$, and standard QAOA, at $\varepsilon = \frac12$.
+    \item The price of a larger $\varepsilon$: a warm state farther from $c^\star$, and a weaker bound below.
+\end{itemize}
+\end{frame}
+
+\begin{frame}\ft{A worked portfolio}
+\onp{\footnotesize}
+\ona{As in \citet{egger2021warm}, we choose $B = 3$ of $n = 6$ assets with equal weights, minimising $q\,x^\top\Sigma x-\mu^\top x$ with the risk aversion $q = 2$, and enforce the budget $\boldsymbol1^\top x = B$ by the penalty $\lambda(\boldsymbol1^\top x-B)^2$, $\lambda = 3$. This is \eqref{eq:ch11:qubo} with}
+\begin{equation}\label{eq:ch11:portfolio}
+    A = q\Sigma+\lambda\boldsymbol1\boldsymbol1^\top,\qquad b = -\mu-2\lambda B\,\boldsymbol1,\qquad a_0 = \lambda B^2,
+\end{equation}
+\ona{and $A\succeq0$, so that \eqref{eq:ch11:qp} is convex. The prices of the assets follow geometric Brownian motions for $250$ days, with drifts uniform in $[-5\%,5\%]$ and volatilities uniform in $[-20\%,20\%]$, and $\mu$ and $\Sigma$ are the mean and the covariance of the daily returns, multiplied by $250$; with daily values, as in the source, risk and return would be negligible beside the penalty. The first instance of the generator has
+\begin{equation*}
+    \mu = (-0.039,0.222,-0.049,-0.508,0.006,0.041),\qquad\big(\sqrt{\Sigma_{ii}}\big)_i = (0.041,0.087,0.018,0.173,0.121,0.199).
+\end{equation*}
+The relaxation, solved exactly by enumerating the active sets, has the minimiser
+\begin{equation*}
+    c^\star = (0.569,1,0,0,0.878,0.546),
+\end{equation*}
+whose coordinates add up to $2.993$, and $f(c^\star) = -0.1661$. Of the $64$ portfolios, $20$ meet the budget; the best, $d^* = (0,1,0,0,1,1)$, has $F^* = -0.1484$, $0.0177$ above $f(c^\star)$, and the second best lies only $0.0073$ above it. Every portfolio that misses the budget lies at least $2.96$ above $F^*$. The numbers of this \chap{} are computed by \texttt{code/ch11\_figures.py}.}
+\onp{\begin{itemize}\setlength\itemsep{0.2em}
+    \item $n = 6$ assets, $B = 3$, $q = 2$, $\lambda = 3$; returns from geometric Brownian motions, annualised.
+    \item $c^\star = (0.569,1,0,0,0.878,0.546)$, $f(c^\star) = -0.1661$; $d^* = (0,1,0,0,1,1)$, $F^* = -0.1484$.
+    \item $20$ portfolios meet the budget; the second best is $0.0073$ above $F^*$, every other string at least $2.96$.
+\end{itemize}}
+\end{frame}
+
+% the six qubits of the worked example in the x-z cross-sections of their Bloch spheres: the warm states (blue) at the
+% angles theta_i from the top, the interval [0, 1] on each vertical diameter (dashed), and the states regularised by
+% eps = 0.25 (open red circles), where they differ
+\mode<all>{\gdef\qubitsfig#1{\begin{axis}[#1,width=\qbW,scale only axis,axis equal image,hide axis,xmin=-1.3,xmax=14.8,ymin=-1.3,ymax=1.3,clip=false]
+  \pgfplotsinvokeforeach{0,2.7,5.4,8.1,10.8,13.5}{
+    \draw[gray!70] (axis cs:##1,0) circle[radius=1];
+    \draw[blue!60!black,densely dashed] (axis cs:##1,1) -- (axis cs:##1,-1);
+  }
+  \addplot[red!75!black,semithick,-{Stealth[length=3pt]},quiver={u=\thisrow{qx}-\thisrow{px},v=\thisrow{qz}-\thisrow{pz}},restrict expr to domain={abs(\thisrow{qz}-\thisrow{pz})}{0.001:9}] table[x=px,y=pz] {figures/ch11/ws_qubits.dat};
+  \addplot[red!75!black,only marks,mark=o,mark size=1.8pt,restrict expr to domain={abs(\thisrow{qz}-\thisrow{pz})}{0.001:9}] table[x=qx,y=qz] {figures/ch11/ws_qubits.dat};
+  \addplot[blue!70!black,only marks,mark=*,mark size=2.2pt] table[x=px,y=pz] {figures/ch11/ws_qubits.dat};
+  \node[font=\scriptsize,anchor=north] at (axis cs:0,-1.05) {$0.569$}; \node[font=\scriptsize,anchor=north] at (axis cs:2.7,-1.05) {$1$};
+  \node[font=\scriptsize,anchor=north] at (axis cs:5.4,-1.05) {$0$}; \node[font=\scriptsize,anchor=north] at (axis cs:8.1,-1.05) {$0$};
+  \node[font=\scriptsize,anchor=north] at (axis cs:10.8,-1.05) {$0.878$}; \node[font=\scriptsize,anchor=north] at (axis cs:13.5,-1.05) {$0.546$};
+  \node[font=\scriptsize,anchor=south] at (axis cs:0,1.05) {$d_1^* = 0$}; \node[font=\scriptsize,anchor=south] at (axis cs:2.7,1.05) {$d_2^* = 1$};
+  \node[font=\scriptsize,anchor=south] at (axis cs:5.4,1.05) {$d_3^* = 0$}; \node[font=\scriptsize,anchor=south] at (axis cs:8.1,1.05) {$d_4^* = 0$};
+  \node[font=\scriptsize,anchor=south] at (axis cs:10.8,1.05) {$d_5^* = 1$}; \node[font=\scriptsize,anchor=south] at (axis cs:13.5,1.05) {$d_6^* = 1$};
+  \node[font=\scriptsize,anchor=east] at (axis cs:-1.1,0.9) {$\ket0$}; \node[font=\scriptsize,anchor=east] at (axis cs:-1.1,-0.9) {$\ket1$};
+  \ona{\node[note,anchor=north west] (k1) at (axis cs:-1.2,-1.9) {the warm states (blue) at the angles $\theta_i$\\from the top, $c_i^\star$ below each sphere and\\the optimal bits $d_i^*$ above: qubits $1$, $5$, $6$\\are fractional};
+  \draw[notearrow] ([xshift=1.5cm]k1.north west) to[bend left=20] (axis cs:0.9,-0.2);
+  \node[note,anchor=north west] (k2) at (axis cs:6.6,-1.9) {qubits $2$, $3$ and $4$ sit at the poles: frozen at $\varepsilon = 0$\\(Lemma~\ref{lem:ch11:frozen}), and right, since they agree with $d^*$;\\$\varepsilon = 0.25$ moves them to $c = \frac14$ or $\frac34$ (red)};
+  \draw[notearrow] ([xshift=0.8cm]k2.north west) to[bend left=15] (axis cs:8.6,0.6);
+  \draw[notearrow] ([xshift=0.8cm]k2.north west) to[bend right=20] (axis cs:3.2,-0.7);}
+\end{axis}}}
+\begin{frame}\ft{The six qubits, pictured}
+\ona{Figure~\ref{fig:ch11:qubits} shows the warm states of the six qubits in the $x$--$z$ cross-sections of their Bloch spheres. Qubits $1$, $5$ and $6$ are fractional, with $c^\star = 0.569$, $0.878$ and $0.546$; the optimal portfolio takes assets $5$ and $6$, and leaves asset $1$. Qubits $2$, $3$ and $4$ sit at the poles and, by Lemma~\ref{lem:ch11:frozen}, are frozen at $\varepsilon = 0$; since they agree with $d^*$, the optimum remains reachable, and the circuit acts only on the other three qubits. With $\varepsilon = 0.25$ the frozen qubits move to $c = \frac14$ or $\frac34$, and qubit $5$ to $\frac34$.}
+\ona{\gdef\qbW{0.86\linewidth}}\onp{\gdef\qbW{10.5cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\qubitsfig{}\end{tikzpicture}
+\caption{The six qubits of the worked example in the $x$--$z$ cross-sections of their Bloch spheres: the warm states (blue), with $c_i^\star$ below and $d_i^*$ above each sphere, the interval $[0,1]$ on each vertical diameter (dashed), and the states regularised by $\varepsilon = 0.25$ (red), where they differ.}\label{fig:ch11:qubits}\end{figure}}
+\onp{\begin{center}\begin{tikzpicture}\qubitsfig{}\end{tikzpicture}\end{center}
+\footnotesize\begin{itemize}\setlength\itemsep{0.2em}
+    \item Fractional: qubits $1$, $5$, $6$ ($c^\star = 0.569$, $0.878$, $0.546$); the optimum takes $5$ and $6$.
+    \item At the poles: qubits $2$, $3$, $4$, frozen at $\varepsilon = 0$ but agreeing with $d^*$; $\varepsilon = 0.25$ moves them (red).
+\end{itemize}}
+\end{frame}
+
+\section{What the warm start guarantees}\label{sec:ch11:guarantee}
+
+\begin{frame}\ft{The warm state as a rounding}
+\onp{\footnotesize}
+\begin{propn}\label{propn:ch11:round}
+Let $x_1,\dots,x_n$ be independent, with $\mathrm{Pr}[x_i = 1] = c_i$. Then
+\begin{equation}\label{eq:ch11:round}
+    \mathbb E\,f(x) = f(c)+\sum_{i=1}^nA_{ii}\,c_i(1-c_i).
+\end{equation}
+Hence the energy of WS-QAOA with the regularisation $\varepsilon$ and optimised angles, at every depth, is at most $f(c^\varepsilon)+\sum_iA_{ii}c_i^\varepsilon(1-c_i^\varepsilon)$; for $\varepsilon = 0$ it is at most $F^*+\sum_iA_{ii}c_i^\star(1-c_i^\star)$.
+\end{propn}
+\ona{\emph{Proof.} Here $\mathbb E\,x_i = c_i$, $\mathbb E\,x_i^2 = \mathbb E\,x_i = c_i$, and $\mathbb E\,x_ix_j = c_ic_j$ for $i\ne j$. Hence $\mathbb E\,x^\top Ax = \sum_{i\ne j}A_{ij}c_ic_j+\sum_iA_{ii}c_i = c^\top Ac+\sum_iA_{ii}(c_i-c_i^2)$, and $\mathbb E\,b^\top x = b^\top c$. Measuring the regularised warm state gives such bits, with $c = c^\varepsilon$. With all angles zero, every layer is the identity, so the circuit of any depth prepares the warm state, and the optimised energy is at most its energy. Finally $f(c^\star)\le F^*$. \qed}
+\ona{The term $\sum_iA_{ii}c_i(1-c_i)$ is the price of rounding the coordinates independently. It vanishes when $c$ is integral, and it is large when the relaxed optimum is fractional and the diagonal of $A$ is large. A budget enforced by the penalty $\lambda(\boldsymbol1^\top x-B)^2$ contributes $\lambda$ to every $A_{ii}$: independent rounding breaks the budget, with the variance $\sum_ic_i(1-c_i)$ of $\boldsymbol1^\top x$, and the circuit must restore it.}
+\onp{\begin{itemize}\setlength\itemsep{0.2em}
+    \item With all angles zero, the circuit of any depth prepares the warm state: the optimised energy is never worse.
+    \item The price of independent rounding, $\sum_iA_{ii}c_i(1-c_i)$, is large when $c^\star$ is fractional and the penalty $\lambda$ of a budget is large.
+\end{itemize}}
+\end{frame}
+
+% the warm state of the worked example measured at depth zero: the probability of each bit string (blue stems) against its
+% value above the relaxation, f(x) - f(c*), on a logarithmic axis, with the uniform probabilities 1/64 of |+>^6 (grey), and
+% the means of the two distributions (dashed)
+\mode<all>{\gdef\distfig#1{\begin{axis}[#1,width=\dsW,height=\dsH,scale only axis,clip mode=individual,xmode=log,xmin=0.01,xmax=45,ymin=0,ymax=0.31,ytick={0,0.1,0.2,0.3},yticklabel style={/pgf/number format/fixed},xlabel={$f(x)-f(c^\star)$},ylabel={probability}]
+  \draw[blue!70!black,densely dashed] (axis cs:1.8254,0) -- (axis cs:1.8254,0.31);
+  \draw[gray,densely dashed] (axis cs:4.9224,0) -- (axis cs:4.9224,0.31);
+  \addplot[gray,ycomb,thin,mark=*,mark size=0.6pt] table[x=fx,y=pu] {figures/ch11/ws_dist.dat};
+  \addplot[blue!70!black,ycomb,line width=2.2pt,restrict expr to domain={\thisrow{pw}}{0.000001:1}] table[x=fx,y=pw] {figures/ch11/ws_dist.dat};
+  \ona{\node[note,anchor=south west] (d1) at (axis cs:0.011,0.335) {the optimal portfolio, $0.0177$ above $f(c^\star)$:\\probability $0.207$ in the warm state, against\\$1/64$ in $\ket+^{\otimes6}$ (grey)};
+  \draw[notearrow] ([xshift=0.4cm]d1.south west) to[bend right=15] (axis cs:0.0177,0.21);
+  \node[note,anchor=west] (d2) at (axis cs:70,0.29) {two more portfolios within the budget, $0.025$\\and $0.040$ above: the budget is met with\\probability $0.471$};
+  \draw[notearrow] (d2.west) to[bend right=20] (axis cs:0.03,0.232);
+  \node[note,anchor=west] (d3) at (axis cs:70,0.2) {one asset too many or too few, about\\$\lambda = 3$ above: probability $0.505$};
+  \draw[notearrow] (d3.west) to[bend right=10] (axis cs:3.2,0.27);
+  \node[note,anchor=west] (d4) at (axis cs:70,0.125) {the mean of the warm state, $f(c^\star)$ plus\\$\sum_iA_{ii}c_i^\star(1-c_i^\star) = 1.825$, the price of\\rounding independently, $1.802$ of it from\\the budget (dashed blue)};
+  \draw[notearrow] (d4.west) to[bend right=10] (axis cs:1.9,0.12);
+  \node[note,anchor=west] (d5) at (axis cs:70,0.045) {the mean of $\ket+^{\otimes6}$, $4.92$ above (dashed grey);\\two assets too many, $12$ above: $0.024$};
+  \draw[notearrow] (d5.west) to[bend left=10] (axis cs:5.2,0.06);
+  \draw[notearrow] (d5.west) to[bend left=20] (axis cs:12.5,0.03);}
+\end{axis}}}
+\begin{frame}\ft{The warm distribution, pictured}
+\ona{Figure~\ref{fig:ch11:dist} shows the warm state of the worked example measured at depth zero. Its three frozen qubits leave $8$ strings with positive probability. The optimal portfolio, $0.0177$ above $f(c^\star)$, has the probability $0.207$, against $1/64 = 0.016$ in $\ket+^{\otimes6}$; with the two portfolios $0.025$ and $0.040$ above $f(c^\star)$, the budget is met with the probability $0.471$, and missed by one asset with $0.505$, at about $\lambda = 3$ above. By \eqref{eq:ch11:round} the mean lies $\sum_iA_{ii}c_i^\star(1-c_i^\star) = 1.825$ above $f(c^\star)$; of this, $\lambda\sum_ic_i^\star(1-c_i^\star) = 1.802$ comes from the budget and $q\sum_i\Sigma_{ii}c_i^\star(1-c_i^\star) = 0.024$ from the risk. The mean of $\ket+^{\otimes6}$ lies $4.92$ above.}
+\ona{\gdef\dsW{0.42\linewidth}\gdef\dsH{0.3\linewidth}}\onp{\gdef\dsW{4.8cm}\gdef\dsH{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\distfig{}\end{tikzpicture}
+\caption{The warm state of the worked example measured at depth zero: the probability of each bit string (blue) against $f(x)-f(c^\star)$, the probabilities $1/64$ of $\ket+^{\otimes6}$ (grey), and the means of the two distributions (dashed).}\label{fig:ch11:dist}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\distfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item The optimum: $0.207$ in the warm state (blue), $1/64$ in $\ket+^{\otimes6}$ (grey).
+    \item The budget is met with $0.471$, missed by one asset with $0.505$ (about $\lambda = 3$ above).
+    \item Mean: $1.825$ above $f(c^\star)$, of which $1.802$ from the budget; $\ket+^{\otimes6}$: $4.92$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{Convergence in the depth}
+\onp{\footnotesize}
+\begin{cor}\label{cor:ch11:conv}
+If $0<c_i^\varepsilon<1$ for every $i$, in particular if $\varepsilon>0$, then for every $\delta>0$ there are a depth and angles for which the state of WS-QAOA lies within $\delta$ of the span of the optimal strings. If $c_i^\varepsilon\in\{0,1\}$ for the qubits $i$ of a set $J$, this holds if and only if some optimal string agrees with $c^\varepsilon$ on $J$.
+\end{cor}
+\ona{\emph{Proof.} With the sign of \Chap~\chref{C.QAOA}, the mixer is $-H_M^{(\rm ws)} = \sum_i(\sin\theta_iX_i+\cos\theta_iZ_i)$. Its entry between two strings that differ in bit $i$ alone is $\sin\theta_i = 2\sqrt{c_i^\varepsilon(1-c_i^\varepsilon)}>0$, and its other off-diagonal entries are zero; its graph is the hypercube, so it is a mixer in the sense of \Chap~\chref{C.QAOA}, its terms form a mixing family, and its top eigenvector is $\ket{\phi^\star}$, by Lemma~\ref{lem:ch11:mixer}. The convergence theorem of \citet{binkowski2023elementary}, proved in \Chap~\chref{C.QAOA}, applies. If $\theta_i\in\{0,\pi\}$ for $i\in J$, Lemma~\ref{lem:ch11:frozen} fixes these qubits, and the same argument applies to the other qubits and to $f$ restricted to the strings that agree with $c^\varepsilon$ on $J$. Its minimisers are optimal strings if some optimal string agrees with $c^\varepsilon$ on $J$, and otherwise no optimal string is ever sampled. \qed}
+\ona{The corollary gives no rate. The guarantee of Proposition~\ref{propn:ch11:round} holds at every depth, but it does not promise that depth one improves on the warm state, and it is weak when $\sum_iA_{ii}c_i(1-c_i)$ is large. For MaxCut, $A$ is not positive semidefinite, \eqref{eq:ch11:qp} is not convex, and the warm start of \Chap~\chref{C.WSRounded} is used instead.}
+\onp{\begin{itemize}\setlength\itemsep{0.2em}
+    \item From the convergence theorem of \Chap~\chref{C.QAOA}: the warm mixer has the hypercube as its graph if $0<\theta_i<\pi$.
+    \item No rate; no promise that depth one improves on the warm state.
+    \item For MaxCut, $A\not\succeq0$ and the relaxation is not convex: the rounded warm start of \Chap~\chref{C.WSRounded} instead.
+\end{itemize}}
+\end{frame}
+
+\section{Landscapes}\label{sec:ch11:landscapes}
+
+% the depth-one landscapes log10(F - F*) of the worked example over beta in [0, pi] and gamma in [-pi/3, pi/3], images
+% computed by code/ch11_figures.py on a grid of 241 x 241 points, on a common colour scale: (a) the warm start, eps = 0;
+% (b) eps = 0.25; (c) standard QAOA, eps = 0.5; zero angles (open circle) and the best angles with their mirror images
+% (pi - beta, -gamma) (crosses)
+\mode<all>{\gdef\landaxis#1#2#3{\begin{axis}[#1,width=\lnW,height=\lnH,scale only axis,enlargelimits=false,axis on top,clip mode=individual,xmin=0,xmax=3.1416,ymin=-1.0472,ymax=1.0472,xtick={0,0.7854,1.5708,2.3562,3.1416},xticklabels={$0$,$\frac\pi4$,$\frac\pi2$,$\frac{3\pi}4$,$\pi$},ytick={-1.0472,0,1.0472},yticklabels={$-\frac\pi3$,$0$,$\frac\pi3$},xlabel={$\beta$},ylabel={$\gamma$},colormap={ylgnbu}{rgb255(0cm)=(12,44,132); rgb255(1cm)=(34,94,168); rgb255(2cm)=(29,145,192); rgb255(3cm)=(65,182,196); rgb255(4cm)=(127,205,187); rgb255(5cm)=(199,233,180); rgb255(6cm)=(255,255,204)},point meta min=-0.30103,point meta max=1.30103,colorbar horizontal,colorbar style={at={(0.5,-0.42)},anchor=north,height=0.15cm,font=\tiny,xtick={-0.30103,0,0.69897,1,1.30103},xticklabels={$0.5$,$1$,$5$,$10$,$20$}}]
+  \addplot graphics[xmin=0,xmax=3.1416,ymin=-1.0472,ymax=1.0472] {figures/ch11/ws_land#2.png};
+  \draw[black,thick,fill=white] (axis cs:0,0) circle (2.2pt);
+  #3
+\end{axis}}
+\gdef\landA#1{\landaxis{#1}{0}{%
+  \draw[red!80!black,very thick] (axis cs:0.2888,0.7056) -- (axis cs:0.3688,0.7856); \draw[red!80!black,very thick] (axis cs:0.2888,0.7856) -- (axis cs:0.3688,0.7056);
+  \draw[red!80!black,very thick] (axis cs:2.7728,-0.7056) -- (axis cs:2.8528,-0.7856); \draw[red!80!black,very thick] (axis cs:2.7728,-0.7856) -- (axis cs:2.8528,-0.7056);
+  \ona{\node[note,anchor=west] (n1) at (axis cs:3.5,0.85) {zero angles (open circle): the warm state,\\$1.81$ above $F^*$, the optimum with\\probability $0.207$};
+  \draw[notearrow] (n1.west) to[bend right=15] (axis cs:0.08,0.05);
+  \node[note,anchor=west] (n2) at (axis cs:3.5,0.1) {the best angles, $\beta = 0.329$, $\gamma = 0.746$, and\\their mirror image $(\pi-\beta,-\gamma)$ (crosses):\\$0.657$ above $F^*$, the optimum with\\probability $0.378$};
+  \draw[notearrow] (n2.west) to[bend right=20] (axis cs:0.40,0.76);
+  \draw[notearrow] (n2.west) to[bend left=10] (axis cs:2.88,-0.72);
+  \node[note,anchor=west] (n3) at (axis cs:3.5,-0.7) {the dark valley: angles at which the\\circuit restores the budget that\\independent rounding breaks};
+  \draw[notearrow] (n3.west) to[bend left=10] (axis cs:2.62,-0.55);}}}
+\gdef\landB#1{\landaxis{#1}{25}{%
+  \draw[red!80!black,very thick] (axis cs:0.2260,0.0879) -- (axis cs:0.3060,0.1679); \draw[red!80!black,very thick] (axis cs:0.2260,0.1679) -- (axis cs:0.3060,0.0879);
+  \draw[red!80!black,very thick] (axis cs:2.8356,-0.1679) -- (axis cs:2.9156,-0.0879); \draw[red!80!black,very thick] (axis cs:2.8356,-0.0879) -- (axis cs:2.9156,-0.1679);
+  \ona{\node[note,anchor=west] (n4) at (axis cs:3.5,0.7) {$\varepsilon = 0.25$: the warm state at zero\\angles, $3.98$ above $F^*$; the best angles\\(crosses), $1.29$ above, with the optimum\\at probability $0.138$};
+  \draw[notearrow] (n4.west) to[bend right=15] (axis cs:0.32,0.17);
+  \node[note,anchor=west] (n5) at (axis cs:3.5,-0.4) {the landscape is higher everywhere, and\\its valley narrower, than at $\varepsilon = 0$};
+  \draw[notearrow] (n5.west) to[bend left=10] (axis cs:2.5,-0.3);}}}
+\gdef\landC#1{\landaxis{#1}{50}{%
+  \draw[red!80!black,very thick] (axis cs:1.2723,-0.9681) -- (axis cs:1.3523,-0.8881); \draw[red!80!black,very thick] (axis cs:1.2723,-0.8881) -- (axis cs:1.3523,-0.9681);
+  \draw[red!80!black,very thick] (axis cs:1.7893,0.8881) -- (axis cs:1.8693,0.9681); \draw[red!80!black,very thick] (axis cs:1.7893,0.9681) -- (axis cs:1.8693,0.8881);
+  \ona{\node[note,anchor=west] (n6) at (axis cs:3.5,0.7) {standard QAOA, $\varepsilon = \frac12$: $\ket+^{\otimes6}$ at zero\\angles, $4.90$ above $F^*$; the best angles\\(crosses), $1.52$ above, with the optimum\\at probability $0.040$};
+  \draw[notearrow] (n6.west) to[bend right=10] (axis cs:1.88,0.93);
+  \node[note,anchor=west] (n7) at (axis cs:3.5,-0.4) {colour: $\log_{10}(F-F^*)$, the same scale\\in the three panels};}}}}
+\begin{frame}\ft{The warm landscape, pictured}
+\ona{Figure~\ref{fig:ch11:land} shows $F-F^*$ at depth one on the worked example, over $\beta\in[0,\pi]$, a period of both mixers, and $\gamma\in[-\pi/3,\pi/3]$, a period of the penalty, on a common colour scale. Since $f$ is real, $(\pi-\beta,-\gamma)$ gives the same energy as $(\beta,\gamma)$. At zero angles each circuit prepares its initial state: the warm state, $1.81$ above $F^*$, for $\varepsilon = 0$; $3.98$ above for $\varepsilon = 0.25$; and $\ket+^{\otimes6}$, $4.90$ above, for standard QAOA. The best depth-one angles, found by refining the five best points of a grid, give $0.657$, $1.286$ and $1.519$ above $F^*$, with the optimal portfolio at probabilities $0.378$, $0.138$ and $0.040$. The warm start lowers the whole landscape, and widens the valley of good angles, in which the circuit restores the budget that independent rounding breaks.}
+\ona{\gdef\lnW{0.36\linewidth}\gdef\lnH{0.24\linewidth}}\onp{\gdef\lnW{4.8cm}\gdef\lnH{3.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\landA{name=lna}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.6cm]lna.north west) {(a)};
+\landB{at={(lna.south west)},anchor=north west,yshift=-3.1cm,name=lnb}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.6cm]lnb.north west) {(b)};
+\landC{at={(lnb.south west)},anchor=north west,yshift=-3.1cm,name=lnc}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.6cm]lnc.north west) {(c)};
+\end{tikzpicture}
+\caption{The depth-one landscapes of the worked example, $F-F^*$ on a logarithmic colour scale: (a) the warm start, $\varepsilon = 0$; (b) $\varepsilon = 0.25$; (c) standard QAOA, $\varepsilon = \frac12$. Zero angles (open circles) and the best angles with their mirror images (crosses).}\label{fig:ch11:land}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\landA{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Depth one, $\varepsilon = 0$; colour $\log_{10}(F-F^*)$.
+    \item Zero angles (circle): the warm state, $1.81$ above $F^*$, the optimum $0.207$.
+    \item Best (crosses, and mirror image): $0.657$, the optimum $0.378$.
+    \item A wide valley: the circuit restores the budget.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{The regularised landscape, pictured}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\landB{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $\varepsilon = 0.25$, the same colour scale.
+    \item Zero angles: $3.98$ above $F^*$.
+    \item Best: $1.29$, the optimum $0.138$.
+    \item Higher everywhere, a narrower valley.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{The standard landscape, pictured}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\landC{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Standard QAOA, $\varepsilon = \frac12$.
+    \item Zero angles: $\ket+^{\otimes6}$, $4.90$ above $F^*$.
+    \item Best: $1.52$, the optimum $0.040$.
+    \item The warm state at zero angles, $1.81$, is not far behind; at its best angles the warm start is $2.3$ times closer.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% the probability of the optimal portfolio against eps on the worked example: in the warm state (dashed) and at the best
+% depth-one angles (solid)
+\mode<all>{\gdef\epsfig#1{\begin{axis}[#1,width=\epW,height=\epH,scale only axis,clip mode=individual,xmin=0,xmax=0.5,ymin=0,ymax=0.42,xtick={0,0.1,0.2,0.3,0.4,0.5},ytick={0,0.1,0.2,0.3,0.4},yticklabel style={/pgf/number format/fixed},xticklabel style={/pgf/number format/fixed},xlabel={regularisation $\varepsilon$},ylabel={probability of $d^*$}]
+  \addplot[blue!70!black,densely dashed,thick,mark=o,mark size=1.3pt] table[x=eps,y=p0] {figures/ch11/ws_eps.dat};
+  \addplot[blue!70!black,thick,mark=*,mark size=1.4pt] table[x=eps,y=p1] {figures/ch11/ws_eps.dat};
+  \ona{\node[note,anchor=west] (e1) at (axis cs:0.56,0.39) {at the best depth-one angles (solid):\\$0.378$ at $\varepsilon = 0$, falling steadily to $0.040$\\at $\varepsilon = \frac12$, standard QAOA};
+  \draw[notearrow] (e1.west) to[bend right=10] (axis cs:0.02,0.375);
+  \node[note,anchor=west] (e2) at (axis cs:0.56,0.21) {in the warm state at zero angles (dashed):\\$0.207$ at $\varepsilon = 0$, $1/64$ at $\varepsilon = \frac12$};
+  \draw[notearrow] (e2.west) to[bend right=10] (axis cs:0.03,0.2);
+  \node[note,anchor=west] (e3) at (axis cs:0.56,0.08) {depth one roughly doubles the probability\\at every $\varepsilon$; here the frozen qubits\\agree with $d^*$, and $\varepsilon$ buys nothing};
+  \draw[notearrow] (e3.west) to[bend right=10] (axis cs:0.3,0.11);}
+\end{axis}}}
+\begin{frame}\ft{Regularisation, pictured}
+\ona{Figure~\ref{fig:ch11:eps} shows the probability of the optimal portfolio against $\varepsilon$. In the warm state it falls from $0.207$ at $\varepsilon = 0$ to $1/64$ at $\varepsilon = \frac12$, and at the best depth-one angles from $0.378$ to $0.040$; depth one roughly doubles it at every $\varepsilon$. On this instance the frozen qubits agree with $d^*$, the regularisation is not needed for reachability, and it only weakens the warm start. It is needed when the relaxed optimum puts a coordinate at the wrong bound, which Corollary~\ref{cor:ch11:conv} shows can only be repaired with $\varepsilon>0$.}
+\ona{\gdef\epW{0.42\linewidth}\gdef\epH{0.28\linewidth}}\onp{\gdef\epW{4.8cm}\gdef\epH{4cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\epsfig{}\end{tikzpicture}
+\caption{The probability of the optimal portfolio of the worked example against the regularisation $\varepsilon$: in the warm state (dashed) and at the best depth-one angles (solid).}\label{fig:ch11:eps}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\epsfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Best depth one (solid): from $0.378$ at $\varepsilon = 0$ to $0.040$ at $\frac12$.
+    \item Warm state (dashed): from $0.207$ to $1/64$.
+    \item Here the frozen qubits agree with $d^*$: $\varepsilon$ only weakens the start.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\section{Simulations}\label{sec:ch11:sims}
+
+% depth 1 to 5 on the worked example, ten random starts of COBYLA in [-2 pi, 2 pi]^(2p): the median (markers) and the
+% quartiles (bars) of F - F* (a) and of the probability of the optimal portfolio (b), for standard QAOA (black),
+% WS-QAOA with eps = 0 (blue) and with eps = 0.25 (green)
+\mode<all>{\gdef\depthfigA#1{\begin{axis}[#1,width=\dpW,height=\dpH,scale only axis,clip mode=individual,ymode=log,xmin=0.6,xmax=5.4,ymin=0.004,ymax=6,xtick={1,2,3,4,5},xlabel={depth $p$},ylabel={$F-F^*$}]
+  \addplot[black,thick,mark=square*,mark size=1.4pt,error bars/.cd,y dir=both,y explicit,error bar style={black}] table[x expr=\thisrow{p}-0.08,y=se50,y error plus expr=\thisrow{se75}-\thisrow{se50},y error minus expr=\thisrow{se50}-\thisrow{se25}] {figures/ch11/ws_depth.dat};
+  \addplot[green!45!black,thick,mark=triangle*,mark size=1.6pt,error bars/.cd,y dir=both,y explicit,error bar style={green!45!black}] table[x=p,y=re50,y error plus expr=\thisrow{re75}-\thisrow{re50},y error minus expr=\thisrow{re50}-\thisrow{re25}] {figures/ch11/ws_depth.dat};
+  \addplot[blue!70!black,thick,mark=*,mark size=1.5pt,error bars/.cd,y dir=both,y explicit,error bar style={blue!70!black}] table[x expr=\thisrow{p}+0.08,y=we50,y error plus expr=\thisrow{we75}-\thisrow{we50},y error minus expr=\thisrow{we50}-\thisrow{we25}] {figures/ch11/ws_depth.dat};
+  \ona{\node[note,anchor=west] (p1) at (axis cs:5.9,3) {standard QAOA (black): the median\\stays between $1.0$ and $1.9$; the\\budget is often missed};
+  \draw[notearrow] (p1.west) to[bend right=10] (axis cs:4.1,1.25);
+  \node[note,anchor=west] (p2) at (axis cs:5.9,0.5) {$\varepsilon = 0.25$ (green): no better, as\\COBYLA from random starts stops\\in poor local minima};
+  \draw[notearrow] (p2.west) to[bend left=10] (axis cs:5,1.75);
+  \node[note,anchor=west] (p3) at (axis cs:5.9,0.06) {the warm start, $\varepsilon = 0$ (blue): the\\median falls from $0.90$ at depth one\\to $0.011$ at depth five};
+  \draw[notearrow] (p3.west) to[bend left=10] (axis cs:5.1,0.013);
+  \node[note,anchor=west] (p4) at (axis cs:5.9,0.0075) {bars: the quartiles of ten starts};
+  \draw[notearrow] (p4.west) to[bend left=10] (axis cs:4.2,0.04);}
+\end{axis}}
+\gdef\depthfigB#1{\begin{axis}[#1,width=\dpW,height=\dpH,scale only axis,clip mode=individual,xmin=0.6,xmax=5.4,ymin=0,ymax=0.5,xtick={1,2,3,4,5},ytick={0,0.1,0.2,0.3,0.4,0.5},yticklabel style={/pgf/number format/fixed},xlabel={depth $p$},ylabel={probability of $d^*$}]
+  \draw[blue!70!black,densely dotted] (axis cs:0.6,0.2068) -- (axis cs:5.4,0.2068);
+  \addplot[black,thick,mark=square*,mark size=1.4pt,error bars/.cd,y dir=both,y explicit,error bar style={black}] table[x expr=\thisrow{p}-0.08,y=sp50,y error plus expr=\thisrow{sp75}-\thisrow{sp50},y error minus expr=\thisrow{sp50}-\thisrow{sp25}] {figures/ch11/ws_depth.dat};
+  \addplot[green!45!black,thick,mark=triangle*,mark size=1.6pt,error bars/.cd,y dir=both,y explicit,error bar style={green!45!black}] table[x=p,y=rp50,y error plus expr=\thisrow{rp75}-\thisrow{rp50},y error minus expr=\thisrow{rp50}-\thisrow{rp25}] {figures/ch11/ws_depth.dat};
+  \addplot[blue!70!black,thick,mark=*,mark size=1.5pt,error bars/.cd,y dir=both,y explicit,error bar style={blue!70!black}] table[x expr=\thisrow{p}+0.08,y=wp50,y error plus expr=\thisrow{wp75}-\thisrow{wp50},y error minus expr=\thisrow{wp50}-\thisrow{wp25}] {figures/ch11/ws_depth.dat};
+  \ona{\node[note,anchor=west] (q1) at (axis cs:5.9,0.46) {the warm start (blue): median $0.338$ at\\depth one and $0.416$ at depth five, $19$\\and $13$ times that of standard QAOA};
+  \draw[notearrow] (q1.west) to[bend right=10] (axis cs:5.1,0.42);
+  \node[note,anchor=west] (q2) at (axis cs:5.9,0.27) {the warm state itself, at zero angles:\\$0.207$ (dotted)};
+  \draw[notearrow] (q2.west) to[bend left=10] (axis cs:4.6,0.21);
+  \node[note,anchor=west] (q3) at (axis cs:5.9,0.1) {standard QAOA (black) and $\varepsilon = 0.25$\\(green): medians between $0.010$\\and $0.071$};
+  \draw[notearrow] (q3.west) to[bend left=10] (axis cs:4.9,0.045);}
+\end{axis}}}
+\begin{frame}\ft{Depth, pictured}
+\ona{Figure~\ref{fig:ch11:depth} repeats the experiment of \citet{egger2021warm} on the worked example: at each depth from one to five, COBYLA from ten random starts in $[-2\pi,2\pi]^{2p}$, for standard QAOA and for WS-QAOA with $\varepsilon = 0$ and $\varepsilon = 0.25$. With the warm start, the median of $F-F^*$ falls from $0.90$ at depth one to $0.011$ at depth five, and the median probability of the optimal portfolio is $0.338$ at depth one and $0.416$ at depth five, $19$ and $13$ times that of standard QAOA, whose median of $F-F^*$ stays between $1.0$ and $1.9$. With $\varepsilon = 0.25$, the medians are no better than those of standard QAOA: from random starts, COBYLA stops in poor local minima, and the regularised warm state is no longer close to the optimum. The quartiles show how much the outcome depends on the start.}
+\ona{\gdef\dpW{0.36\linewidth}\gdef\dpH{0.3\linewidth}}\onp{\gdef\dpW{4.8cm}\gdef\dpH{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\depthfigA{name=dpa}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.6cm]dpa.north west) {(a)};
+\depthfigB{at={(dpa.south west)},anchor=north west,yshift=-1.4cm,name=dpb}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.6cm]dpb.north west) {(b)};
+\end{tikzpicture}
+\caption{Depths one to five on the worked example, COBYLA from ten random starts: the median (markers) and the quartiles (bars) of (a) $F-F^*$ and (b) the probability of the optimal portfolio, for standard QAOA (black) and WS-QAOA with $\varepsilon = 0$ (blue) and $\varepsilon = 0.25$ (green).}\label{fig:ch11:depth}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\depthfigA{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item COBYLA from ten random starts at each depth; medians and quartiles.
+    \item Warm start, $\varepsilon = 0$ (blue): from $0.90$ at depth one to $0.011$ at depth five.
+    \item Standard QAOA (black): between $1.0$ and $1.9$.
+    \item $\varepsilon = 0.25$ (green): no better, stuck in local minima.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{The probability of the optimum, pictured}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\depthfigB{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item The probability of sampling $d^*$, medians and quartiles of ten starts.
+    \item Warm start (blue): $0.338$ at depth one, $0.416$ at depth five, $19$ and $13$ times standard QAOA.
+    \item The warm state itself: $0.207$ (dotted).
+    \item Standard QAOA (black), $\varepsilon = 0.25$ (green): $0.010$ to $0.071$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% Trotterised annealing on the worked example, beta_k = dt (1 - k/N), gamma_k = dt k/N, dt = T/N: F - F* against the total
+% time T for N = 1000 steps (solid) and N = 10 (dashed), with the warm mixer (blue), eps = 0.25 (green), and standard (black)
+\mode<all>{\gdef\annealfig#1{\begin{axis}[#1,width=\anW,height=\anH,scale only axis,clip mode=individual,xmode=log,ymode=log,xmin=0.1,xmax=50,ymin=0.003,ymax=12,xlabel={total time $T$},ylabel={$F-F^*$}]
+  \addplot[black,densely dashed] table[x=T,y=e50n10] {figures/ch11/ws_anneal.dat};
+  \addplot[green!45!black,densely dashed] table[x=T,y=e25n10] {figures/ch11/ws_anneal.dat};
+  \addplot[blue!70!black,densely dashed] table[x=T,y=e0n10] {figures/ch11/ws_anneal.dat};
+  \addplot[black,thick] table[x=T,y=e50n1000] {figures/ch11/ws_anneal.dat};
+  \addplot[green!45!black,thick] table[x=T,y=e25n1000] {figures/ch11/ws_anneal.dat};
+  \addplot[blue!70!black,thick] table[x=T,y=e0n1000] {figures/ch11/ws_anneal.dat};
+  \draw[gray,densely dotted] (axis cs:0.1,0.1) -- (axis cs:50,0.1);
+  \ona{\node[note,anchor=west] (a1) at (axis cs:80,6) {at $T\to0$ each state stays where it\\started: $1.81$, $3.98$ and $4.90$ above $F^*$};
+  \draw[notearrow] (a1.west) to[bend right=10] (axis cs:0.15,3.9);
+  \node[note,anchor=west] (a2) at (axis cs:80,1.2) {standard mixer (black): below $0.1$\\(dotted) only from $T = 19.7$};
+  \draw[notearrow] (a2.west) to[bend left=10] (axis cs:19.7,0.11);
+  \node[note,anchor=west] (a3) at (axis cs:80,0.25) {the warm mixer (blue): from $T = 3.05$;\\$\varepsilon = 0.25$ (green) from $T = 4.86$};
+  \draw[notearrow] (a3.west) to[bend left=15] (axis cs:3.2,0.09);
+  \node[note,anchor=west] (a4) at (axis cs:80,0.04) {$N = 10$ steps (dashed): a fixed-angle\\QAOA of depth $10$, which tracks the\\path only while $T/N$ is small, and\\then breaks down};
+  \draw[notearrow] (a4.west) to[bend right=10] (axis cs:30,2.4);
+  \node[note,anchor=west] (a5) at (axis cs:80,0.006) {at $T = 50$, $0.0044$ above $F^*$, yet the\\optimum only with probability $0.43$:\\portfolios $0.007$ apart need longer};
+  \draw[notearrow] (a5.west) to[bend left=10] (axis cs:45,0.0046);}
+\end{axis}}}
+\begin{frame}\ft{Annealing, pictured}
+\ona{The Trotterised adiabatic evolution from the ground state of the mixer, $\beta_k = \delta t\,(1-k/N)$ and $\gamma_k = \delta t\,k/N$ for $k = 1,\dots,N$ with $\delta t = T/N$, is a QAOA of depth $N$ with fixed angles. Figure~\ref{fig:ch11:anneal} shows $F-F^*$ against the total time $T$. With $N = 1000$ steps, the warm mixer brings $F-F^*$ below $0.1$ from $T = 3.05$, the regularised one with $\varepsilon = 0.25$ from $T = 4.86$, and the standard mixer only from $T = 19.7$. With $N = 10$, the schedule tracks the path while $T/N$ is small, and breaks down for larger $T$. Even at $T = 50$, where the warm start lies $0.0044$ above $F^*$, the optimal portfolio has the probability $0.43$: the second best portfolio lies only $0.0073$ above it, and the adiabatic theorem needs a time of the order of the inverse square of such gaps.}
+\ona{\gdef\anW{0.42\linewidth}\gdef\anH{0.34\linewidth}}\onp{\gdef\anW{4.8cm}\gdef\anH{4.3cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\annealfig{}\end{tikzpicture}
+\caption{Trotterised annealing on the worked example: $F-F^*$ against the total time $T$, with $N = 1000$ steps (solid) and $N = 10$ (dashed), for the warm mixer (blue), the mixer regularised with $\varepsilon = 0.25$ (green) and the standard mixer (black).}\label{fig:ch11:anneal}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\annealfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item A fixed-angle QAOA of depth $N$: $\beta_k = \delta t(1-k/N)$, $\gamma_k = \delta t\,k/N$.
+    \item $N = 1000$: below $0.1$ from $T = 3.05$ (warm), $4.86$ ($\varepsilon = 0.25$), $19.7$ (standard).
+    \item $N = 10$ (dashed): breaks down as $T/N$ grows.
+    \item At $T = 50$, the optimum only with probability $0.43$: near-optimal portfolios are $0.007$ apart.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% 250 random instances at depth one: the probability of the optimal portfolio at the best angles against the overlap
+% d*^T c* / B, for the warm start, eps = 0 (blue) and standard QAOA (grey), with the worked example (diamonds)
+\mode<all>{\gdef\instfig#1{\begin{axis}[#1,width=\inW,height=\inH,scale only axis,clip mode=individual,xmin=0.68,xmax=1.02,ymin=0,ymax=1.05,xtick={0.7,0.8,0.9,1},ytick={0,0.25,0.5,0.75,1},yticklabel style={/pgf/number format/fixed},xticklabel style={/pgf/number format/fixed},xlabel={overlap $d^{*\top}c^\star/B$},ylabel={probability of $d^*$ at depth one}]
+  \addplot[gray,only marks,mark=*,mark size=0.8pt] table[x=overlap,y=pcold] {figures/ch11/ws_instances.dat};
+  \addplot[blue!70!black,only marks,mark=*,mark size=1pt,fill opacity=0.7] table[x=overlap,y=pwarm] {figures/ch11/ws_instances.dat};
+  \addplot[only marks,mark=diamond*,mark size=3pt,fill=orange,draw=black] coordinates {(0.808,0.378) (0.808,0.040)};
+  \ona{\node[note,anchor=west] (i1) at (axis cs:1.06,0.95) {the warm start (blue): the optimum with the\\median probability $0.970$, above $0.99$ on $109$\\of the $250$ instances};
+  \draw[notearrow] (i1.west) to[bend right=10] (axis cs:0.995,0.99);
+  \node[note,anchor=west] (i2) at (axis cs:1.06,0.6) {the closer the relaxed optimum to the binary\\one, the better: correlation $0.98$; for the $34$\\instances with the overlap below $0.85$, the\\median is $0.465$};
+  \draw[notearrow] (i2.west) to[bend right=10] (axis cs:0.83,0.5);
+  \node[note,anchor=west] (i3) at (axis cs:1.06,0.27) {the worked example (diamonds), with the\\overlap $0.808$: $0.378$ against $0.040$};
+  \draw[notearrow] (i3.west) to[bend left=10] (axis cs:0.82,0.37);
+  \node[note,anchor=west] (i4) at (axis cs:1.06,0.06) {standard QAOA (grey): between $0.032$ and\\$0.047$ on every instance};
+  \draw[notearrow] (i4.west) to[bend left=10] (axis cs:0.96,0.045);}
+\end{axis}}}
+\begin{frame}\ft{Many instances, pictured}
+\ona{Figure~\ref{fig:ch11:inst} repeats the worked example on $250$ random instances of the same generator, at depth one, with the best angles found as above in the window of Fig.~\ref{fig:ch11:land}. The warm start, with $\varepsilon = 0$, finds the optimal portfolio with the median probability $0.970$, and with a probability above $0.99$ on $109$ instances; standard QAOA finds it with a probability between $0.032$ and $0.047$ on every instance. The warm start lowers $F-F^*$ on all $250$, with the median ratio $0.001$ to that of standard QAOA. As \citet{egger2021warm} observed, it works best when the relaxed optimum is close to the binary one: the probability correlates with the overlap $d^{*\top}c^\star/B$ with the coefficient $0.98$, and for the $34$ instances with the overlap below $0.85$ its median is $0.465$. The worked example, with the overlap $0.808$, is one of the harder instances. No instance had an optimum made unreachable by a frozen qubit. With annualised returns the relaxation is often nearly integral, and the gains are larger than those reported in the source.}
+\ona{\gdef\inW{0.42\linewidth}\gdef\inH{0.32\linewidth}}\onp{\gdef\inW{4.8cm}\gdef\inH{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\instfig{}\end{tikzpicture}
+\caption{$250$ random portfolios at depth one: the probability of the optimal portfolio at the best angles against the overlap of the relaxed and binary optima, for the warm start with $\varepsilon = 0$ (blue) and standard QAOA (grey), with the worked example (diamonds).}\label{fig:ch11:inst}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\instfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $250$ random portfolios, depth one, best angles.
+    \item Warm start (blue): median $0.970$; above $0.99$ on $109$.
+    \item Standard QAOA (grey): $0.032$ to $0.047$.
+    \item Correlation with the overlap $0.98$; the worked example (diamonds) is one of the harder instances.
+\end{itemize}\end{column}\end{columns}}
 \end{frame}
 
 \section{Comparison and outlook}
 
 \begin{frame}\ft{Rounded versus continuous warm starts}
-\begin{center}\ona{\small}\onp{\scriptsize}
+\begin{center}\ona{\small}\onp{\tiny}
 \begin{tabular}{lcc}\toprule
  & rounded (\Chap~\chref{C.WSRounded}) & continuous (this \chap) \\\midrule
 relaxation & SDP, then random-hyperplane rounding & convex QP over $[0,1]^n$ \\
 initial state & a cut, regularised by $\varepsilon$ & product state with $\mathrm{Pr}[x_i=1] = c_i^\star$ \\
 mixer & rotated so that $(\pi/2, 0)$ reproduces the cut & rotated so that $\ket{\phi^\star}$ is its ground state \\
-guarantee & inherits $\alpha_{\rm GW}$ for any angles & inherits the relaxation's quality at $\boldsymbol\theta = 0$ \\
-convergence in $p$ & not covered by the adiabatic argument & adiabatic argument applies \\
-needs & $\Sigma$ arbitrary & $\Sigma \succeq 0$ (or a PSD projection) \\
+guarantee & inherits $\alpha_{\rm GW}$ for any angles & \ona{$f(c^\star)+\sum_iA_{ii}c_i^\star(1-c_i^\star)$}\onp{relaxation plus a variance}, every depth \\
+convergence in $p$ & not covered by the adiabatic argument & for $\varepsilon>0$ (\Chap~\chref{C.QAOA}) \\
+needs & $A$ arbitrary & $A\succeq0$ (or a projection) \\
 qubits & $n$ & $n$ ($\Theta(n^2)$ to encode $Y^\star$ directly) \\\bottomrule
 \end{tabular}
 \end{center}
@@ -78,13 +487,35 @@ qubits & $n$ & $n$ ($\Theta(n^2)$ to encode $Y^\star$ directly) \\\bottomrule
 
 \begin{frame}\ft{Other warm starts}
 \begin{itemize}\setlength\itemsep{0.3em}
-    \item Polynomially solvable special cases of QUBO, and low-rank approximations of $\Sigma$ or of the SDP solution.
+    \item Polynomially solvable special cases of QUBO, and low-rank approximations of $A$ or of the SDP solution.
     \item Time-limited runs of exact solvers (CPLEX, Gurobi): the incumbent is a warm start, as it is in classical branch and bound.
     \item Encoding the matrix-valued SDP solution $Y^\star$ in a $\Theta(n^2)$-qubit state, then a parametrised circuit that contains the identity, then measurement: strong guarantees, too many qubits for now.
     \item In VQE, the particle-hole representation around the Hartree--Fock state is a warm start (\Chap~\chref{C.VQE}); in general, any good classical solution is one.
     \item Warm starts also address barren plateaus: a parametrisation that starts close to the optimum does not start on the plateau.
 \end{itemize}
 \ona{An implementation of WS-QAOA is available in Qiskit Optimization.}
+\end{frame}
+
+\ona{\section*{Exercises}}
+
+\begin{frame}\ft{Exercises}
+\onp{\footnotesize}
+\begin{exe}[The mixer as a rotation]\label{exe:ch11:mixer}
+Verify \eqref{eq:ch11:rot} by multiplying the three rotations. Show that a layer with $\gamma = 0$ leaves the warm state unchanged up to a phase, for every $\beta$, and find the angle $\beta$ at which the mixer maps a state at the angular distance $\alpha$ from $\boldsymbol n_i$ to its mirror image across $\boldsymbol n_i$.
+\end{exe}
+\begin{exe}[Rounding a quadratic]\label{exe:ch11:round}
+Show that \eqref{eq:ch11:round} holds for every symmetric $A$, not only for $A\succeq0$. For MaxCut with non-negative weights $w_{ij}$, written as the minimisation of $f(x) = -\sum_{ij}w_{ij}(x_i+x_j-2x_ix_j)$, show that \eqref{eq:ch11:qp} is not convex, and that the uniform rounding $c = \frac12\boldsymbol1$ gives half the total weight. Why does this rule out the continuous warm start of this \chap{} for MaxCut?
+\end{exe}
+\end{frame}
+
+\begin{frame}\ft{Exercises, continued}
+\onp{\footnotesize}
+\begin{exe}[The price of the budget]\label{exe:ch11:budget}
+For independent bits with $\mathrm{Pr}[x_i = 1] = c_i$, show that $\mathbb E(\boldsymbol1^\top x-B)^2 = \sum_ic_i(1-c_i)+(\sum_ic_i-B)^2$, and that the probability of meeting the budget is at most $1-\mathbb E(\boldsymbol1^\top x-B)^2/\max\{B,n-B\}^2$. Evaluate this bound for the worked example, and compare it with the probability $0.471$ in \ona{Fig.~\ref{fig:ch11:dist}}\onp{the figure of the warm distribution}.
+\end{exe}
+\begin{exe}[Regularisation]\label{exe:ch11:eps}
+For the worked example, compute the bound $f(c^\varepsilon)+\sum_iA_{ii}c_i^\varepsilon(1-c_i^\varepsilon)$ of \ona{Proposition~\ref{propn:ch11:round}}\onp{the proposition on rounding} for $\varepsilon = 0$, $0.1$, $\dots$, $0.5$, and show that at $\varepsilon = \frac12$ it is the mean of $\ket+^{\otimes6}$. Compare it with the energies of the warm states in \ona{Fig.~\ref{fig:ch11:eps}}\onp{the figure on regularisation}.
+\end{exe}
 \end{frame}
 
 \begin{frame}[allowframebreaks]\ft{References}
