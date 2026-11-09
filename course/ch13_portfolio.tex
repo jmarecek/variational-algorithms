@@ -9,7 +9,7 @@
 \lecture{Applications: Variational Solvers for Markowitz Portfolio Management}{Lect13}
 \chapter{Applications: Variational Solvers for Markowitz Portfolio Management}\label{C.Portfolio}
 
-\ona{This \chap{} takes the portfolio problem of \citet{Markowitz1952}, the running example of \Chap~\chref{C.WSContinuous}, and treats it as an application: what the problem is, in increasing levels of realism following the survey \citep{abbas2024challenges}, how it is encoded for variational solvers, what warm-started QAOA delivers on it \citep{egger2021warm}, and how this compares with what the industry actually needs.}
+\ona{This \chap{} takes the portfolio problem of \citet{Markowitz1952}, the running example of \Chap~\chref{C.WSContinuous}, and treats it as an application, following the survey \citep{abbas2024challenges}. We picture the frontier of the worked portfolio of \Chap~\chref{C.WSContinuous}, and the penalty that turns its budget into a QUBO, and we determine the least penalty that works. We picture the mixers that keep the budget instead, on the graph of the feasible portfolios, with their spectra and the preparation of their initial state. We compare six variational solvers on the worked portfolio and on $100$ random ones. Finally, we ask what the exact solution is worth when, as always in practice, the means and the covariances are estimated from data. The numbers of this \chap{} are computed by \texttt{code/ch13\_figures.py}.}
 
 \section{Mean--variance portfolio selection}
 
@@ -27,6 +27,48 @@
 \end{itemize}
 \end{frame}
 
+% the worked portfolio in the plane of risk and return: the frontier of the budget polytope P, the least risk for each
+% return (grey, its efficient part black), the 20 selections of three assets (circles, the non-dominated ones filled, d*
+% orange), the minimiser c_B of g over P (blue diamond), and the level sets r = q sigma^2 - g through d* and c_B (dashed)
+\mode<all>{\gdef\frontfig#1{\begin{axis}[#1,width=\frW,height=\frH,scale only axis,clip mode=individual,xmin=0,xmax=0.32,ymin=-0.65,ymax=0.42,xtick={0,0.1,0.2,0.3},ytick={-0.6,-0.4,-0.2,0,0.2,0.4},xticklabel style={/pgf/number format/fixed},yticklabel style={/pgf/number format/fixed},xlabel={risk $\sqrt{x^\top\Sigma x}$},ylabel={return $\mu^\top x$}]
+  \addplot[blue!60!black,densely dashed,domain=0:0.32,samples=60] {2*x^2+0.16592};
+  \addplot[orange!85!black,densely dashed,domain=0:0.32,samples=60] {2*x^2+0.14837};
+  \addplot[gray!70,thick] table[x=risk,y=ret] {figures/ch13/frontier.dat};
+  \addplot[black,very thick,restrict expr to domain={\thisrow{eff}}{1:1}] table[x=risk,y=ret] {figures/ch13/frontier.dat};
+  \addplot[black,only marks,mark=o,mark size=1.6pt] table[x=risk,y=ret] {figures/ch13/frontier_pts.dat};
+  \addplot[black,only marks,mark=*,mark size=1.6pt,restrict expr to domain={\thisrow{nd}}{1:1}] table[x=risk,y=ret] {figures/ch13/frontier_pts.dat};
+  \addplot[only marks,mark=*,mark size=2.6pt,fill=orange,draw=black] coordinates {(0.24635,0.26974)};
+  \addplot[only marks,mark=diamond*,mark size=3pt,fill=blue!60!black,draw=black] coordinates {(0.17630,0.22808)};
+  \ona{\node[note,anchor=west] (f1) at (axis cs:0.35,0.40) {the level set $g = F^*$, the parabola $r = q\sigma^2-F^*$\\(dashed orange): no selection lies above it};
+  \draw[notearrow] (f1.west) to[bend right=15] (axis cs:0.29,0.318);
+  \node[note,anchor=west] (f2) at (axis cs:0.35,0.17) {the optimal selection $d^* = 010011$, $F^* = -0.148$:\\the largest return of the $20$, at the risk $0.246$};
+  \draw[notearrow] (f2.west) to[bend left=10] (axis cs:0.255,0.265);
+  \node[note,anchor=west] (f3) at (axis cs:0.35,-0.03) {$c_B$, the minimiser of $g$ over $P$, with $g = -0.166$,\\on the frontier and on a higher parabola\\(dashed blue)};
+  \draw[notearrow] (f3.west) to[bend left=15] (axis cs:0.185,0.22);
+  \node[note,anchor=west] (f4) at (axis cs:0.35,-0.27) {six selections (filled) are not dominated: no\\other has both more return and less risk};
+  \draw[notearrow] (f4.west) to[bend left=10] (axis cs:0.155,0.175);
+  \node[note,anchor=west] (f5) at (axis cs:0.35,-0.5) {the frontier of $P$: the least risk for each\\return (grey), efficient above its least risk,\\$0.076$ (black)};
+  \draw[notearrow] (f5.west) to[bend left=10] (axis cs:0.078,-0.03);}
+\end{axis}}}
+\begin{frame}\ft{The frontier, pictured}
+\ona{We return to the worked portfolio of \Chap~\chref{C.WSContinuous}: $n = 6$ assets, of which $B = 3$ are chosen with equal weights, with the risk aversion $q = 2$. A selection $x\in\{0,1\}^6$ holds one unit of each chosen asset; its risk is $\sqrt{x^\top\Sigma x}$, its return $\mu^\top x$, and its objective}
+\begin{equation}\label{eq:ch13:g}
+    g(x) = q\,x^\top\Sigma x-\mu^\top x.
+\end{equation}
+\ona{Figure~\ref{fig:ch13:frontier} draws the $20$ selections of three assets in the plane of risk and return, with the frontier of the \emph{budget polytope} $P = \{x\in[0,1]^6:\boldsymbol1^\top x = 3\}$: for each return, the least risk of a point of $P$, computed exactly by enumerating the active sets. At a point of risk $\sigma$ and return $r$, $g = q\sigma^2-r$, so the level sets of $g$ are the parabolas $r = q\sigma^2-g$, and minimising $g$ moves the parabola upwards until it leaves the set. The best selection, $d^* = (0,1,0,0,1,1)$ with $F^* = -0.1484$, has the largest return of the $20$; six selections are not dominated by another with both more return and less risk; and the minimiser of $g$ over $P$, $c_B = (0.575,1,0,0,0.878,0.547)$ with $g(c_B) = -0.1659$, lies on the efficient part of the frontier, close to the warm start of \Chap~\chref{C.WSContinuous}. The $20$ selections span $0.807$ in $g$; the second best lies $0.0073$ above $F^*$, and the five best lie within $0.029$ of it.}
+\ona{\gdef\frW{0.4\linewidth}\gdef\frH{0.34\linewidth}}\onp{\gdef\frW{4.6cm}\gdef\frH{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\frontfig{}\end{tikzpicture}
+\caption{The worked portfolio in the plane of risk and return: the frontier of the budget polytope $P$ (grey, efficient part black), the $20$ selections of three assets (circles; filled if not dominated), the optimal selection $d^*$ (orange), the minimiser $c_B$ of $g$ over $P$ (diamond), and the level sets of $g$ through them (dashed).}\label{fig:ch13:frontier}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\frontfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $6$ assets, $B = 3$, $q = 2$: the $20$ selections (circles), $g = q\sigma^2-r$.
+    \item Level sets: parabolas $r = q\sigma^2-g$ (dashed).
+    \item $d^* = 010011$ (orange), $F^* = -0.148$: the largest return; six are not dominated (filled).
+    \item The relaxation over $P$: $c_B$ on the frontier (diamond), $g = -0.166$.
+    \item The second best $0.0073$ above $F^*$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
 \begin{frame}\ft{Levels 2 and 3: uncertainty and time}
 \ona{\textbf{Level 2.} Small changes in the estimates $\mu,\Sigma$ produce large changes in the optimal $x$; with $N$ assets and $T$ observations the ratio $q = N/T$ is rarely small (e.g., $N = 600$ stocks, $T = 2500$ trading days, $q = 0.24$), so sample covariances have spurious small eigenvalues and returns are badly estimated. Remedies: Black--Litterman blending of market and expert views for $\mu$; robust optimization over an ellipsoidal uncertainty set $\mathcal U_\mu$; random-matrix cleaning and factor models for $\Sigma$; $L_1/L_2$ regularisation; transaction costs $\mathcal C(x\mid x_0)$, often $\beta\|x - x_0\|_1$, which penalise turnover; bootstrap resampling and clustering of correlated assets.}
 \begin{equation}
@@ -34,19 +76,20 @@
 \end{equation}
 \ona{\textbf{Level 3.} Markets are dynamic: correlations fluctuate and flip sign; multi-period optimization over $h$ periods with a coupling term $b_\tau(x_{\tau-1},x_\tau)$ for transaction costs and time-varying constraints is where classical solver suites struggle, and an interesting domain for new methods.}
 \onp{Level 2: estimation error dominates ($q = N/T$ not small); robustify $\mu$, clean $\Sigma$, penalise turnover. Level 3: multi-period, time-varying correlations; classically hard, practically needed.}
-\ona{Most quantum work to date is at Level 1 with fewer than 50 variables; the survey's recommendation is to move to Levels 2 and 3, where marginal improvements have real value.}
+\ona{Most quantum work to date is at Level 1 with fewer than 50 variables; the survey's recommendation is to move to Levels 2 and 3, where marginal improvements have real value. We return to Level 2 at the end of the \chap.}
 \end{frame}
 
 \section{Encoding for variational solvers}
 
 \begin{frame}\ft{From Markowitz to QUBO}
+\onp{\footnotesize}
 \ona{The standard encoding selects $B$ of $n$ assets with equal weights: $x \in \{0,1\}^n$,}
 \begin{equation}\label{eq:ch13:qubo}
     \min_{x\in\{0,1\}^n}\ q\,x^\top\Sigma x - \mu^\top x\quad\text{s.t.}\quad \boldsymbol1^\top x = B
     \quad\longrightarrow\quad
     \min_{x\in\{0,1\}^n}\ q\,x^\top\Sigma x - \mu^\top x + \lambda(\boldsymbol1^\top x - B)^2,
 \end{equation}
-\ona{with a penalty weight $\lambda$ large compared with the entries of $\Sigma$ and $\mu$ (in \citet{egger2021warm}: $n = 6$, $B = 3$, $q = 2$, $\lambda = 3$). Then $x_i = (1 - Z_i)/2$ gives an Ising Hamiltonian $H_C$ with all-to-all $Z_iZ_j$ couplings, one qubit per asset.}
+\ona{with a penalty weight $\lambda$ large enough, as made precise below (in \citet{egger2021warm}: $n = 6$, $B = 3$, $q = 2$, $\lambda = 3$). Then $x_i = (1 - Z_i)/2$ gives an Ising Hamiltonian $H_C$ with all-to-all $Z_iZ_j$ couplings, one qubit per asset.}
 \begin{itemize}\setlength\itemsep{0.2em}
     \item Integer lot sizes need $\lceil\log_2 K\rceil$ qubits per asset; the penalty makes $Q$ dense.
     \item Alternatives to penalties: the constraint-preserving mixers described next, Zeno projections, recursive elimination.
@@ -55,9 +98,101 @@
 \end{itemize}
 \end{frame}
 
+\begin{frame}\ft{How large a penalty?}
+\onp{\footnotesize}
+\ona{Write $f_\lambda(x) = g(x)+\lambda(\boldsymbol1^\top x-B)^2$ for the penalised objective \eqref{eq:ch13:qubo}, $F^*$ for the least value of $g$ on the strings with $B$ ones, and $m_k$ for the least value of $g$ on the strings with $k$ ones.}
+\begin{propn}\label{propn:ch13:penalty}
+Every minimiser of $f_\lambda$ over $\{0,1\}^n$ meets the budget, and is then a minimiser of $g$ under the budget, if and only if $\lambda>\lambda^*$, where
+\begin{equation}\label{eq:ch13:lstar}
+    \lambda^* = \max_{k\ne B}\frac{F^*-m_k}{(k-B)^2}.
+\end{equation}
+Moreover $\lambda^*\le\Delta = \max_{x,i}|g(x\oplus e_i)-g(x)|$, the largest change of $g$ under the flip of one bit, and for \eqref{eq:ch13:g}, $\Delta\le\max_i\big(|\mu_i|+q\Sigma_{ii}+2q\sum_{j\ne i}|\Sigma_{ij}|\big)$.
+\end{propn}
+\ona{\emph{Proof.} On the strings with $B$ ones $f_\lambda = g$, with the least value $F^*$. On those with $k\ne B$ ones the least value of $f_\lambda$ is $m_k+\lambda(k-B)^2$, which exceeds $F^*$ for every $k\ne B$ if and only if $\lambda>\lambda^*$. For the bound, let $x$ have $k\ne B$ ones. Flipping $|k-B|$ suitable bits one at a time turns $x$ into a string $y$ with $B$ ones, and each flip changes $g$ by at most $\Delta$, so $F^*\le g(y)\le g(x)+|k-B|\Delta$. Hence $F^*-m_k\le|k-B|\Delta\le(k-B)^2\Delta$. Finally, setting bit $i$ of $x$ to one changes \eqref{eq:ch13:g} by $q\Sigma_{ii}+2q\sum_{j\ne i}\Sigma_{ij}x_j-\mu_i$, whose absolute value is at most $|\mu_i|+q\Sigma_{ii}+2q\sum_{j\ne i}|\Sigma_{ij}|$. \qed}
+\onp{Proof: compare $m_k+\lambda(k-B)^2$ with $F^*$; reach the budget from $x$ by $|k-B|$ flips, each changing $g$ by at most $\Delta$.}
+
+\ona{On the worked portfolio, $\lambda^* = 0.0367$, attained at $k = 2$; $\Delta = 0.573$, and the bound on $\Delta$ is $0.580$. The penalty $\lambda = 3$ of \citet{egger2021warm} is $82$ times $\lambda^*$. It is safe, but it costs: the spectrum of $H_C$ is stretched from the width $0.807$ of the feasible portfolios to $27.66$.}
+\onp{Worked portfolio: $\lambda^* = 0.0367$, $\Delta = 0.573$; $\lambda = 3$ is $82\lambda^*$, and stretches the spectrum of $H_C$ from $0.807$ to $27.66$.}
+\end{frame}
+
+% the 64 strings of the worked portfolio with the penalty lambda = 3: f - F* against the number k of ones (jittered within
+% each k, cheaper to the left), the 20 with the budget (blue) and the others (grey), the penalty lambda (k - 3)^2
+% (dashed); inset: the 20 with the budget, magnified
+\mode<all>{\gdef\penfig#1{\begin{axis}[#1,name=penmain,width=\pnW,height=\pnH,scale only axis,clip mode=individual,xmin=-0.5,xmax=6.5,ymin=-1,ymax=29,xtick={0,...,6},ytick={0,3,12,27},xlabel={number of ones $\boldsymbol1^\top x$},ylabel={$f_\lambda(x)-F^*$, $\lambda = 3$}]
+  \addplot[gray,densely dashed,domain=-0.45:6.45,samples=80] {3*(x-3)^2};
+  \addplot[gray!70!black,only marks,mark=*,mark size=1pt,restrict expr to domain={\thisrow{feas}}{0:0}] table[x=xj,y=df] {figures/ch13/penalty.dat};
+  \addplot[blue!70!black,only marks,mark=*,mark size=1.2pt,restrict expr to domain={\thisrow{feas}}{1:1}] table[x=xj,y=df] {figures/ch13/penalty.dat};
+  \draw[blue!70!black] (axis cs:2.6,-0.6) rectangle (axis cs:3.4,1.4);
+  \coordinate (pzl) at (axis cs:2.6,1.4); \coordinate (pzr) at (axis cs:3.4,1.4);
+  \ona{\node[note,anchor=west] (p1) at (axis cs:7.1,26) {a string with $k\ne3$ ones pays the penalty\\$\lambda(k-3)^2$ (dashed): $3$, $12$ or $27$, give\\or take its $g$};
+  \draw[notearrow] (p1.west) to[bend right=10] (axis cs:5.3,12.6);
+  \node[note,anchor=west] (p2) at (axis cs:7.1,17) {the $20$ portfolios with three assets (blue),\\within $0.807$ of $F^*$: a sliver at the bottom,\\magnified in the inset};
+  \draw[notearrow] (p2.west) to[bend left=10] (axis cs:3.45,0.9);
+  \node[note,anchor=west] (p3) at (axis cs:7.1,9) {every string that misses the budget lies at\\least $2.963$ above $F^*$};
+  \draw[notearrow] (p3.west) to[bend left=10] (axis cs:2.35,3.0);
+  \node[note,anchor=west] (p4) at (axis cs:7.1,2) {the best two portfolios are $0.0073$ apart:\\the phase separator must resolve that\\within a spectrum of width $27.66$};}
+\end{axis}
+\begin{axis}[name=peninset,at={(penmain.north)},anchor=north,yshift=-0.25cm,width=\pniW,height=\pniH,scale only axis,clip mode=individual,xmin=2.62,xmax=3.38,ymin=-0.06,ymax=0.86,xtick=\empty,ytick={0,0.4,0.8},tick label style={font=\tiny},yticklabel style={/pgf/number format/fixed},axis background/.style={fill=white},draw=blue!70!black]
+  \addplot[blue!70!black,only marks,mark=*,mark size=1.3pt,restrict expr to domain={\thisrow{feas}}{1:1}] table[x=xj,y=df] {figures/ch13/penalty.dat};
+  \node[font=\tiny,anchor=north west] at (rel axis cs:0.02,0.98) {$\boldsymbol1^\top x = 3$};
+\end{axis}
+\draw[blue!70!black,densely dotted] (pzl) -- (peninset.south west); \draw[blue!70!black,densely dotted] (pzr) -- (peninset.south east);}}
+\begin{frame}\ft{The penalty, pictured}
+\ona{Figure~\ref{fig:ch13:penalty} shows $f_\lambda-F^*$ with $\lambda = 3$ for all $64$ strings of the worked portfolio, against their number of ones. The $20$ portfolios that meet the budget lie within $0.807$ of $F^*$, a sliver at the bottom of a spectrum of width $27.66$; every other string pays $3$, $12$ or $27$, give or take its $g$, and lies at least $2.963$ above $F^*$. The penalty does its job, but the phase separator $e^{-i\gamma H_C}$ must distinguish the best two portfolios, $0.0073$ apart, while the penalty dominates its phases.}
+\ona{\gdef\pnW{0.42\linewidth}\gdef\pnH{0.34\linewidth}\gdef\pniW{0.15\linewidth}\gdef\pniH{0.115\linewidth}}\onp{\gdef\pnW{4.8cm}\gdef\pnH{4.2cm}\gdef\pniW{1.75cm}\gdef\pniH{1.45cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\penfig{}\end{tikzpicture}
+\caption{The penalised objective $f_\lambda-F^*$, $\lambda = 3$, of the $64$ strings of the worked portfolio against their number of ones: the $20$ portfolios with the budget (blue) and the other strings (grey), with the penalty $\lambda(k-3)^2$ (dashed). Inset: the $20$ portfolios, magnified.}\label{fig:ch13:penalty}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\penfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item All $64$ strings, $\lambda = 3$, against the number of ones.
+    \item The $20$ portfolios (blue): within $0.807$ of $F^*$ (inset).
+    \item The others pay $3$, $12$ or $27$: at least $2.963$ above $F^*$.
+    \item The best two are $0.0073$ apart, in a spectrum of width $27.66$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% the least value of f_lambda over the strings with k ones, relative to F*, against the penalty lambda: the line of the
+% budget k = 3 (blue), the others rising with the slopes (k - 3)^2; the minimisers meet the budget exactly when
+% lambda > lambda* = 0.0367 (shaded), where the line of k = 2 crosses that of k = 3
+\mode<all>{\gdef\thrfig#1{\begin{axis}[#1,width=\thW,height=\thH,scale only axis,clip mode=individual,xmin=0,xmax=0.08,ymin=-0.07,ymax=0.25,xtick={0,0.02,0.04,0.06,0.08},scaled x ticks=false,ytick={-0.05,0,0.05,0.1,0.15,0.2,0.25},xticklabel style={/pgf/number format/fixed},yticklabel style={/pgf/number format/fixed},xlabel={penalty $\lambda$},ylabel={$m_k+\lambda(k-3)^2-F^*$}]
+  \fill[blue!7] (axis cs:0.0367,-0.07) rectangle (axis cs:0.08,0.25);
+  \pgfplotsinvokeforeach{0,1,2,4,5,6}{\addplot[gray!70!black,thick] table[x=lam,y expr=\thisrow{k##1}+0.14837] {figures/ch13/threshold.dat};}
+  \addplot[blue!70!black,very thick] table[x=lam,y expr=\thisrow{k3}+0.14837] {figures/ch13/threshold.dat};
+  \draw[densely dotted] (axis cs:0.0367,-0.07) -- (axis cs:0.0367,0.25);
+  \fill (axis cs:0.0367,0) circle (1.8pt);
+  \node[font=\tiny,anchor=north west] at (axis cs:0.0115,0.248) {$k = 0$};
+  \node[font=\tiny,anchor=south east] at (axis cs:0.057,0.176) {$k = 1$};
+  \node[font=\tiny,anchor=south] at (axis cs:0.064,0.028) {$k = 2$};
+  \node[font=\tiny,anchor=north east] at (axis cs:0.0795,-0.004) {$k = 3$, the budget};
+  \node[font=\tiny,anchor=south] at (axis cs:0.072,0.118) {$k = 4$};
+  \node[font=\tiny,anchor=north west] at (axis cs:0.021,0.172) {$k = 5$};
+  \ona{\node[note,anchor=west] (t1) at (axis cs:0.088,0.23) {each line starts at $m_k-F^*$ and rises with the\\slope $(k-3)^2$; $k = 6$ starts at $0.659$, above\\the window};
+  \draw[notearrow] (t1.west) to[bend right=10] (axis cs:0.06,0.105);
+  \node[note,anchor=west] (t2) at (axis cs:0.088,0.11) {below $\lambda^* = 0.0367$ the best pair of assets\\beats every portfolio: the minimiser of $f_\lambda$\\misses the budget};
+  \draw[notearrow] (t2.west) to[bend left=10] (axis cs:0.012,-0.024);
+  \node[note,anchor=west] (t3) at (axis cs:0.088,0.0) {above $\lambda^*$ (shaded), every minimiser\\meets the budget and is optimal};
+  \draw[notearrow] (t3.west) to[bend left=10] (axis cs:0.065,-0.03);
+  \node[note,anchor=west] (t4) at (axis cs:0.088,-0.07) {the bound $\Delta = 0.573$, and the $\lambda = 3$ of the\\worked portfolio, lie far to the right:\\$16$ and $82$ times $\lambda^*$};}
+\end{axis}}}
+\begin{frame}\ft{The threshold, pictured}
+\ona{Figure~\ref{fig:ch13:threshold} pictures \eqref{eq:ch13:lstar} on the worked portfolio. For each number $k$ of ones, the least value of $f_\lambda$ on the strings with $k$ ones is $m_k+\lambda(k-3)^2$, a line in $\lambda$ with the slope $(k-3)^2$; the line of the budget is flat at $F^*$. Below $\lambda^* = 0.0367$, the line of $k = 2$ lies below it, and the minimiser of $f_\lambda$ is the best pair of assets; above it, every minimiser meets the budget. The bound $\Delta = 0.573$ of Proposition~\ref{propn:ch13:penalty} is $16$ times $\lambda^*$, and the penalty $\lambda = 3$ is $82$ times $\lambda^*$.}
+\ona{\gdef\thW{0.42\linewidth}\gdef\thH{0.34\linewidth}}\onp{\gdef\thW{4.2cm}\gdef\thH{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\thrfig{}\end{tikzpicture}
+\caption{The least value of $f_\lambda-F^*$ on the strings with $k$ ones of the worked portfolio, against the penalty $\lambda$: the budget $k = 3$ (blue) and the other $k$ (grey). For $\lambda>\lambda^*$ (shaded), every minimiser of $f_\lambda$ meets the budget.}\label{fig:ch13:threshold}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\thrfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $m_k+\lambda(k-3)^2-F^*$: lines with the slopes $(k-3)^2$.
+    \item Below $\lambda^* = 0.0367$ the best pair of assets wins.
+    \item Above it (shaded), every minimiser meets the budget.
+    \item $\Delta = 0.573$ is $16\lambda^*$; $\lambda = 3$ is $82\lambda^*$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\section{Mixers that keep the budget}
+
 \begin{frame}\ft{The quantum alternating operator ansatz}
 \onp{\footnotesize}
-\ona{The penalty in \eqref{eq:ch13:qubo} allows one to keep the circuit of QAOA, but it enlarges the space searched from the $\binom nB$ feasible strings to all $2^n$, and it distorts the landscape: the weight $\lambda$ must be large compared with the entries of $\Sigma$ and $\mu$, and the penalty then dominates the spectrum of $H_C$. \citet{hadfield2019quantum} proposed instead to keep the state in the \emph{feasible subspace} $\mathcal F = \spn\{\ket x: x\in\{0,1\}^n,\ \boldsymbol1^\top x = B\}$. The initial state lies in $\mathcal F$; the \emph{phase separator} $e^{-i\gamma H_C}$, built from the objective without the penalty, is diagonal and so leaves $\mathcal F$ invariant; and the transverse-field mixer is replaced by a mixer that maps $\mathcal F$ into itself and, applied repeatedly with suitable angles, connects any two feasible strings. This is the \emph{quantum alternating operator ansatz} of \Chap~\chref{C.QAOA}, which shares the acronym QAOA; the convergence theorem proved there covers it when it starts from the top eigenvector of its mixer. Its principal mixers are the following.}
+\ona{The penalty in \eqref{eq:ch13:qubo} allows one to keep the circuit of QAOA, but it enlarges the space searched from the $\binom nB$ feasible strings to all $2^n$, and it distorts the landscape: the weight $\lambda$ must exceed $\lambda^*$, and in practice it is taken much larger, and the penalty then dominates the spectrum of $H_C$. \citet{hadfield2019quantum} proposed instead to keep the state in the \emph{feasible subspace} $\mathcal F = \spn\{\ket x: x\in\{0,1\}^n,\ \boldsymbol1^\top x = B\}$. The initial state lies in $\mathcal F$; the \emph{phase separator} $e^{-i\gamma H_C}$, built from the objective without the penalty, is diagonal and so leaves $\mathcal F$ invariant; and the transverse-field mixer is replaced by a mixer that maps $\mathcal F$ into itself and, applied repeatedly with suitable angles, connects any two feasible strings. This is the \emph{quantum alternating operator ansatz} of \Chap~\chref{C.QAOA}, which shares the acronym QAOA; the convergence theorem proved there covers it when it starts from the top eigenvector of its mixer. Its principal mixers are the following.}
 \onp{The budget $\boldsymbol1^\top x = B$ without a penalty: keep the state in the feasible subspace $\mathcal F = \spn\{\ket x: \boldsymbol1^\top x = B\}$, with a diagonal phase separator and a mixer that preserves $\mathcal F$ \citep{hadfield2019quantum}. The convergence theorem of \Chap~\chref{C.QAOA} applies.}
 \begin{itemize}\setlength\itemsep{0.15em}
     \item \ona{For a fixed number of ones, as in the budget constraint $\boldsymbol1^\top x = B$ or in one-hot encodings, the \emph{$XY$ mixers} $\sum_{ij}\frac12(X_iX_j + Y_iY_j)$, summed over the edges of a ring or of the complete graph, exchange $\ket{01}$ and $\ket{10}$ on a pair of qubits and so preserve the number of ones \citep{hadfield2019quantum,wang2019xy,cook2020vertexcover}. A natural initial state is the \emph{Dicke state}, the uniform superposition of all strings with $B$ ones, which is the top eigenvector of the complete $XY$ mixer and can be prepared by a circuit of linear depth \citep{baertschi2022shortdepth}.}\onp{$XY$ mixers $\sum_{ij}\frac12(X_iX_j+Y_iY_j)$ preserve the number of ones \citep{wang2019xy}; initial Dicke state, uniform over the strings with $B$ ones \citep{baertschi2022shortdepth}.}
@@ -66,16 +201,256 @@
 \end{itemize}
 \end{frame}
 
-\section{What variational solvers deliver}
-
-\begin{frame}\ft{Standard versus warm-started QAOA}
-\ona{Recall from \Chap~\chref{C.WSContinuous} the simulations of \citet{egger2021warm} on six-asset instances: the probability of sampling the optimal portfolio from the optimised trial state is more than five times higher with a warm start at every depth $p \le 5$, and the warm-started energy reaches $E_0$ at $p = 2$ (Fig.~\ref{fig:ch13:pevo}). Standard QAOA reaches $E_0$ at $p=3$ but still samples the optimum rarely: the low energy comes from satisfying the budget penalty, not from finding the best portfolio.}
-\figslide[height=0.5\textheight]{figures/warmstart/figure04.pdf}{(a) Probability of sampling the optimal portfolio and (b) energy of the optimised trial state versus depth, standard QAOA (orange), warm-start QAOA (green), warm initial state with standard mixer (blue) \citep{egger2021warm}.}{fig:ch13:pevo}
+% the 20 portfolios of three assets of the worked example as the Johnson graph J(6, 3): rows by the number of exchanges
+% from d* (top), cheaper to the left within a row, coloured by g - F*; the 54 edges of the complete XY mixer that the ring
+% lacks (grey) and the 36 of the ring XY mixer (orange)
+\mode<all>{\gdef\johnfig#1{\begin{axis}[#1,width=\jnW,height=\jnH,scale only axis,hide axis,clip=false,xmin=-5.5,xmax=5.5,ymin=-0.4,ymax=8.9,colormap={cost}{rgb255(0cm)=(12,44,132); rgb255(1cm)=(29,145,192); rgb255(2cm)=(127,205,187); rgb255(3cm)=(255,255,204)},point meta min=0,point meta max=0.81,colorbar horizontal,colorbar style={at={(0.5,-0.1)},anchor=north,width=\jncW,height=0.15cm,font=\tiny,xtick={0,0.2,0.4,0.6,0.8},xticklabel style={/pgf/number format/fixed},xlabel={$g(x)-F^*$},xlabel style={font=\tiny}}]
+  \addplot[gray!50,thin,unbounded coords=jump] table[x=x,y=y] {figures/ch13/johnson_edges.dat};
+  \addplot[orange!80!black,line width=0.6pt,unbounded coords=jump] table[x=x,y=y] {figures/ch13/johnson_ring.dat};
+  \addplot[scatter,only marks,mark=*,mark size=3.3pt,point meta=\thisrow{dg},scatter/use mapped color={draw=black,fill=mapped color}] table[x=x,y=y] {figures/ch13/johnson_nodes.dat};
+  \addplot[only marks,mark=none,point meta=explicit symbolic,nodes near coords={\texttt{\pgfplotspointmeta}},every node near coord/.style={font=\tiny,anchor=north,yshift=-3.5pt,fill=white,fill opacity=0.8,text opacity=1,inner sep=0.5pt}] table[x=x,y=y,meta=label] {figures/ch13/johnson_nodes.dat};
+  \ona{\node[note,anchor=west] (j1) at (axis cs:6.0,8.6) {the optimal portfolio $d^*$ on\\top; each row lies one\\more exchange of assets\\away from it};
+  \draw[notearrow] (j1.west) to[bend right=10] (axis cs:0.3,8.45);
+  \node[note,anchor=west] (j2) at (axis cs:6.0,6.3) {the complete $XY$ mixer\\exchanges any two assets:\\$90$ edges, $9$ at every\\portfolio (grey and orange)};
+  \draw[notearrow] (j2.west) to[bend right=10] (axis cs:3.0,7.7);
+  \node[note,anchor=west] (j3) at (axis cs:6.0,3.3) {the ring $XY$ mixer (orange)\\exchanges only assets $i$ and\\$i+1$ on a ring: $36$ edges,\\from $2$ to $6$ at a portfolio};
+  \draw[notearrow] (j3.west) to[bend left=10] (axis cs:4.25,4.15);
+  \node[note,anchor=west] (j4) at (axis cs:6.0,0.3) {the complement $101100$,\\three exchanges away};
+  \draw[notearrow] (j4.west) to[bend left=10] (axis cs:0.3,0.05);
+  \node[note,anchor=east] (j5) at (axis cs:-6.0,8.3) {within a row, cheaper\\portfolios to the left;\\colour: $g-F^*$};
+  \draw[notearrow] (j5.east) to[bend left=10] (axis cs:-3.95,6.55);
+  \node[note,anchor=east] (j6) at (axis cs:-6.0,5.6) {the second best, $110010$,\\$0.0073$ above $F^*$, one\\exchange from $d^*$};
+  \draw[notearrow] (j6.east) to[bend left=10] (axis cs:-5.2,7.05);
+  \node[note,anchor=east] (j7) at (axis cs:-6.0,2.4) {the Dicke state puts $1/20$\\on every portfolio; the\\Grover mixer joins all\\$190$ pairs};}
+\end{axis}}}
+\begin{frame}\ft{The feasible portfolios, pictured}
+\ona{Since $\frac12(X_iX_j+Y_iY_j) = \ket{01}\!\bra{10}+\ket{10}\!\bra{01}$ on the qubits $i$ and $j$, the complete $XY$ mixer, restricted to $\mathcal F$, is the adjacency matrix of the graph whose edges join two portfolios that differ by the exchange of one asset for another: the \emph{Johnson graph} $J(n,B)$ of \Chap~\chref{C.QAOA}. Figure~\ref{fig:ch13:johnson} draws $J(6,3)$ for the worked portfolio, with the optimal portfolio on top and each row one more exchange away from it: $9$ portfolios at one exchange, $9$ at two, and the complement at three. The ring $XY$ mixer keeps only the $36$ edges that exchange assets $i$ and $i+1$ on a ring, and a portfolio has from $2$ to $6$ of them; the Grover mixer joins all $190$ pairs. The second best portfolio, $110010$, is a single exchange away from $d^*$.}
+\ona{\gdef\jnW{0.5\linewidth}\gdef\jnH{0.44\linewidth}\gdef\jncW{0.23\linewidth}}\onp{\gdef\jnW{8.6cm}\gdef\jnH{3.9cm}\gdef\jncW{3.8cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\johnfig{}\end{tikzpicture}
+\caption{The $20$ portfolios of three assets of the worked example as the Johnson graph $J(6,3)$, the graph of the complete $XY$ mixer, with rows by the number of exchanges from $d^*$ and colours by $g-F^*$; the edges of the ring $XY$ mixer in orange.}\label{fig:ch13:johnson}\end{figure}}
+\onp{\begin{center}\begin{tikzpicture}\johnfig{}\end{tikzpicture}\end{center}
+\vspace{-0.4em}\footnotesize\begin{itemize}\setlength\itemsep{0.1em}
+    \item $J(6,3)$: an edge per exchange of two assets, the graph of the complete $XY$ mixer; $d^*$ on top.
+    \item The ring $XY$ mixer (orange): $36$ of the $90$ edges; the Grover mixer: all $190$ pairs.
+\end{itemize}}
 \end{frame}
 
-\begin{frame}\ft{250 instances at depth one}
-\figslide[height=0.5\textheight]{figures/warmstart/figure05.pdf}{Depth-one QAOA on 250 random portfolio instances \citep{egger2021warm}. (a) Optimised energy relative to $E_0$ with (orange) and without (blue) warm start. (b) Remaining gap of the warm start relative to that of the cold start, against the overlap of the relaxed and binary optima.}{fig:ch13:depth1}
-\ona{At depth one the cold start is stuck at $0.74\,E_0$ on every instance, while the warm start reaches the optimum on a large fraction, the more so the closer the relaxed and binary optima are. On noisy hardware, depth one is what one can run, and dense all-to-all $H_C$ make depth expensive: this is the regime where the warm start matters most.}
+\begin{frame}\ft{The spectrum of the complete $XY$ mixer}
+\onp{\footnotesize}
+\begin{propn}\label{propn:ch13:spin}
+Let $H_{XY} = \sum_{i<j}\frac12(X_iX_j+Y_iY_j)$ on $n$ qubits. On $\mathcal F$, the span of the strings with $B$ ones, $H_{XY}$ has the eigenvalues
+\begin{equation}\label{eq:ch13:spin}
+    (B-j)(n-B-j)-j,\qquad j = 0,1,\dots,\min\{B,n-B\},
+\end{equation}
+with the multiplicities $\binom nj-\binom n{j-1}$. The largest, $B(n-B)$, is simple, with the Dicke state as its eigenvector.
+\end{propn}
+\ona{\emph{Proof.} Let $S_a = \frac12\sum_i\sigma_i^a$ for $a\in\{x,y,z\}$ be the components of the total spin, and $S^2 = S_x^2+S_y^2+S_z^2$. Since $X_i^2 = Y_i^2 = \one$, $S_x^2+S_y^2 = \frac n2+\frac12\sum_{i<j}(X_iX_j+Y_iY_j)$, and so $H_{XY} = S^2-S_z^2-\frac n2$. A string with $B$ ones has $S_z = \frac n2-B$. The space of $n$ qubits splits into irreducible representations of the total spin; on one of spin $s$, $S^2 = s(s+1)$, and $S_z$ takes each of the values $-s,\dots,s$ once. The eigenspace of $S_z$ for the value $M$ has the dimension $\binom n{n/2-M}$, so there are $\binom n{n/2-s}-\binom n{n/2-s-1}$ representations of spin $s$; one of them meets $\mathcal F$, in one dimension, if and only if $s\ge|\frac n2-B|$. Writing $s = \frac n2-j$, the eigenvalue $s(s+1)-(\frac n2-B)^2-\frac n2$ is \eqref{eq:ch13:spin}, for $j\le\min\{B,n-B\}$. For $j = 0$, $s = \frac n2$ is the symmetric subspace, whose only state with $B$ ones is the Dicke state. \qed}
+\onp{Proof: $H_{XY} = S^2-S_z^2-\frac n2$ with the total spin $S$; $S_z = \frac n2-B$ on $\mathcal F$; spin $s = \frac n2-j$ occurs $\binom nj-\binom n{j-1}$ times.}
+
+\ona{For the worked portfolio the eigenvalues are $9$, $3$, $-1$ and $-3$, with the multiplicities $1$, $5$, $9$ and $5$; they are integers of the same parity, so $e^{-i\beta H_{XY}}$ has the period $\pi$ in $\beta$, up to a phase. The ring $XY$ mixer has an irregular graph, and its top eigenvector is not the Dicke state: on the worked portfolio, its entries range from $0.118$ to $0.354$, and its overlap with the Dicke state is $0.949$.}
+\onp{Worked portfolio: $9$, $3$, $-1$, $-3$, with the multiplicities $1$, $5$, $9$, $5$. The ring $XY$ mixer: top eigenvector with entries from $0.118$ to $0.354$, overlap $0.949$ with the Dicke state.}
+\end{frame}
+
+\begin{frame}\ft{Preparing the Dicke state}
+\onp{\footnotesize}
+\ona{Write $\ket{D^m_k}$ for the Dicke state of $m$ qubits with $k$ ones, $\binom mk^{-1/2}\sum_{\boldsymbol1^\top x = k}\ket x$.}
+\begin{lem}\label{lem:ch13:dicke}
+For $0<k<m$,
+\begin{equation}\label{eq:ch13:dicke}
+    \ket{D^m_k} = \sqrt{\tfrac km}\,\ket{D^{m-1}_{k-1}}\ket1+\sqrt{\tfrac{m-k}m}\,\ket{D^{m-1}_k}\ket0,
+\end{equation}
+where the last factor is qubit $m$. Measuring the qubits of $\ket{D^n_B}$ from the $n$th to the first therefore gives $1$ on qubit $m$ with the probability $k/m$, if $k$ ones remain for the $m$ qubits not yet measured, and each string with $B$ ones has the probability $1/\binom nB$.
+\end{lem}
+\ona{\emph{Proof.} Of the $\binom mk$ strings with $k$ ones, $\binom{m-1}{k-1}$ end in $1$ and $\binom{m-1}k$ end in $0$, and $\binom{m-1}{k-1}/\binom mk = k/m$. Along any string the numerators of the probabilities run through $B,B-1,\dots,1$ and $n-B,\dots,1$, and the denominators through $n,n-1,\dots,1$, so their product is $B!(n-B)!/n!$. \qed}
+\onp{Proof: $\binom{m-1}{k-1}/\binom mk = k/m$; the product of the probabilities along any string is $B!(n-B)!/n!$.}
+
+\ona{\citet{baertschi2019deterministic} turn \eqref{eq:ch13:dicke} into a circuit: from $\ket{0}^{\otimes(n-B)}\ket1^{\otimes B}$, each step moves amplitude $\sqrt{k/m}$ by a rotation controlled on its neighbours, with $O(nB)$ gates and depth $O(n)$ in all; \citet{baertschi2022shortdepth} shorten the depth on restricted connectivity. The Grover mixer $e^{-i\beta\ket F\!\bra F}$ is, in turn, $U_F\,e^{-i\beta\ket0\!\bra0}\,U_F^\dagger$ for the preparation $U_F$ of $\ket F = U_F\ket0$, so that the Grover mixer costs about twice the preparation, and a controlled phase \citep{baertschi2020grover}.}
+\onp{\citet{baertschi2019deterministic}: a circuit with $O(nB)$ gates and depth $O(n)$. The Grover mixer is $U_Fe^{-i\beta\ket0\!\bra0}U_F^\dagger$ \citep{baertschi2020grover}.}
+\end{frame}
+
+% the preparation of the Dicke state |D^6_3> as lattice paths: a node (m, k) means that k ones remain for the m qubits
+% not yet decided; qubit m reads 1 with the probability k/m (down) and 0 with (m - k)/m (across); the path of d* thick
+\mode<all>{\gdef\dickefig{%
+  \tikzset{dkedge/.style={gray!70,semithick},dkpath/.style={orange!85!black,very thick},dklab/.style={font=\tiny,inner sep=1pt,text=black,fill=white,fill opacity=0.85,text opacity=1},dknode/.style={circle,draw=black,fill=white,inner sep=0pt,minimum size=5pt},dkon/.style={fill=orange}}
+  \draw[dkpath] (0.00,3.45) -- node[dklab,anchor=south west] {$\tfrac{3}{6}$} (1.55,2.30);
+  \draw[dkedge] (0.00,3.45) -- node[dklab,above] {$\tfrac{3}{6}$} (1.55,3.45);
+  \draw[dkpath] (1.55,2.30) -- node[dklab,anchor=south west] {$\tfrac{2}{5}$} (3.10,1.15);
+  \draw[dkedge] (1.55,2.30) -- node[dklab,above] {$\tfrac{3}{5}$} (3.10,2.30);
+  \draw[dkedge] (1.55,3.45) -- node[dklab,anchor=south west] {$\tfrac{3}{5}$} (3.10,2.30);
+  \draw[dkedge] (1.55,3.45) -- node[dklab,above] {$\tfrac{2}{5}$} (3.10,3.45);
+  \draw[dkedge] (3.10,1.15) -- node[dklab,anchor=south west] {$\tfrac{1}{4}$} (4.65,0.00);
+  \draw[dkpath] (3.10,1.15) -- node[dklab,above] {$\tfrac{3}{4}$} (4.65,1.15);
+  \draw[dkedge] (3.10,2.30) -- node[dklab,anchor=south west] {$\tfrac{2}{4}$} (4.65,1.15);
+  \draw[dkedge] (3.10,2.30) -- node[dklab,above] {$\tfrac{2}{4}$} (4.65,2.30);
+  \draw[dkedge] (3.10,3.45) -- node[dklab,anchor=south west] {$\tfrac{3}{4}$} (4.65,2.30);
+  \draw[dkedge] (3.10,3.45) -- node[dklab,above] {$\tfrac{1}{4}$} (4.65,3.45);
+  \draw[dkedge] (4.65,0.00) -- node[dklab,above] {$1$} (6.20,0.00);
+  \draw[dkedge] (4.65,1.15) -- node[dklab,anchor=south west] {$\tfrac{1}{3}$} (6.20,0.00);
+  \draw[dkpath] (4.65,1.15) -- node[dklab,above] {$\tfrac{2}{3}$} (6.20,1.15);
+  \draw[dkedge] (4.65,2.30) -- node[dklab,anchor=south west] {$\tfrac{2}{3}$} (6.20,1.15);
+  \draw[dkedge] (4.65,2.30) -- node[dklab,above] {$\tfrac{1}{3}$} (6.20,2.30);
+  \draw[dkedge] (4.65,3.45) -- node[dklab,anchor=south west] {$1$} (6.20,2.30);
+  \draw[dkedge] (6.20,0.00) -- node[dklab,above] {$1$} (7.75,0.00);
+  \draw[dkpath] (6.20,1.15) -- node[dklab,anchor=south west] {$\tfrac{1}{2}$} (7.75,0.00);
+  \draw[dkedge] (6.20,1.15) -- node[dklab,above] {$\tfrac{1}{2}$} (7.75,1.15);
+  \draw[dkedge] (6.20,2.30) -- node[dklab,anchor=south west] {$1$} (7.75,1.15);
+  \draw[dkpath] (7.75,0.00) -- node[dklab,above] {$1$} (9.30,0.00);
+  \draw[dkedge] (7.75,1.15) -- node[dklab,anchor=south west] {$1$} (9.30,0.00);
+  \foreach \x/\y in {1.55/3.45,3.10/2.30,3.10/3.45,4.65/0.00,4.65/2.30,4.65/3.45,6.20/0.00,6.20/2.30,7.75/1.15} {\node[dknode] at (\x,\y) {};}
+  \foreach \x/\y in {0.00/3.45,1.55/2.30,3.10/1.15,4.65/1.15,6.20/1.15,7.75/0.00,9.30/0.00} {\node[dknode,dkon] at (\x,\y) {};}
+  \foreach \k in {0,1,2} {\node[font=\scriptsize,anchor=east] at (-0.3,1.15*\k) {$k = \k$};}
+  \node[font=\scriptsize,anchor=east,align=right] at (-0.3,3.45) {$k = 3$ ones\\left};
+  \foreach \m/\c in {6/0,5/1,4/2,3/3,2/4,1/5} {\node[font=\scriptsize] at (1.55*\c+0.775,-0.55) {$x_{\m}$};}
+  \ona{\node[note,anchor=south west] (k1) at (0.9,4.0) {start: $6$ qubits, $3$ ones to place};
+  \draw[notearrow] (k1.west) to[bend right=20] (0.08,3.6);
+  \node[note,anchor=west] (k2) at (10.0,2.6) {qubit $m$ reads $1$ with the probability\\$k/m$ (down) and $0$ with $(m-k)/m$\\(across)};
+  \draw[notearrow] (k2.west) to[bend right=10] (3.6,2.3);
+  \node[note,anchor=west] (k3) at (10.0,1.3) {the path of $d^* = 010011$ (orange):\\$\frac36\cdot\frac25\cdot\frac34\cdot\frac23\cdot\frac12\cdot1 = \frac1{20}$};
+  \draw[notearrow] (k3.west) to[bend left=10] (5.4,1.2);
+  \node[note,anchor=west] (k4) at (10.0,0.2) {each of the $20$ paths is one portfolio,\\and each has the probability $1/\binom63$};
+  \draw[notearrow] (k4.west) to[bend left=10] (9.4,0.05);}}}
+\begin{frame}\ft{The Dicke state, pictured}
+\ona{Figure~\ref{fig:ch13:dicke} pictures Lemma~\ref{lem:ch13:dicke} for the worked portfolio. A node records how many ones $k$ remain for the qubits not yet decided; from left to right, qubits $6$ to $1$ are decided, each moving down with the probability $k/m$ and across with $(m-k)/m$. The $20$ paths from the top left to the bottom right are the $20$ portfolios, and along each the product of the probabilities is $1/20$: for $d^* = 010011$, $\frac36\cdot\frac25\cdot\frac34\cdot\frac23\cdot\frac12\cdot1$. The circuit of \citet{baertschi2019deterministic} follows the same lattice, with the amplitudes $\sqrt{k/m}$ in place of the probabilities.}
+\ona{\gdef\dkS{0.85}}\onp{\gdef\dkS{0.72}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}[scale=\dkS,every node/.style={transform shape=false}]\dickefig\end{tikzpicture}
+\caption{The Dicke state $\ket{D^6_3}$ as lattice paths: the qubits $x_6$ to $x_1$ are decided from left to right; a node gives the number $k$ of ones left, an edge down sets the qubit to $1$, an edge across to $0$, each with its probability. The path of $d^*$ in orange.}\label{fig:ch13:dicke}\end{figure}}
+\onp{\begin{center}\begin{tikzpicture}[scale=\dkS]\dickefig\end{tikzpicture}\end{center}
+\vspace{-0.4em}\footnotesize\begin{itemize}\setlength\itemsep{0.1em}
+    \item Qubit $m$ reads $1$ with the probability $k/m$ (down), $0$ with $(m-k)/m$ (across).
+    \item $20$ paths, $20$ portfolios; along $d^*$ (orange): $\frac36\cdot\frac25\cdot\frac34\cdot\frac23\cdot\frac12\cdot1 = \frac1{20}$.
+\end{itemize}}
+\end{frame}
+
+\begin{frame}\ft{The Grover mixer}
+\onp{\footnotesize}
+\begin{propn}\label{propn:ch13:grover}
+Let $\ket F$ be the uniform superposition of a feasible set $F$, $H_C$ diagonal with the values $f(x)$, and $\ket\psi = U_M(\beta_p)e^{-i\gamma_pH_C}\cdots U_M(\beta_1)e^{-i\gamma_1H_C}\ket F$ with the Grover mixer $U_M(\beta) = e^{-i\beta\ket F\!\bra F}$. Then $\ket\psi\in\spn\{\ket x:x\in F\}$, and $\braket{x|\psi} = a(f(x))$ for $x\in F$, for a function $a$ that depends on the angles but not on $x$.
+\end{propn}
+\ona{\emph{Proof.} By induction on $p$; at $p = 0$, $a\equiv|F|^{-1/2}$. The phase separator multiplies $a(v)$ by $e^{-i\gamma v}$. Since $(\ket F\!\bra F)^2 = \ket F\!\bra F$, $U_M(\beta) = \one+(e^{-i\beta}-1)\ket F\!\bra F$, which adds the same number $(e^{-i\beta}-1)\braket{F|\psi}/\sqrt{|F|}$ to the amplitude of every $x\in F$, and nothing outside $F$. \qed}
+\onp{Proof: $U_M(\beta) = \one+(e^{-i\beta}-1)\ket F\!\bra F$ adds the same number to every amplitude.}
+
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item Portfolios of equal objective are equally likely, whatever their assets: the circuit sees only the histogram of $f$ over $F$.
+    \item With $f$ the indicator of the non-optimal strings and $\gamma = \beta = \pi$, it is Grover's search (\ona{Exercise~\ref{exe:ch13:grover}}\onp{an exercise}), and about $\frac\pi4\sqrt{|F|}$ layers find a unique optimum.
+    \item The convergence theorem of \Chap~\chref{C.QAOA} applies: $\ket F\!\bra F$ restricted to $\mathcal F$ is a positive multiple of the matrix of ones, whose graph is complete.
+\end{itemize}
+\end{frame}
+
+\section{Six solvers compared}
+
+\begin{frame}\ft{Six solvers}
+\onp{\footnotesize}
+\ona{We compare six variational solvers on the worked portfolio, simulated exactly. Three act on all $64$ strings, with the phase separator $f_\lambda$, $\lambda = 3$:}
+\onp{Exact simulation. On all $64$ strings, with the penalty $\lambda = 3$:}
+\begin{itemize}\setlength\itemsep{0.15em}
+    \item \textbf{standard QAOA}, from $\ket+^{\otimes6}$ with the transverse field;
+    \item \textbf{the warm start} of \Chap~\chref{C.WSContinuous}, from the relaxed optimum $c^\star$ of $f_\lambda$ over $[0,1]^6$, with the rotated mixer;
+    \item \textbf{CVaR}: standard QAOA trained on the conditional value at risk of $f_\lambda$ at the level $\alpha = 0.1$, the mean of the lowest tenth of its distribution \citep{Barkoutsos2020}.
+\end{itemize}
+\ona{Three act on the $20$ portfolios, from the Dicke state, with the phase separator $g$:}\onp{On the $20$ portfolios, from the Dicke state, with $g$:}
+\begin{itemize}\setlength\itemsep{0.15em}
+    \item \textbf{the ring} and \textbf{the complete $XY$ mixers}, and \textbf{the Grover mixer}.
+\end{itemize}
+\ona{All are trained on the expectation, except CVaR. At depth one, the five best points of a grid over a period of $\beta$ and $\gamma\in[-10\pi,10\pi]$ are refined by the Nelder--Mead method. At depth $p>1$, BFGS starts from each of the five best angles of depth $p-1$ with a layer of zero angles appended, which ensures that the energy does not increase with the depth, from a perturbation of it, from its INTERP extension \citep{Zhou2020}, and from twenty random points, two hundred on the worked portfolio; the best of the $35$, or $215$, is kept. We report $F-F^*$, the expectation of $f_\lambda$ above the optimum, and the probability of sampling $d^*$.}
+\onp{Training: grid and Nelder--Mead at depth one; at depth $p>1$, BFGS from $215$ starts on the worked portfolio, $35$ on others, including the best angles of depth $p-1$ with a zero layer appended.}
+\end{frame}
+
+% the six solvers on the worked portfolio, depth 0 to 5: F - F*, the expectation of f_lambda above the optimum, at the
+% best angles found; standard QAOA (black), CVaR (grey, dashed), the warm start (blue), the ring (orange) and the complete
+% (green) XY mixers and the Grover mixer (red)
+\mode<all>{\gdef\enfig#1{\begin{axis}[#1,width=\enW,height=\enH,scale only axis,clip mode=individual,ymode=log,xmin=-0.3,xmax=5.3,ymin=0.002,ymax=9,xtick={0,...,5},xlabel={depth $p$},ylabel={$F-F^*$}]
+  \addplot[black,thick,mark=square*,mark size=1.4pt] table[x=p,y=standarde] {figures/ch13/solvers_depth.dat};
+  \addplot[gray,thick,densely dashed,mark=diamond*,mark size=1.8pt] table[x=p,y=cvare] {figures/ch13/solvers_depth.dat};
+  \addplot[red!75!black,thick,mark=star,mark size=2pt] table[x=p,y=grovere] {figures/ch13/solvers_depth.dat};
+  \addplot[orange!85!black,thick,mark=triangle*,mark size=1.8pt] table[x=p,y=ringe] {figures/ch13/solvers_depth.dat};
+  \addplot[green!45!black,thick,mark=pentagon*,mark size=1.7pt] table[x=p,y=completee] {figures/ch13/solvers_depth.dat};
+  \addplot[blue!70!black,thick,mark=*,mark size=1.5pt] table[x=p,y=warme] {figures/ch13/solvers_depth.dat};
+  \ona{\node[note,anchor=west] (e1) at (axis cs:5.8,5) {the penalty methods start from $4.90$, in $\ket+^{\otimes6}$,\\and $1.81$, in the warm state; CVaR (dashed)\\stays at $3.76$: it ignores all but the lowest\\tenth of the distribution};
+  \draw[notearrow] (e1.west) to[bend right=10] (axis cs:4.9,3.9);
+  \node[note,anchor=west] (e2) at (axis cs:5.8,0.75) {standard QAOA (black): $1.52$ at depth one,\\$0.167$ at depth five};
+  \draw[notearrow] (e2.west) to[bend left=10] (axis cs:5.1,0.18);
+  \node[note,anchor=west] (e3) at (axis cs:5.8,0.15) {the Dicke state is $0.405$ above $F^*$; the mixers\\that keep the budget never pay the penalty:\\$0.041$ (complete $XY$), $0.086$ (ring) and $0.104$\\(Grover) at depth one};
+  \draw[notearrow] (e3.west) to[bend left=10] (axis cs:1.1,0.05);
+  \node[note,anchor=west] (e4) at (axis cs:5.8,0.012) {from depth two the warm start (blue) is\\lowest: $0.0205$, and $0.0033$ at depth five};
+  \draw[notearrow] (e4.west) to[bend left=10] (axis cs:5.1,0.0034);}
+\end{axis}}}
+\begin{frame}\ft{Energy, pictured}
+\ona{Figure~\ref{fig:ch13:energy} shows $F-F^*$ at the trained angles on the worked portfolio. The mixers that keep the budget start from the Dicke state, $0.405$ above $F^*$, never pay the penalty, and at depth one reach $0.041$ with the complete $XY$ mixer, $0.086$ with the ring and $0.104$ with the Grover mixer. The penalised circuits start far higher, at $4.90$ in $\ket+^{\otimes6}$ and $1.81$ in the warm state, and reach $1.52$ and $0.657$ at depth one; from depth two, the warm start is the lowest of all, $0.0205$, and $0.0033$ at depth five. Standard QAOA ends at $0.167$, and CVaR stays at $3.76$ from depth two, since it ignores all but the lowest tenth of the distribution. At depths four and five the values are the best of $215$ starts, not certified minima: the landscapes have many local minima.}
+\ona{\gdef\enW{0.42\linewidth}\gdef\enH{0.34\linewidth}}\onp{\gdef\enW{4.8cm}\gdef\enH{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\enfig{}\end{tikzpicture}
+\caption{The six solvers on the worked portfolio: $F-F^*$ at the trained angles against the depth, for standard QAOA (black), CVaR (grey), the warm start (blue), the ring (orange) and complete (green) $XY$ mixers, and the Grover mixer (red).}\label{fig:ch13:energy}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\enfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Keeping the budget (green, orange, red): from $0.405$ to $0.041$--$0.104$ at depth one.
+    \item Penalised: standard (black) $1.52$, warm (blue) $0.657$ at depth one.
+    \item From depth two the warm start is lowest: $0.0033$ at depth five.
+    \item CVaR (grey): $3.76$, by design.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% the six solvers on the worked portfolio, depth 0 to 5: the probability of the optimal portfolio d* at the trained angles
+\mode<all>{\gdef\prfig#1{\begin{axis}[#1,width=\enW,height=\enH,scale only axis,clip mode=individual,xmin=-0.3,xmax=5.3,ymin=0,ymax=0.6,xtick={0,...,5},ytick={0,0.1,0.2,0.3,0.4,0.5,0.6},yticklabel style={/pgf/number format/fixed},xlabel={depth $p$},ylabel={probability of $d^*$}]
+  \addplot[black,thick,mark=square*,mark size=1.4pt] table[x=p,y=standardp] {figures/ch13/solvers_depth.dat};
+  \addplot[gray,thick,densely dashed,mark=diamond*,mark size=1.8pt] table[x=p,y=cvarp] {figures/ch13/solvers_depth.dat};
+  \addplot[red!75!black,thick,mark=star,mark size=2pt] table[x=p,y=groverp] {figures/ch13/solvers_depth.dat};
+  \addplot[orange!85!black,thick,mark=triangle*,mark size=1.8pt] table[x=p,y=ringp] {figures/ch13/solvers_depth.dat};
+  \addplot[green!45!black,thick,mark=pentagon*,mark size=1.7pt] table[x=p,y=completep] {figures/ch13/solvers_depth.dat};
+  \addplot[blue!70!black,thick,mark=*,mark size=1.5pt] table[x=p,y=warmp] {figures/ch13/solvers_depth.dat};
+  \ona{\node[note,anchor=west] (q1) at (axis cs:5.8,0.58) {the warm start (blue): the most likely to\\sample $d^*$ at every depth, $0.378$ at depth\\one and $0.563$ at depth five};
+  \draw[notearrow] (q1.west) to[bend right=10] (axis cs:5.1,0.56);
+  \node[note,anchor=west] (q2) at (axis cs:5.8,0.4) {the complete $XY$ mixer (green): $0.079$ at\\depth one, although its energy is low, and\\$0.420$ at depth five; the Grover mixer (red)\\$0.289$, the ring (orange) $0.229$};
+  \draw[notearrow] (q2.west) to[bend left=10] (axis cs:5.1,0.42);
+  \node[note,anchor=west] (q3) at (axis cs:5.8,0.2) {standard QAOA (black): $0.133$ at depth five};
+  \draw[notearrow] (q3.west) to[bend left=10] (axis cs:5.1,0.135);
+  \node[note,anchor=west] (q4) at (axis cs:5.8,0.07) {CVaR (grey): $0.106$ from depth two; it stops\\as soon as $d^*$ carries the mass $\alpha = 0.1$};
+  \draw[notearrow] (q4.west) to[bend left=10] (axis cs:4.1,0.105);}
+\end{axis}}}
+\begin{frame}\ft{The optimal portfolio, pictured}
+\ona{Figure~\ref{fig:ch13:prob} shows the probability of sampling $d^*$ at the same angles. Low energy is not the optimum: at depth one the complete $XY$ mixer is only $0.041$ above $F^*$, yet it samples $d^*$ with the probability $0.079$, since the second best portfolio is $0.0073$ above $F^*$ and the five best lie within $0.029$. The warm start is the most likely to sample $d^*$ at every depth, with $0.378$ at depth one and $0.563$ at depth five; the complete $XY$ mixer reaches $0.420$, the Grover mixer $0.289$, the ring $0.229$, and standard QAOA $0.133$. CVaR stops at $0.106$: once $d^*$ carries the mass $\alpha = 0.1$, its objective is $F^*$, and nothing more is to be gained. Started from its own top eigenvector, as the convergence theorem requires, rather than from the Dicke state, the ring mixer does much better: $0.0043$ above $F^*$ and $0.70$ at depth five. The relaxation is a poor guide on this instance: rounding $c_B$ to its three largest coordinates gives $110010$, the second best.}
+\ona{\gdef\enW{0.42\linewidth}\gdef\enH{0.34\linewidth}}\onp{\gdef\enW{4.8cm}\gdef\enH{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\prfig{}\end{tikzpicture}
+\caption{The six solvers on the worked portfolio: the probability of sampling the optimal portfolio at the trained angles, against the depth; colours as in Fig.~\ref{fig:ch13:energy}.}\label{fig:ch13:prob}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\prfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Warm start (blue): $0.378$ at depth one, $0.563$ at five.
+    \item Complete $XY$ (green): $0.079$ at depth one despite low energy; $0.420$ at five. Grover $0.289$, ring $0.229$, standard $0.133$.
+    \item CVaR stops at $0.106$, just above $\alpha = 0.1$.
+    \item The ring from its own top eigenvector: $0.70$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% 100 random portfolios of the generator of the worked one: the median (markers) and the quartiles (bars) of the
+% probability of the optimal portfolio at the trained angles, depth 1 to 5, for the six solvers, offset horizontally
+\mode<all>{\gdef\instfig#1{\begin{axis}[#1,width=\isW,height=\isH,scale only axis,clip mode=individual,xmin=0.55,xmax=5.45,ymin=0,ymax=1.04,xtick={1,...,5},ytick={0,0.25,0.5,0.75,1},yticklabel style={/pgf/number format/fixed},xlabel={depth $p$},ylabel={probability of $d^*$},error bars/error bar style={line width=0.5pt}]
+  \addplot[black,thick,mark=square*,mark size=1.3pt,error bars/.cd,y dir=both,y explicit] table[x expr=\thisrow{p}-0.25,y=standard50,y error plus expr=\thisrow{standard75}-\thisrow{standard50},y error minus expr=\thisrow{standard50}-\thisrow{standard25}] {figures/ch13/solvers_inst.dat};
+  \addplot[gray,thick,densely dashed,mark=diamond*,mark size=1.7pt,error bars/.cd,y dir=both,y explicit] table[x expr=\thisrow{p}-0.15,y=cvar50,y error plus expr=\thisrow{cvar75}-\thisrow{cvar50},y error minus expr=\thisrow{cvar50}-\thisrow{cvar25}] {figures/ch13/solvers_inst.dat};
+  \addplot[red!75!black,thick,mark=star,mark size=2pt,error bars/.cd,y dir=both,y explicit] table[x expr=\thisrow{p}-0.05,y=grover50,y error plus expr=\thisrow{grover75}-\thisrow{grover50},y error minus expr=\thisrow{grover50}-\thisrow{grover25}] {figures/ch13/solvers_inst.dat};
+  \addplot[orange!85!black,thick,mark=triangle*,mark size=1.8pt,error bars/.cd,y dir=both,y explicit] table[x expr=\thisrow{p}+0.05,y=ring50,y error plus expr=\thisrow{ring75}-\thisrow{ring50},y error minus expr=\thisrow{ring50}-\thisrow{ring25}] {figures/ch13/solvers_inst.dat};
+  \addplot[green!45!black,thick,mark=pentagon*,mark size=1.7pt,error bars/.cd,y dir=both,y explicit] table[x expr=\thisrow{p}+0.15,y=complete50,y error plus expr=\thisrow{complete75}-\thisrow{complete50},y error minus expr=\thisrow{complete50}-\thisrow{complete25}] {figures/ch13/solvers_inst.dat};
+  \addplot[blue!70!black,thick,mark=*,mark size=1.4pt,error bars/.cd,y dir=both,y explicit] table[x expr=\thisrow{p}+0.25,y=warm50,y error plus expr=\thisrow{warm75}-\thisrow{warm50},y error minus expr=\thisrow{warm50}-\thisrow{warm25}] {figures/ch13/solvers_inst.dat};
+  \ona{\node[note,anchor=west] (i1) at (axis cs:5.9,1.0) {the warm start (blue): the median $0.989$ at\\depth one and $1.000$ from depth two; the\\relaxation is nearly integral here, and\\rounding it finds $d^*$ on $98$ instances of $100$};
+  \draw[notearrow] (i1.west) to[bend right=10] (axis cs:5.3,1.0);
+  \node[note,anchor=west] (i2) at (axis cs:5.9,0.7) {the complete $XY$ mixer (green): from $0.358$\\to $0.902$; the ring (orange) from $0.221$ to\\$0.782$; the Grover mixer (red) from $0.158$\\to $0.640$};
+  \draw[notearrow] (i2.west) to[bend left=10] (axis cs:5.2,0.88);
+  \draw[notearrow] (i2.west) to[bend left=10] (axis cs:5.1,0.77);
+  \draw[notearrow] (i2.west) to[bend left=15] (axis cs:4.98,0.63);
+  \node[note,anchor=west] (i3) at (axis cs:5.9,0.33) {CVaR (grey): $0.111$ at every depth from\\two, just above $\alpha = 0.1$};
+  \draw[notearrow] (i3.west) to[bend left=10] (axis cs:4.88,0.12);
+  \node[note,anchor=west] (i4) at (axis cs:5.9,0.08) {standard QAOA (black): from $0.037$ to $0.092$};
+  \draw[notearrow] (i4.west) to[bend left=10] (axis cs:4.78,0.09);}
+\end{axis}}}
+\begin{frame}\ft{Many instances, pictured}
+\ona{Figure~\ref{fig:ch13:inst} repeats the comparison on $100$ random portfolios of the same generator, with $35$ starts at each depth. The warm start finds the optimal portfolio with the median probability $0.989$ at depth one, and $1.000$ from depth two. These instances are easy for the relaxation: the median overlap $d^{*\top}c^\star/B$ is $0.979$, and rounding the relaxation over $P$ to its three largest coordinates, a classical computation of milliseconds, finds $d^*$ on $98$ of them. Among the mixers that keep the budget, the complete $XY$ mixer is the best, with the median rising from $0.358$ at depth one to $0.902$ at depth five, ahead of the ring, from $0.221$ to $0.782$, and the Grover mixer, from $0.158$ to $0.640$. Standard QAOA rises from $0.037$ to $0.092$, and CVaR stays at $0.111$ from depth two.}
+\ona{\gdef\isW{0.42\linewidth}\gdef\isH{0.34\linewidth}}\onp{\gdef\isW{4.8cm}\gdef\isH{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\instfig{}\end{tikzpicture}
+\caption{$100$ random portfolios: the median (markers) and the quartiles (bars) of the probability of the optimal portfolio at the trained angles, against the depth, for standard QAOA (black), CVaR (grey), the Grover (red), ring $XY$ (orange) and complete $XY$ (green) mixers, and the warm start (blue).}\label{fig:ch13:inst}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\instfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $100$ random portfolios; medians and quartiles.
+    \item Warm start (blue): $0.989$, then $1.000$; but rounding the relaxation finds $d^*$ on $98$.
+    \item Complete $XY$ (green): $0.358\to0.902$; ring (orange) $0.221\to0.782$; Grover (red) $0.158\to0.640$.
+    \item Standard (black) $0.037\to0.092$; CVaR (grey) $0.111$.
+\end{itemize}\end{column}\end{columns}}
 \end{frame}
 
 \begin{frame}\ft{Other variational approaches to portfolios}
@@ -85,12 +460,202 @@
     \item \textbf{Annealing and tensor networks:} dynamic portfolio optimization over 8 years of data for 52 assets compared quantum annealing, VQE and a tensor-network optimizer after dimensionality reduction \citep{mugel22}.
     \item \textbf{Cardinality-constrained QAOA} on hardware \citep{Brandhofer2023}: solution quality as a function of qubit number and depth.
 \end{itemize}
-\ona{All of these operate at Level 1. The main limitation of current approaches is the neglect of uncertainty in the inputs, of time-dependent correlations, and of the instability of the optimization; the QUBO with penalties only approximately encodes the constraints and requires post-processing. Bridging to Levels 2 and 3 is the research direction.}
+\ona{All of these operate at Level 1. The main limitation of current approaches is the neglect of uncertainty in the inputs, of time-dependent correlations, and of the instability of the optimization; the QUBO with penalties only approximately encodes the constraints and requires post-processing. Bridging to Levels 2 and 3 is the research direction, and the next section shows why.}
 \end{frame}
 
-\begin{frame}\ft{Exercise: a small Markowitz pipeline}
-\begin{exe}
-Using the code of \Chap~\chref{C.Motivation} as a template: (i) simulate 250 days of prices for $n = 6$ assets by geometric Brownian motion and compute $\mu$ and $\Sigma$; (ii) solve the cardinality-constrained problem \eqref{eq:ch13:qubo} exactly with Gurobi (binary variables, budget as a linear constraint) and its continuous relaxation over $[0,1]^n$ with cvxpy; (iii) build $H_C$ with the penalty encoding and run depth-one QAOA in Qiskit from a cold start and from the warm start $\theta_i = 2\arcsin\sqrt{c_i^\star}$ with the rotated mixer of \Chap~\chref{C.WSContinuous}; (iv) report the probability of sampling the optimal portfolio and the energy relative to $E_0$, and repeat over 50 random instances. Discuss how the results depend on $\lambda$ and on the overlap $d^{\star\top}c^\star/B$.
+\section{What the optimum is worth}
+
+\begin{frame}\ft{Noise in the covariance}
+\onp{\footnotesize}
+\ona{So far $\mu$ and $\Sigma$ were given. In practice they are estimated from $T$ observations of the returns of $N$ assets, and the sample covariance is noisy even when the returns are not. The noise has a universal shape.}
+\begin{thm}[\citet{marchenko1967distribution}]\label{thm:ch13:mp}
+Let $R$ be a $T\times N$ matrix of independent entries with mean zero and variance one, $S = R^\top R/T$, and let $N,T\to\infty$ with $N/T\to q\in(0,1]$. Then the empirical distribution of the eigenvalues of $S$ converges almost surely to the distribution with the density
+\begin{equation}\label{eq:ch13:mp}
+    \rho_q(x) = \frac{\sqrt{(\lambda_+-x)(x-\lambda_-)}}{2\pi qx},\qquad\lambda_- \le x\le\lambda_+,\quad\lambda_\pm = (1\pm\sqrt q)^2.
+\end{equation}
+\end{thm}
+\ona{The true covariance here is the identity, and all its eigenvalues are $1$; the sample spreads them over $[\lambda_-,\lambda_+]$. With a true covariance that has a few large eigenvalues, such as that of a market factor, those emerge from the bulk, and the bulk keeps the shape \eqref{eq:ch13:mp}; \citet{PhysRevLett.83.1467} found that most eigenvalues of the correlation matrix of the stocks of the S\&P~500 lie in that bulk. Cleaning the covariance, by shrinkage or by replacing the bulk, is the subject of \citet{LedoitWolf2004} and \citet{BunBouchaudPotters2017}.}
+\onp{\begin{itemize}\setlength\itemsep{0.2em}
+    \item True eigenvalues all $1$; the sample spreads them over $[(1-\sqrt q)^2,(1+\sqrt q)^2]$.
+    \item Real data: a few factors emerge, the bulk keeps this shape \citep{PhysRevLett.83.1467}; cleaning by shrinkage \citep{LedoitWolf2004}.
+\end{itemize}}
+\end{frame}
+
+% the eigenvalues of the sample covariance of N = 600 independent returns with variance one over T = 2500 days (histogram,
+% the bars), against the Marchenko-Pastur density with q = 0.24 (red) and its edges (dotted); the truth, 1, in black
+\mode<all>{\gdef\mpfig#1{\begin{axis}[#1,width=\mpW,height=\mpH,scale only axis,clip mode=individual,xmin=0,xmax=2.6,ymin=0,ymax=1.05,xtick={0,0.5,1,1.5,2,2.5},ytick={0,0.25,0.5,0.75,1},yticklabel style={/pgf/number format/fixed},xlabel={eigenvalue of the sample covariance},ylabel={density}]
+  \addplot[ybar,bar width=0.0548,fill=blue!22,draw=blue!50!black,line width=0.2pt] table[x=x,y=dens] {figures/ch13/mp_hist.dat};
+  \addplot[red!75!black,thick] table[x=x,y=dens] {figures/ch13/mp_curve.dat};
+  \draw[red!75!black,densely dotted] (axis cs:0.2602,0) -- (axis cs:0.2602,1.05); \draw[red!75!black,densely dotted] (axis cs:2.2198,0) -- (axis cs:2.2198,1.05);
+  \draw[black,very thick] (axis cs:1,0) -- (axis cs:1,1.05);
+  \ona{\node[note,anchor=west] (m1) at (axis cs:2.85,0.98) {in truth every eigenvalue is $1$ (black):\\$600$ independent returns with variance $1$};
+  \draw[notearrow] (m1.west) to[bend right=10] (axis cs:1.03,0.98);
+  \node[note,anchor=west] (m2) at (axis cs:2.85,0.7) {the sample covariance of $2500$ days spreads\\them from $0.264$ to $2.198$ (bars): the\\condition number is $8.32$, not $1$};
+  \draw[notearrow] (m2.west) to[bend right=10] (axis cs:1.9,0.3);
+  \node[note,anchor=west] (m3) at (axis cs:2.85,0.4) {the Marchenko--Pastur density with $q = 0.24$\\(red) and its edges $0.260$ and $2.220$ (dotted)};
+  \draw[notearrow] (m3.west) to[bend left=10] (axis cs:2.23,0.05);
+  \node[note,anchor=west] (m4) at (axis cs:2.85,0.1) {along the eigenvector of the least, the variance\\is underestimated by the factor $3.79$: there a\\minimum-variance portfolio puts its weight};
+  \draw[notearrow] (m4.west) to[bend left=15] (axis cs:0.3,0.2);}
+\end{axis}}}
+\begin{frame}\ft{The noise, pictured}
+\ona{Figure~\ref{fig:ch13:mp} shows the eigenvalues of the sample covariance of $N = 600$ independent returns with variance one, observed on $T = 2500$ days, the example of \citet{abbas2024challenges}, with $q = 0.24$. In truth all are $1$; the sample spreads them from $0.264$ to $2.198$, close to the edges $0.260$ and $2.220$ of \eqref{eq:ch13:mp}, and its condition number is $8.32$. Along the eigenvector of the least eigenvalue, the sample underestimates the variance by the factor $3.79$, and a minimum-variance portfolio built from the sample puts its weight there.}
+\ona{\gdef\mpW{0.42\linewidth}\gdef\mpH{0.32\linewidth}}\onp{\gdef\mpW{4.1cm}\gdef\mpH{4.0cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\mpfig{}\end{tikzpicture}
+\caption{The eigenvalues of the sample covariance of $600$ independent returns with variance one over $2500$ days (bars), the Marchenko--Pastur density with $q = 0.24$ (red) and its edges (dotted), and the true eigenvalue $1$ (black).}\label{fig:ch13:mp}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\mpfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $N = 600$, $T = 2500$, $q = 0.24$; truth: all eigenvalues $1$.
+    \item Sample: from $0.264$ to $2.198$, the condition number $8.32$.
+    \item The Marchenko--Pastur density (red), edges $0.260$, $2.220$.
+    \item Least eigenvalue: the variance underestimated $3.79$ times.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{Optimism in sample}
+\onp{\footnotesize}
+\ona{The least variance of a portfolio $w$ with $\boldsymbol1^\top w = 1$ is $\sigma^2_{\min} = 1/(\boldsymbol1^\top\Sigma^{-1}\boldsymbol1)$, at $w^* = \Sigma^{-1}\boldsymbol1/(\boldsymbol1^\top\Sigma^{-1}\boldsymbol1)$. The \emph{sample minimum-variance portfolio} $\hat w = S^{-1}\boldsymbol1/(\boldsymbol1^\top S^{-1}\boldsymbol1)$ replaces $\Sigma$ by the sample covariance $S$.}
+\begin{propn}\label{propn:ch13:insample}
+Let the returns on $T$ days be independent and Gaussian, with the covariance $\Sigma\succ0$ on $N$ assets, $T>N$, and let $S$ be their sample covariance, with the divisor $T-1$. Then the in-sample variance of $\hat w$ satisfies
+\begin{equation}\label{eq:ch13:insample}
+    \mathbb E\,\hat w^\top S\hat w = \frac{T-N}{T-1}\,\sigma^2_{\min},
+\end{equation}
+while its true variance $\hat w^\top\Sigma\hat w$ is at least $\sigma^2_{\min}$.
+\end{propn}
+\ona{\emph{Proof.} $(T-1)S$ has the Wishart distribution $W_N(\Sigma,T-1)$. For $W\sim W_N(\Sigma,m)$ with $m\ge N$ and a fixed $a\ne0$, $(a^\top\Sigma^{-1}a)/(a^\top W^{-1}a)$ has the $\chi^2$ distribution with $m-N+1$ degrees of freedom \citep[Theorem~3.2.12]{muirhead1982aspects}. With $a = \boldsymbol1$ and $m = T-1$, $\hat w^\top S\hat w = 1/(\boldsymbol1^\top S^{-1}\boldsymbol1) = \sigma^2_{\min}\,\chi^2_{T-N}/(T-1)$, whose mean is \eqref{eq:ch13:insample}. The second claim holds since $\sigma^2_{\min}$ is the least true variance over all $w$ with $\boldsymbol1^\top w = 1$. \qed}
+\onp{Proof: $(T-1)S$ is Wishart, and $(\boldsymbol1^\top\Sigma^{-1}\boldsymbol1)/(\boldsymbol1^\top W^{-1}\boldsymbol1)\sim\chi^2_{T-N}$ \citep{muirhead1982aspects}.}
+
+\begin{itemize}\setlength\itemsep{0.2em}
+    \item With $q = N/T$, the estimate promises about $(1-q)\sigma^2_{\min}$, and the portfolio delivers more than $\sigma^2_{\min}$: the optimiser fits the noise.
+    \item The means are worse: the standard error of a mean return is the volatility over the square root of the length of the sample in years, whatever the frequency of the data.
+\end{itemize}
+\end{frame}
+
+% the sample minimum-variance portfolio for T = 250 and N from 5 to 225: its in-sample variance (blue) and its true
+% variance (red) relative to the least true variance, the means (markers) and the quartiles (bars) of 1000 samples, with
+% the line (T - N)/(T - 1) of the proposition (blue) and the curve 1/(1 - q) (dashed red)
+\mode<all>{\gdef\gmvfig#1{\begin{axis}[#1,width=\gmW,height=\gmH,scale only axis,clip mode=individual,ymode=log,xmin=0,xmax=0.95,ymin=0.07,ymax=15,xtick={0,0.2,0.4,0.6,0.8},ytick={0.1,0.2,0.5,1,2,5,10},yticklabels={$0.1$,$0.2$,$0.5$,$1$,$2$,$5$,$10$},xticklabel style={/pgf/number format/fixed},xlabel={$q = N/T$, $T = 250$},ylabel={variance$/\sigma^2_{\min}$}]
+  \draw[black,thick] (axis cs:0,1) -- (axis cs:0.95,1);
+  \addplot[red!75!black,densely dashed,domain=0:0.915,samples=80] {1/(1-x)};
+  \addplot[blue!70!black,thick] table[x=q,y=inexact] {figures/ch13/gmv.dat};
+  \addplot[blue!70!black,only marks,mark=*,mark size=1.4pt,error bars/.cd,y dir=both,y explicit,error bar style={blue!70!black}] table[x=q,y=in,y error plus expr=\thisrow{in75}-\thisrow{in},y error minus expr=\thisrow{in}-\thisrow{in25}] {figures/ch13/gmv.dat};
+  \addplot[red!75!black,only marks,mark=square*,mark size=1.3pt,error bars/.cd,y dir=both,y explicit,error bar style={red!75!black}] table[x=q,y=out,y error plus expr=\thisrow{out75}-\thisrow{out},y error minus expr=\thisrow{out}-\thisrow{out25}] {figures/ch13/gmv.dat};
+  \ona{\node[note,anchor=west] (v1) at (axis cs:1.02,9) {out of sample (red): the true variance of\\$\hat w$, close to $1/(1-q)$ (dashed); $10.4$ times\\the least at $q = 0.9$};
+  \draw[notearrow] (v1.west) to[bend right=10] (axis cs:0.91,10.2);
+  \node[note,anchor=west] (v2) at (axis cs:1.02,2.6) {at $q = 0.4$, $N = 100$: the estimate promises\\$0.607$ of the least variance, and the portfolio\\delivers $1.666$ times it};
+  \draw[notearrow] (v2.west) to[bend right=10] (axis cs:0.41,1.68);
+  \draw[notearrow] (v2.west) to[bend left=20] (axis cs:0.41,0.6);
+  \node[note,anchor=west] (v3) at (axis cs:1.02,0.85) {the truth: $\sigma^2_{\min}$ (black)};
+  \draw[notearrow] (v3.west) to[bend left=5] (axis cs:0.85,1.0);
+  \node[note,anchor=west] (v4) at (axis cs:1.02,0.25) {in sample (blue): the estimated variance of $\hat w$,\\on the line $(T-N)/(T-1)$ of\\Proposition~\ref{propn:ch13:insample}; means and quartiles of\\$1000$ samples};
+  \draw[notearrow] (v4.west) to[bend left=10] (axis cs:0.7,0.32);}
+\end{axis}}}
+\begin{frame}\ft{Optimism, pictured}
+\ona{Figure~\ref{fig:ch13:gmv} tests Proposition~\ref{propn:ch13:insample} with $T = 250$ days of independent returns with variance one and $N$ from $5$ to $225$ assets, $1000$ samples for each $N$. The in-sample variance of $\hat w$ follows \eqref{eq:ch13:insample}: at $N = 100$, $q = 0.4$, its mean is $0.607$ of $\sigma^2_{\min}$, against $0.602$ predicted. Its true variance is close to $1/(1-q)$ times $\sigma^2_{\min}$: $1.666$ at $q = 0.4$, and $10.4$ at $q = 0.9$. On a logarithmic scale the two curves are nearly mirror images about the truth.}
+\ona{\gdef\gmW{0.42\linewidth}\gdef\gmH{0.34\linewidth}}\onp{\gdef\gmW{4.8cm}\gdef\gmH{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\gmvfig{}\end{tikzpicture}
+\caption{The sample minimum-variance portfolio, $T = 250$: its in-sample variance (blue) and its true variance (red), relative to $\sigma^2_{\min}$, against $q = N/T$; the means (markers) and the quartiles (bars) of $1000$ samples, the line $(T-N)/(T-1)$ (blue) and the curve $1/(1-q)$ (dashed).}\label{fig:ch13:gmv}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\gmvfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $T = 250$, $N$ from $5$ to $225$; $1000$ samples each.
+    \item In sample (blue): on the line $(T-N)/(T-1)$.
+    \item Out of sample (red): close to $1/(1-q)$.
+    \item $q = 0.4$: promised $0.607$, delivered $1.666$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% the efficient frontier of a one-factor market of N = 10 assets (black), twenty frontiers estimated from T = 1250 daily
+% returns (blue), and the true risk and return of the same portfolios (red); short sales allowed
+\mode<all>{\gdef\fsfig#1{\begin{axis}[#1,width=\fsW,height=\fsH,scale only axis,clip mode=individual,xmin=0.14,xmax=0.42,ymin=0,ymax=0.5,xtick={0.15,0.2,0.25,0.3,0.35,0.4},ytick={0,0.1,0.2,0.3,0.4,0.5},xticklabel style={/pgf/number format/fixed},yticklabel style={/pgf/number format/fixed},xlabel={risk},ylabel={return}]
+  \addplot[blue!40,thin,unbounded coords=jump] table[x=risk,y=ret] {figures/ch13/frontiers_in.dat};
+  \addplot[red!50,thin,unbounded coords=jump] table[x=risk,y=ret] {figures/ch13/frontiers_out.dat};
+  \addplot[black,very thick] table[x=risk,y=ret] {figures/ch13/frontiers.dat};
+  \ona{\node[note,anchor=west] (s1) at (axis cs:0.45,0.48) {twenty frontiers estimated from five years\\of daily returns (blue): at the return $0.2$\\above their least risk, they promise risks\\from $0.201$ to $0.298$};
+  \draw[notearrow] (s1.west) to[bend right=10] (axis cs:0.25,0.33);
+  \node[note,anchor=west] (s2) at (axis cs:0.45,0.27) {the true frontier (black): $10$ assets of a\\one-factor market; it needs the risk $1.250$\\for the same return};
+  \draw[notearrow] (s2.west) to[bend left=10] (axis cs:0.38,0.12);
+  \node[note,anchor=west] (s3) at (axis cs:0.45,0.1) {the same portfolios out of sample (red):\\risks from $0.206$ to $0.294$, but returns\\only from $0.041$ to $0.089$};
+  \draw[notearrow] (s3.west) to[bend left=10] (axis cs:0.3,0.06);
+  \node[note,anchor=west] (s4) at (axis cs:0.45,-0.07) {the least risks agree: $0.162$ to $0.171$ in\\sample, $0.167$ to $0.168$ out of sample:\\the covariance is estimated well, the\\means are not};
+  \draw[notearrow] (s4.west) to[bend left=10] (axis cs:0.168,0.07);}
+\end{axis}}}
+\begin{frame}\ft{Frontiers in and out of sample, pictured}
+\ona{Figure~\ref{fig:ch13:frontiers} repeats the experiment of \citet{broadie1993computing} on a market of $N = 10$ assets with one factor: betas uniform in $[0.5,1.5]$, a factor volatility of $16\%$, idiosyncratic volatilities uniform in $[15\%,35\%]$, and mean returns $2\%+6\%$ times the beta, with short sales allowed. Twenty samples of five years of daily returns give twenty estimated frontiers. At the return $0.2$ above their least risk, they promise risks from $0.201$ to $0.298$; the true frontier needs $1.250$, and the estimated portfolios deliver, out of sample, returns of only $0.041$ to $0.089$. Their least risks, by contrast, are nearly right, from $0.162$ to $0.171$ in sample and from $0.167$ to $0.168$ out of sample, against the true $0.167$: with $q = 0.008$ the covariance is estimated well, and the means are not. \citet{michaud1989markowitz} called mean--variance optimisation an ``error maximiser'' for this reason.}
+\ona{\gdef\fsW{0.42\linewidth}\gdef\fsH{0.34\linewidth}}\onp{\gdef\fsW{4.8cm}\gdef\fsH{4.2cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\fsfig{}\end{tikzpicture}
+\caption{The efficient frontier of a one-factor market of $10$ assets (black), twenty frontiers estimated from five years of daily returns (blue), and the true risk and return of the same portfolios (red).}\label{fig:ch13:frontiers}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\fsfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $10$ assets, one factor; five years of daily data.
+    \item Estimated (blue): $0.2$ more return at the risks $0.201$--$0.298$.
+    \item Truth (black): that return needs the risk $1.250$.
+    \item Delivered (red): returns $0.041$--$0.089$.
+    \item The least risk is estimated well: the means are the problem.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% the 20 portfolios of the worked example in the order of their true objective, under the model that generated it,
+% with the frequency with which each is the exact solution of the problem estimated from 4000 fresh samples of 250 days;
+% the true optimum (black), the d* of the estimates of the worked example (orange), the least estimated variance (green)
+\mode<all>{\gdef\resfig#1{\begin{axis}[#1,width=\rsW,height=\rsH,scale only axis,clip mode=individual,ybar,bar width=0.62,bar shift=0pt,xmin=0.3,xmax=20.7,ymin=0,ymax=0.16,xtick={1,...,20},xticklabels from table={figures/ch13/resample.dat}{label},xticklabel style={rotate=90,font=\tiny\ttfamily,anchor=east},ytick={0,0.05,0.1,0.15},yticklabel style={/pgf/number format/fixed},ylabel={frequency of being chosen},xlabel={\ona{the $20$ portfolios, }the best in truth on the left}]
+  \addplot[fill=blue!22,draw=blue!50!black,line width=0.2pt] table[x=rank,y=freq] {figures/ch13/resample.dat};
+  \addplot[fill=black,draw=black,restrict expr to domain={\thisrow{rank}}{1:1}] table[x=rank,y=freq] {figures/ch13/resample.dat};
+  \addplot[fill=orange,draw=black,restrict expr to domain={\thisrow{ws}}{1:1}] table[x=rank,y=freq] {figures/ch13/resample.dat};
+  \addplot[fill=green!55!black,draw=black,restrict expr to domain={\thisrow{mv}}{1:1}] table[x=rank,y=freq] {figures/ch13/resample.dat};
+  \ona{\node[note,anchor=west] (r1) at (axis cs:22,0.155) {the true optimum $100011$ (black) is the exact\\solution of the estimated problem in $14.6\%$\\of $4000$ fresh samples of $250$ days};
+  \draw[notearrow] (r1.west) to[bend right=10] (axis cs:1.4,0.147);
+  \node[note,anchor=west] (r2) at (axis cs:22,0.105) {the $d^* = 010011$ of the worked portfolio\\(orange) is only $7$th in truth, $0.050$ above\\the true optimum};
+  \draw[notearrow] (r2.west) to[bend right=10] (axis cs:7.3,0.058);
+  \node[note,anchor=west] (r3) at (axis cs:22,0.06) {ignoring the means, the least estimated\\variance picks $111000$ (green), $6$th, in every\\sample: the mean regret $0.048$, against $0.050$\\for the exact solution and $0.083$ at random};
+  \draw[notearrow] (r3.west) to[bend right=10] (axis cs:6.3,0.083);
+  \node[note,anchor=west] (r4) at (axis cs:22,0.012) {the means are estimated with the standard\\deviations up to $0.199$; the drifts lie in\\$[-0.05,0.05]$};}
+\end{axis}}}
+\begin{frame}\ft{Which portfolio is optimal?}
+\ona{The worked portfolio was generated by geometric Brownian motions with known drifts and volatilities, so its true objective is known. Figure~\ref{fig:ch13:resample} orders the $20$ portfolios by it, and shows how often each is the exact solution of the problem estimated from a fresh sample of $250$ days, over $4000$ samples. The true optimum, $100011$, is chosen in $14.6\%$ of them, and one of the five best in $52.3\%$; the mean regret is $0.050$, against $0.083$ for a portfolio chosen uniformly at random. The $d^* = 010011$ of the estimates of \Chap~\chref{C.WSContinuous} is only $7$th in truth. Ignoring the means and minimising the estimated variance picks $111000$, $6$th in truth, in every sample, with the smaller mean regret $0.048$: \citet{demiguel2009optimal} found the same of the equally weighted portfolio against optimised ones on real data. The true gaps between consecutive portfolios are between $0.002$ and $0.031$, while the means are estimated with standard deviations up to $0.199$. A quantum solver that separates the best two estimated portfolios, $0.0073$ apart, resolves noise.}
+\ona{\gdef\rsW{0.42\linewidth}\gdef\rsH{0.3\linewidth}}\onp{\gdef\rsW{4.1cm}\gdef\rsH{3.6cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\resfig{}\end{tikzpicture}
+\caption{The $20$ portfolios of the worked example in the order of their true objective, with the frequency with which each solves the problem estimated from a fresh sample of $250$ days: the true optimum (black), the optimum of the estimates of the worked example (orange), and the portfolio of least estimated variance (green).}\label{fig:ch13:resample}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\resfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $4000$ fresh samples of $250$ days from the true model; the exact solution of each.
+    \item The true optimum (black): $14.6\%$.
+    \item $d^*$ of the worked portfolio (orange): $7$th in truth.
+    \item The least estimated variance (green): $6$th, always; regret $0.048$ against $0.050$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{What the simulations show}
+\onp{\small}
+\begin{itemize}\setlength\itemsep{0.35em}
+    \item \textbf{Penalties:} any $\lambda>\lambda^*$ keeps the budget; on the worked portfolio $\lambda^* = 0.0367$, and the customary $\lambda = 3$ stretches the spectrum of $H_C$ from $0.807$ to $27.66$.
+    \item \textbf{Mixers that keep the budget} reach low energies at depth one, but low energy is not the optimum when portfolios lie $0.0073$ apart. With depth, the complete $XY$ mixer is the best of them; the ring mixer does better from its own top eigenvector than from the Dicke state.
+    \item \textbf{The warm start} finds the optimum most often, and on random instances almost always; but there the relaxation is nearly integral, and rounding it finds the optimum on $98$ of $100$.
+    \item \textbf{CVaR} at the level $\alpha$ stops once the optimum carries the mass $\alpha$.
+    \item \textbf{What the optimum is worth:} the optimum of the estimates is the true optimum in $14.6\%$ of the samples, and ignoring the means does better. Solving Level 1 to optimality is not where the value lies.
+\end{itemize}
+\end{frame}
+
+\ona{\section*{Exercises}}
+
+\begin{frame}\ft{Exercises}
+\onp{\footnotesize}
+\begin{exe}[The least penalty]\label{exe:ch13:penalty}
+Show that the bound $\lambda^*\le\Delta$ of \ona{Proposition~\ref{propn:ch13:penalty}}\onp{the proposition on the penalty} is attained: find $g$ on $\{0,1\}^2$, with $B = 1$, for which $\lambda^* = \Delta$. For which $\lambda$ does the minimiser of $f_\lambda$ meet the budget?
+\end{exe}
+\begin{exe}[The octahedron]\label{exe:ch13:octa}
+For $n = 4$ and $B = 2$, the graph of the complete $XY$ mixer is the octahedron. Check \eqref{eq:ch13:spin} against its spectrum, and find an eigenvector for each eigenvalue.
+\end{exe}
+\begin{exe}[Grover's search]\label{exe:ch13:grover}
+Let $x^*$ be the unique optimum in a feasible set $F$, and let $f(x) = 0$ if $x = x^*$ and $f(x) = 1$ otherwise. Show that a layer of the circuit of \ona{Proposition~\ref{propn:ch13:grover}}\onp{the proposition on the Grover mixer} with $\gamma = \beta = \pi$ is the Grover iteration, up to a sign, and that after $p$ layers $x^*$ has the probability $\sin^2((2p+1)\theta)$, where $\sin\theta = |F|^{-1/2}$.
+\end{exe}
+\end{frame}
+
+\begin{frame}\ft{Exercises, continued}
+\onp{\footnotesize}
+\begin{exe}[CVaR saturates]\label{exe:ch13:cvar}
+Show that the CVaR at the level $\alpha$ of the distribution of $f(x)$ in a state equals $F^*$ if and only if the optimal strings have the total probability at least $\alpha$. What does this imply for training on the CVaR?
+\end{exe}
+\begin{exe}[A small Markowitz pipeline]\label{exe:ch13:pipeline}
+Using the code of \Chap~\chref{C.Motivation} as a template: (i) simulate 250 days of prices for $n = 6$ assets by geometric Brownian motion and compute $\mu$ and $\Sigma$; (ii) solve the cardinality-constrained problem \eqref{eq:ch13:qubo} exactly with Gurobi (binary variables, budget as a linear constraint) and its continuous relaxation over $[0,1]^n$ with cvxpy; (iii) build $H_C$ with the penalty encoding and run depth-one QAOA in Qiskit from a cold start and from the warm start $\theta_i = 2\arcsin\sqrt{c_i^\star}$ with the rotated mixer of \Chap~\chref{C.WSContinuous}; (iv) report the probability of sampling the optimal portfolio and the energy relative to $E_0$, and repeat over 50 random instances. Discuss how the results depend on $\lambda$ and on the overlap $d^{\star\top}c^\star/B$, and how often the optimum of the estimates is the optimum of the model that generated the prices.
 \end{exe}
 \end{frame}
 
