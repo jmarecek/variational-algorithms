@@ -153,6 +153,7 @@ HAND = {
 "broadie1993computing": "@article{broadie1993computing,\n  title={Computing efficient frontiers using estimated parameters},\n  author={Broadie, Mark},\n  journal={Annals of Operations Research},\n  volume={45},\n  number={1},\n  pages={21--58},\n  year={1993},\n  doi={10.1007/BF02282040}\n}",
 "michaud1989markowitz": "@article{michaud1989markowitz,\n  title={The {Markowitz} Optimization Enigma: Is `Optimized' Optimal?},\n  author={Michaud, Richard O.},\n  journal={Financial Analysts Journal},\n  volume={45},\n  number={1},\n  pages={31--42},\n  year={1989},\n  doi={10.2469/faj.v45.n1.31}\n}",
 "demiguel2009optimal": "@article{demiguel2009optimal,\n  title={Optimal Versus Naive Diversification: How Inefficient is the {1/N} Portfolio Strategy?},\n  author={DeMiguel, Victor and Garlappi, Lorenzo and Uppal, Raman},\n  journal={The Review of Financial Studies},\n  volume={22},\n  number={5},\n  pages={1915--1953},\n  year={2009},\n  doi={10.1093/rfs/hhm075}\n}",
+"chernoff1952measure": "@article{chernoff1952measure,\n  title={A Measure of Asymptotic Efficiency for Tests of a Hypothesis Based on the Sum of Observations},\n  author={Chernoff, Herman},\n  journal={The Annals of Mathematical Statistics},\n  volume={23},\n  number={4},\n  pages={493--507},\n  year={1952},\n  doi={10.1214/aoms/1177729330}\n}",
 }
 
 # Corrected entries that replace wrong ones in the source bibliographies, checked against Crossref.

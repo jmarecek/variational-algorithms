@@ -23,6 +23,17 @@ Writes, into figures/ch09/:
   rounds.dat        the method, the time and the mean of F - F* over the runs after each round: 0 gradient descent
                     with the shift rule, its 16 circuits submitted together, 1 one by one, 2 simultaneous perturbation,
                     3 COBYLA, 4 the reconstruction from the grid of Lecture 7 (one round)
+  hoeffding_mgf.dat the cuts 0, 2, 4 of one copy of the worked example at its optimal angles, their probabilities, and
+                    e^(s (x - mu)) with s = 0.6
+  hoeffding_paths.dat  M and the means of the first M copies along 40 sequences of 10 000 copies
+  hoeffding_bands.dat  M and the edges of Hoeffding's funnel at delta = 0.05 (h) and of the normal band (c), within [0, 4],
+                    out along the upper edges and back along the lower ones, to be filled
+  poisson_path.dat  the arrivals of a Poisson process of rate 0.8 a minute in [0, 20] minutes and their count
+  poisson_strip.dat its gaps that begin in [0, 20], as segments on a strip at the height -1.8 of the figure, with the kind
+                    0 or 1 alternately, and 2 if the gap covers one of the times 2.5, 7.5, 12.5 and 17.5 minutes
+  poisson_comb.dat  the segments from the strip up to the count after each arrival
+  poisson_cover.dat these times and the gaps that cover them
+  poisson_hist.dat  the densities of 10^6 gaps and of the gaps that cover the times 10, 20, 30, ... minutes, on bins of 0.4
 and prints the numbers quoted in the text.
 """
 import os
@@ -368,3 +379,131 @@ for name, c_, bt in (("gd", 16, True), ("gdun", 16, False), ("spsa", 2, True), (
           f"after 10 minutes {v_[min(int(600 // t_round(c_, bt)), len(v_) - 1)]:.4f}; at the end {v_[-1]:.5f}")
 print(f"  grid: one round of {tg:.1f} s; F - F* at the minimiser of the reconstruction {grid_res.mean():.5f} on average, "
       f"at most {grid_res.max():.5f} over {runs_r} runs")
+
+# --------------------------------------------------------------------------- Hoeffding's inequality
+# the cut of one copy of the worked example at its optimal angles beta = pi/8, gamma = -pi/4 lies in [a, b] = [0, 4];
+# Hoeffding's lemma with s = 0.6, and the running means of 40 sequences of 10 000 copies against Hoeffding's funnel at
+# delta = 0.05 and the normal band of the same confidence
+from scipy.special import gammaln
+rng_h = np.random.default_rng(2043)
+pcut = (probs(*angles(np.pi / 8, -np.pi / 4)) @ onehot)[0]
+cutv, a_h, b_h = np.array([0.0, 2.0, 4.0]), 0.0, 4.0
+mu_h = pcut @ cutv; sig_h = np.sqrt(pcut @ cutv**2 - mu_h**2)
+s_h = 0.6
+ex_h = np.exp(s_h * (cutv - mu_h))
+chord_h = ((b_h - mu_h) * np.exp(s_h * (a_h - mu_h)) + (mu_h - a_h) * np.exp(s_h * (b_h - mu_h))) / (b_h - a_h)
+lemma_h = np.exp(s_h**2 * (b_h - a_h)**2 / 8)
+print(f"Hoeffding: the cut of one copy at the optimal angles is 0, 2, 4 with the probabilities "
+      f"{', '.join(f'{p:.5f}' for p in pcut)}; the mean {mu_h:.4f}, the variance {sig_h**2:.4f}, sigma {sig_h:.4f}, "
+      f"against (b - a)/2 = {(b_h - a_h) / 2:.1f}")
+print(f"  the lemma with s = {s_h}: e^(s(x - mu)) at 0, 2, 4: {', '.join(f'{v:.4f}' for v in ex_h)}; E e^(s(X - mu)) = "
+      f"{pcut @ ex_h:.4f}; the chord at mu {chord_h:.4f}; e^(s^2 (b-a)^2 / 8) = {lemma_h:.4f}; at mu = (a+b)/2 the chord "
+      f"is cosh(s (b-a)/2) = {np.cosh(s_h * (b_h - a_h) / 2):.4f}")
+with open(f"{OUT}/hoeffding_mgf.dat", "w") as fh:
+    fh.write("x p e\n")
+    for x_, p_, e_ in zip(cutv, pcut, ex_h):
+        fh.write(f"{x_:.0f} {p_:.6f} {e_:.6f}\n")
+for d_ in (0.05, 1e-6):
+    print(f"  delta = {d_:g}: Hoeffding needs ln(2/delta)/2 = {np.log(2 / d_) / 2:.4f} times (b-a)^2/eps^2 copies, "
+          f"Chebyshev with the variance (b-a)^2/4 needs 1/(4 delta) = {1 / (4 * d_):.4g} times")
+delta_h, Mmax_h, R_h = 0.05, 10**4, 40
+def hw(M): return (b_h - a_h) * np.sqrt(np.log(2 / delta_h) / (2 * M))
+def cw(M): return 1.959964 * sig_h / np.sqrt(M)
+shots = rng_h.choice(cutv, size=(R_h, Mmax_h), p=pcut)
+run = np.cumsum(shots, 1) / np.arange(1, Mmax_h + 1)
+grid_h = np.unique(np.concatenate([np.arange(1, 21), np.round(np.logspace(np.log10(20), 4, 90)).astype(int)]))
+with open(f"{OUT}/hoeffding_paths.dat", "w") as fh:
+    fh.write("M " + " ".join(f"p{r}" for r in range(R_h)) + "\n")
+    for M in grid_h:
+        fh.write(f"{M} " + " ".join(f"{v:.5f}" for v in run[:, M - 1]) + "\n")
+Mf = np.logspace(0, 4, 241)
+with open(f"{OUT}/hoeffding_bands.dat", "w") as fh:
+    fh.write("M h c\n")
+    for M in Mf:
+        fh.write(f"{M:.4f} {min(b_h, mu_h + hw(M)):.5f} {min(b_h, mu_h + cw(M)):.5f}\n")
+    for M in Mf[::-1]:
+        fh.write(f"{M:.4f} {max(a_h, mu_h - hw(M)):.5f} {max(a_h, mu_h - cw(M)):.5f}\n")
+def tail(M, eps):
+    """Pr[|mean of M copies - mu| >= eps], exactly, from the trinomial distribution of the counts of 2 and 4."""
+    n4, n2 = np.arange(M + 1)[:, None], np.arange(M + 1)[None, :]
+    n0 = M - n2 - n4; ok = n0 >= 0; n0c = np.maximum(n0, 0)
+    lp = (gammaln(M + 1) - gammaln(n0c + 1) - gammaln(n2 + 1) - gammaln(n4 + 1)
+          + n0c * np.log(pcut[0]) + n2 * np.log(pcut[1]) + n4 * np.log(pcut[2]))
+    far = np.abs((2 * n2 + 4 * n4) / M - mu_h) >= eps - 1e-12
+    return np.exp(lp)[ok & far].sum()
+dev = np.abs(run[:, 999] - mu_h)
+print(f"  the funnel at delta = {delta_h}: the half-width (b-a) sqrt(ln(2/delta)/(2M)) is below b - mu from "
+      f"M = {(b_h - a_h)**2 * np.log(2 / delta_h) / (2 * (b_h - mu_h)**2):.1f} and below mu - a from "
+      f"M = {(b_h - a_h)**2 * np.log(2 / delta_h) / (2 * (mu_h - a_h)**2):.2f}; at M = 250 it is {hw(250):.4f}, "
+      f"at M = 1000 {hw(1000):.4f}, the normal band 1.96 sigma / sqrt(M) {cw(1000):.4f}")
+print(f"  at M = 1000, of the {R_h} paths {np.sum(dev >= hw(1000))} lie outside the funnel and {np.sum(dev >= cw(1000))} "
+      f"outside the normal band; the largest deviation {dev.max():.4f}; the exact probabilities of leaving them "
+      f"{tail(1000, hw(1000)):.3e} and {tail(1000, cw(1000)):.4f}")
+eps_c = 0.1
+Mc = [M for M in range(300, 701) if tail(M, eps_c) <= delta_h]
+Mexact = next(M for M in Mc if all(m_ in Mc for m_ in range(M, 701)))
+print(f"  copies for eps = {eps_c}, delta = {delta_h}: Hoeffding {np.ceil((b_h - a_h)**2 * np.log(2 / delta_h) / (2 * eps_c**2)):.0f}, "
+      f"Chebyshev with sigma^2 {np.ceil(sig_h**2 / (delta_h * eps_c**2)):.0f}, with (b-a)^2/4 "
+      f"{np.ceil((b_h - a_h)**2 / (4 * delta_h * eps_c**2)):.0f}, the normal approximation "
+      f"{np.ceil((1.959964 * sig_h / eps_c)**2):.0f}, exactly {Mexact} (the exact probability at M = {Mexact} is "
+      f"{tail(Mexact, eps_c):.4f})")
+
+# --------------------------------------------------------------------------- the Poisson process
+# the jobs of the other users at the load rho = 0.8 with E S = 1 minute arrive at the rate lambda = 0.8 a minute: a path on
+# [0, 20] minutes with the gaps that cover the times 2.5, 7.5, 12.5 and 17.5, fixed in advance; in the long run, 10^6 gaps,
+# the gaps that cover the times 10, 20, 30, ..., and the counts in windows of 5 minutes
+rng_p = np.random.default_rng(2044)
+lam = 0.8
+Tp = np.cumsum(rng_p.exponential(1 / lam, 60))
+us = np.array([2.5, 7.5, 12.5, 17.5])
+kc = np.searchsorted(Tp, us)
+Tp0 = np.concatenate([[0.0], Tp])
+cover = np.stack([us, Tp0[kc], Tp0[kc + 1]], 1)
+inwin = Tp[Tp <= 20]
+with open(f"{OUT}/poisson_path.dat", "w") as fh:
+    fh.write("t N\n0 0\n")
+    for k, t_ in enumerate(inwin):
+        fh.write(f"{t_:.4f} {k + 1}\n")
+    fh.write(f"20 {len(inwin)}\n")
+with open(f"{OUT}/poisson_strip.dat", "w") as fh:
+    fh.write("x y k\n")
+    for k in range(len(Tp)):
+        if Tp0[k] > 20: break
+        kind = 2 if k in kc else k % 2
+        fh.write(f"{Tp0[k]:.4f} -1.8 {kind}\n{min(Tp0[k + 1], 20):.4f} -1.8 {kind}\nnan nan {kind}\n")
+with open(f"{OUT}/poisson_comb.dat", "w") as fh:
+    fh.write("x y\n")
+    for k, t_ in enumerate(inwin):
+        fh.write(f"{t_:.4f} -1.8\n{t_:.4f} {k + 1}\nnan nan\n")
+with open(f"{OUT}/poisson_cover.dat", "w") as fh:
+    fh.write("u start end\n")
+    for u_, s_, e_ in cover:
+        fh.write(f"{u_} {s_:.4f} {e_:.4f}\n")
+gin = np.diff(Tp0[:len(inwin) + 1])
+print(f"Poisson process, lambda = {lam} a minute: {len(inwin)} arrivals in [0, 20], against the mean {20 * lam:.0f}; "
+      f"the gaps that end in it have the mean {gin.mean():.3f} and run from {gin.min():.3f} to {gin.max():.3f}; the gaps "
+      f"that cover {', '.join(f'{u_}' for u_ in us)}: {', '.join(f'{e_ - s_:.3f}' for _, s_, e_ in cover)}, the mean "
+      f"{np.mean(cover[:, 2] - cover[:, 1]):.3f}; their parts after the times {', '.join(f'{e_ - u_:.3f}' for u_, _, e_ in cover)}; "
+      f"the counts in the windows of 5 minutes {', '.join(str(c_) for c_ in np.histogram(inwin, bins=[0, 5, 10, 15, 20])[0])}")
+TL = np.cumsum(rng_p.exponential(1 / lam, 10**6)); TL0 = np.concatenate([[0.0], TL])
+gaps = np.diff(TL0)
+uL = np.arange(10.0, TL[-1] - 10, 10.0)
+kL = np.searchsorted(TL, uL)
+covL, fwdL, bwdL = TL0[kL + 1] - TL0[kL], TL0[kL + 1] - uL, uL - TL0[kL]
+cnt = np.histogram(TL, bins=np.arange(0, TL[-1] - 5, 5.0))[0]
+print(f"  in the long run: {len(gaps)} gaps of the mean {gaps.mean():.4f} (1/lambda = {1 / lam}); at {len(uL)} times fixed "
+      f"in advance, the covering gaps have the mean {covL.mean():.4f} (2/lambda = {2 / lam}), their parts after the "
+      f"times {fwdL.mean():.4f} and before {bwdL.mean():.4f}, correlated by {np.corrcoef(fwdL, bwdL)[0, 1]:.4f}; the "
+      f"counts in {len(cnt)} windows of 5 minutes have the mean {cnt.mean():.4f} and the variance {cnt.var():.4f}, and "
+      f"those of neighbouring windows the correlation {np.corrcoef(cnt[:-1], cnt[1:])[0, 1]:.4f}; Pr[N = 0] = "
+      f"{np.mean(cnt == 0):.4f} against e^-4 = {np.exp(-4):.4f}")
+edges_p = np.arange(0, 8.0001, 0.4)
+hg = np.histogram(gaps, bins=edges_p)[0] / (len(gaps) * 0.4)
+hc = np.histogram(covL, bins=edges_p)[0] / (len(covL) * 0.4)
+with open(f"{OUT}/poisson_hist.dat", "w") as fh:
+    fh.write("x gap cover\n")
+    for x_, g_, c_ in zip(edges_p[:-1] + 0.2, hg, hc):
+        fh.write(f"{x_:.2f} {g_:.5f} {c_:.5f}\n")
+print(f"  short gaps are rarely covered: Pr[gap < 0.4] = {np.mean(gaps < 0.4):.4f}, of the covering gaps "
+      f"{np.mean(covL < 0.4):.4f}; long ones often: Pr[gap > 4] = {np.mean(gaps > 4):.4f}, of the covering gaps "
+      f"{np.mean(covL > 4):.4f}")

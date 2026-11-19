@@ -9,14 +9,288 @@
 \lecture{Per-Iteration Complexity of QAOA}{Lect09}
 \chapter{Per-Iteration Complexity of QAOA}\label{C.PerIteration}
 
-\ona{\Chap~\chref{C.IterationComplexity} counted iterations. This \chap{} asks what one iteration \emph{costs}: copies, circuits, depth, classical simulation and, above all, time. On a device in the cloud, each iteration is a round trip: the circuits travel to the device, wait in its queue, are prepared and executed, and the results travel back, and the next circuits cannot be sent before they have arrived. We take a measured round trip apart, model the queue and derive the waits of a variational method in it, and show how the delays decide how many copies a round should carry and which methods are fast. We then recall from \Chap~\chref{C.VQE} why no per-iteration budget rescues the worst case, since training is $\mathbf{NP}$-hard \citep{bittel2021training}, and follow \citet{marecek2026angles}, \emph{Setting angles in quantum approximate optimization at utility-scale}, where these costs decide how the angles of QAOA are set at 100 qubits or more. The numbers of Sections~\ref{sec:ch09:round}--\ref{sec:ch09:copies} are computed by \texttt{code/ch09\_figures.py}.}
+\ona{\Chap~\chref{C.IterationComplexity} counted iterations. This \chap{} asks what one iteration \emph{costs}: copies, circuits, depth, classical simulation and, above all, time. We first prove two tools from applied probability: Hoeffding's inequality, which says how many copies an estimate needs, and the properties of the Poisson process, the model of the arrivals at a shared device. On a device in the cloud, each iteration is a round trip: the circuits travel to the device, wait in its queue, are prepared and executed, and the results travel back, and the next circuits cannot be sent before they have arrived. We take a measured round trip apart, model the queue and derive the waits of a variational method in it, and show how the delays decide how many copies a round should carry and which methods are fast. We then recall from \Chap~\chref{C.VQE} why no per-iteration budget rescues the worst case, since training is $\mathbf{NP}$-hard \citep{bittel2021training}, and follow \citet{marecek2026angles}, \emph{Setting angles in quantum approximate optimization at utility-scale}, where these costs decide how the angles of QAOA are set at 100 qubits or more. The numbers of Section~\ref{sec:ch09:prob} and of Sections~\ref{sec:ch09:round}--\ref{sec:ch09:copies} are computed by \texttt{code/ch09\_figures.py}.}
+
+\section{Preliminaries from applied probability}\label{sec:ch09:prob}
+
+\begin{frame}\ft{Averages of bounded values}
+\onp{\footnotesize}
+\ona{Each evaluation of a variational cost on a device is an estimate: the mean of the values measured on $M$ copies of a state. How many copies give the precision $\epsilon$ with the probability $1-\delta$? If a measured value $X$ has the mean $\mu$ and the variance $\sigma^2$, the mean $\bar X$ of $M$ independent copies has the variance $\sigma^2/M$, and Chebyshev's inequality gives $\mathrm{Pr}[|\bar X-\mu|\ge\epsilon]\le\sigma^2/(M\epsilon^2)$, which asks for $\sigma^2/(\delta\epsilon^2)$ copies, a number proportional to $1/\delta$. A measured value is bounded, however, since it is an eigenvalue of the observable, and for bounded values the probability of a large deviation decays exponentially in $M$.}
+\begin{thm}[\citet{hoeffding1963probability}]\label{thm:ch09:hoeffding}
+Let $X_1,\dots,X_M$ be independent random variables with $a\le X_i\le b$, let $\bar X = \frac1M\sum_{i=1}^MX_i$, and let $\mu = \mathbb E\,\bar X$. Then for every $\epsilon>0$,
+\begin{equation}\label{eq:ch09:hoeffding}
+    \mathrm{Pr}\big[\bar X-\mu\ge\epsilon\big]\le e^{-2M\epsilon^2/(b-a)^2}
+    \qquad\text{and}\qquad
+    \mathrm{Pr}\big[|\bar X-\mu|\ge\epsilon\big]\le 2e^{-2M\epsilon^2/(b-a)^2}.
+\end{equation}
+\end{thm}
+\ona{Equating the right-hand side with $\delta$, the mean of}
+\onp{Hence}
+\begin{equation}\label{eq:ch09:hcopies}
+    M\ge\frac{(b-a)^2}{2\epsilon^2}\ln\frac2\delta
+\end{equation}
+\ona{copies is within $\epsilon$ of $\mu$ with the probability at least $1-\delta$. Only the range $b-a$ enters, not the distribution. Since $\mathrm{Var}\,X\le\mathbb E(X-\frac{a+b}2)^2\le\frac{(b-a)^2}4$, Chebyshev's inequality with the same information asks for $(b-a)^2/(4\delta\epsilon^2)$ copies. At $\delta = 0.05$, the two counts are $1.84$ and $5$ times $(b-a)^2/\epsilon^2$; at $\delta = 10^{-6}$, they are $7.25$ and $250\,000$ times. The logarithm of $1/\delta$ is what makes a union bound over many estimates affordable, as in the reconstruction from a grid of \Chap~\chref{C.PSR}.}
+\onp{copies suffice for $|\bar X-\mu|<\epsilon$ with probability $1-\delta$; only the range $b-a$ enters. Chebyshev, with $\mathrm{Var}\,X\le(b-a)^2/4$, asks for $(b-a)^2/(4\delta\epsilon^2)$: at $\delta = 10^{-6}$, $250\,000$ against $7.25$ times $(b-a)^2/\epsilon^2$.}
+\end{frame}
+
+\begin{frame}\ft{Hoeffding's lemma}
+\onp{\footnotesize}
+\ona{The proof rests on a bound on the moment generating function of a single bounded value.}
+\begin{lem}[\citet{hoeffding1963probability}]\label{lem:ch09:hoeffding}
+If $a\le X\le b$ and $\mu = \mathbb E\,X$, then $\mathbb E\,e^{s(X-\mu)}\le e^{s^2(b-a)^2/8}$ for every real $s$.
+\end{lem}
+\ona{\emph{Proof.} Let $p = (\mu-a)/(b-a)$, which lies in $[0,1]$, and $h = s(b-a)$. The function $x\mapsto e^{sx}$ is convex, so that on $[a,b]$ it lies below its chord: $e^{sx}\le\frac{b-x}{b-a}e^{sa}+\frac{x-a}{b-a}e^{sb}$. Taking expectations, $\mathbb E\,e^{sX}\le(1-p)e^{sa}+pe^{sb}$, which is $\mathbb E\,e^{sY}$ for the variable $Y$ that takes the value $b$ with the probability $p$ and the value $a$ otherwise, and has the same mean $\mu$. Since $a-\mu = -p(b-a)$, multiplying by $e^{-s\mu}$ gives $\mathbb E\,e^{s(X-\mu)}\le e^{\varphi(h)}$ with $\varphi(h) = -ph+\ln(1-p+pe^h)$. Here $\varphi(0) = 0$; $\varphi'(h) = -p+u$ with $u = pe^h/(1-p+pe^h)$, which lies in $[0,1]$, so that $\varphi'(0) = 0$; and $\varphi''(h) = u(1-u)\le\frac14$. By Taylor's theorem, $\varphi(h)\le\frac{h^2}8 = \frac{s^2(b-a)^2}8$. \qed}
+\onp{Proof: $e^{sx}$ lies below its chord on $[a,b]$, so $\mathbb E\,e^{sX}\le(1-p)e^{sa}+pe^{sb}$ with $p = (\mu-a)/(b-a)$, the value for the two-point variable on $\{a,b\}$ with the mean $\mu$. With $h = s(b-a)$, multiplying by $e^{-s\mu}$ gives $e^{\varphi(h)}$, $\varphi(h) = -ph+\ln(1-p+pe^h)$, with $\varphi(0) = \varphi'(0) = 0$ and $\varphi''\le\frac14$; Taylor's theorem gives $\varphi(h)\le h^2/8$.}
+
+\end{frame}
+
+% Hoeffding's lemma on the worked example at its optimal angles: the cut of one copy is 0, 2 or 4 (bars, height 0.6 p);
+% the points (x, e^{s(x - mu)}), s = 0.6, on the convex curve, the triangle that they span, its centre of mass at
+% (mu, E e^{s(X - mu)}), the chord, and the bound of the lemma
+\mode<all>{\gdef\hlemfig#1{\begin{axis}[#1,width=\hlW,height=\hlH,scale only axis,clip=false,axis lines=left,xmin=-0.5,xmax=4.5,ymin=0,ymax=2.3,xtick={0,2,3,4},xticklabels={$a = 0$,$2$,$\mu$,$b = 4$},ytick={0,1,2}]
+  \addplot[ybar,bar width=0.22,bar shift=0pt,fill=blue!20,draw=blue!50] table[x=x,y expr=0.6*\thisrow{p}] {figures/ch09/hoeffding_mgf.dat};
+  \fill[blue!10] (axis cs:0,0.1653) -- (axis cs:2,0.5488) -- (axis cs:4,1.8221) -- cycle;
+  \addplot[domain=-0.45:4.4,samples=90,thick,black] {exp(0.6*(x-3))};
+  \draw[red!75!black,thick] (axis cs:0,0.1653) -- (axis cs:4,1.8221);
+  \draw[gray,densely dashed] (axis cs:3,0) -- (axis cs:3,2.2);
+  \draw[green!50!black,thick,densely dotted] (axis cs:-0.3,2.0544) -- (axis cs:4.4,2.0544);
+  \addplot[only marks,mark=*,mark size=1.8pt,blue!70!black] table[x=x,y=e] {figures/ch09/hoeffding_mgf.dat};
+  \fill[green!50!black] (axis cs:3,2.0544) circle (2pt);
+  \fill[red!75!black] (axis cs:3,1.4079) circle (2pt);
+  \fill[blue!70!black] (axis cs:3,1.2133) circle (2pt);
+  \draw[black,fill=white] (axis cs:3,1) circle (1.8pt);
+  \draw[{Stealth[length=3pt]}-{Stealth[length=3pt]},gray] (axis cs:0,-0.55) -- node[fill=white,font=\scriptsize,inner sep=1pt] {$b-a$} (axis cs:4,-0.55);
+  \ona{\node[note,anchor=east] (h1) at (axis cs:-0.85,0.42) {a copy returns the cut $0$, $2$\\or $4$ with the probabilities\\$\frac1{32}$, $\frac7{16}$, $\frac{17}{32}$ (bars), at the\\optimal angles; $\mu = 3$};
+  \draw[notearrow] (h1.east) to[bend right=10] (axis cs:1.88,0.2);
+  \node[note,anchor=east] (h2) at (axis cs:-0.85,1.25) {$e^{s(x-\mu)}$ with $s = 0.6$\\(black), a convex curve};
+  \draw[notearrow] (h2.east) to[bend left=12] (axis cs:0.95,0.31);
+  \node[note,anchor=east] (h3) at (axis cs:-0.85,1.95) {its chord over $[a,b]$ (red)\\lies above it, and so does\\the triangle of the points};
+  \draw[notearrow] (h3.east) to[bend left=12] (axis cs:1.6,0.83);
+  \node[note,anchor=west] (h7) at (axis cs:4.7,2.35) {Hoeffding's lemma: at most\\$e^{s^2(b-a)^2/8} = 2.054$ (green),\\whatever the distribution on $[a,b]$};
+  \draw[notearrow] (h7.west) to[bend right=10] (axis cs:4.3,2.08);
+  \node[note,anchor=west] (h5) at (axis cs:4.7,1.68) {the chord at $\mu$, $1.408$: the variable\\with the values $a$ and $b$ only and\\the same mean $\mu$, the worst case};
+  \draw[notearrow] (h5.west) to[bend right=8] (axis cs:3.1,1.42);
+  \node[note,anchor=west] (h4) at (axis cs:4.7,1.02) {$\mathbb E\,e^{s(X-\mu)} = 1.213$: the centre of\\mass of the three points, weighted by\\the probabilities, inside their triangle};
+  \draw[notearrow] (h4.west) to[bend left=6] (axis cs:3.1,1.21);
+  \node[note,anchor=west] (h6) at (axis cs:4.7,0.4) {Jensen's inequality: at least\\$e^0 = 1$ (open circle)};
+  \draw[notearrow] (h6.west) to[bend left=12] (axis cs:3.08,0.96);
+  \node[note,anchor=north] (h8) at (axis cs:2,-0.72) {only the range $b-a = 4$ enters the bound, not the probabilities};}
+\end{axis}}}
+\begin{frame}\ft{Hoeffding's lemma, pictured}
+\ona{Figure~\ref{fig:ch09:hlemma} pictures the proof on the worked example of \Chap~\chref{C.VQE}, depth-one QAOA for MaxCut on the $4$-cycle, at its optimal angles $(\beta,\gamma) = (\pi/8,-\pi/4)$. A copy returns the cut $0$, $2$ or $4$, with the probabilities $\frac1{32}$, $\frac7{16}$ and $\frac{17}{32}$, so that $[a,b] = [0,4]$, the mean is $\mu = 3$ and the variance $\sigma^2 = 1.25$. The points $(x,e^{s(x-\mu)})$ of the three values, weighted by their probabilities, have their centre of mass at $(\mu,\mathbb E\,e^{s(X-\mu)})$, inside the triangle that they span, which lies below the chord. With $s = 0.6$, the centre of mass is at the height $1.213$, the chord at $1.408$, and the bound of the lemma at $2.054$. The chord at $\mu$ is highest when $\mu = (a+b)/2$, where it is $\cosh(s(b-a)/2) = 1.811$; the lemma bounds it for every $\mu$, and its bound $e^{h^2/8}$ agrees with $\cosh(h/2)$ to the second order in $h$.}
+\ona{\gdef\hlW{0.33\linewidth}\gdef\hlH{0.26\linewidth}}\onp{\gdef\hlW{4.4cm}\gdef\hlH{3.5cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\hlemfig{}\end{tikzpicture}
+\caption{Hoeffding's lemma on the worked example at its optimal angles, with $s = 0.6$: the distribution of the cut of one copy (bars), the points $(x,e^{s(x-\mu)})$ of its three values on the convex curve (black), the triangle that they span (shaded), the chord (red), and, above $\mu$, the curve (open circle), the centre of mass $\mathbb E\,e^{s(X-\mu)}$ (blue), the chord (red) and the bound $e^{s^2(b-a)^2/8}$ (green).}\label{fig:ch09:hlemma}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\hlemfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Worked example at $(\pi/8,-\pi/4)$: the cut $0$, $2$, $4$ with probabilities $\frac1{32}$, $\frac7{16}$, $\frac{17}{32}$ (bars); $\mu = 3$.
+    \item $e^{s(x-\mu)}$, $s = 0.6$, is convex: below its chord (red) on $[a,b]$.
+    \item $\mathbb E\,e^{s(X-\mu)} = 1.213$ is the centre of mass of the three points (blue), inside their triangle.
+    \item The chord at $\mu$, $1.408$: all the mass at $a$ and $b$, the worst case.
+    \item The lemma: at most $e^{s^2(b-a)^2/8} = 2.054$ (green), whatever the distribution; Jensen: at least $1$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{The proof of Hoeffding's inequality}
+\onp{\footnotesize}
+\ona{The theorem follows by the method of \citet{chernoff1952measure}: Markov's inequality, applied to an exponential of the sum, and Lemma~\ref{lem:ch09:hoeffding} for each term.}
+\ona{\emph{Proof of Theorem~\ref{thm:ch09:hoeffding}.} Let $\mu_i = \mathbb E\,X_i$ and $s>0$. The variable $e^{sM(\bar X-\mu)} = \prod_ie^{s(X_i-\mu_i)}$ is positive, and by Markov's inequality, by independence and by Lemma~\ref{lem:ch09:hoeffding},}
+\onp{For $s>0$, by Markov's inequality, independence and the lemma,}
+\begin{equation}\label{eq:ch09:chernoff}
+    \mathrm{Pr}\big[\bar X-\mu\ge\epsilon\big]\le e^{-sM\epsilon}\,\mathbb E\,e^{sM(\bar X-\mu)} = e^{-sM\epsilon}\prod_{i=1}^M\mathbb E\,e^{s(X_i-\mu_i)}\le e^{-sM\epsilon+Ms^2(b-a)^2/8}.
+\end{equation}
+\ona{The exponent is a convex quadratic in $s$, least at $s = 4\epsilon/(b-a)^2$, where it equals $-2M\epsilon^2/(b-a)^2$. The variables $-X_i$ lie in $[-b,-a]$, an interval of the same length, which gives the same bound on $\mathrm{Pr}[\bar X-\mu\le-\epsilon]$, and the two-sided bound is the sum of the two. \qed}
+\onp{The exponent is least at $s = 4\epsilon/(b-a)^2$, where it is $-2M\epsilon^2/(b-a)^2$; the lower tail follows from the $-X_i$, in $[-b,-a]$.}
+
+\end{frame}
+
+% the means of the first M copies of the worked example at its optimal angles along 40 sequences of copies (grey, one
+% in blue), Hoeffding's funnel at delta = 0.05 (blue) and the normal band of the same confidence (orange)
+\mode<all>{\gdef\hfunfig#1{\begin{axis}[#1,width=\hfW,height=\hfH,scale only axis,clip=false,axis lines=left,xmode=log,xmin=1,xmax=10000,ymin=0,ymax=4,ytick={0,1,2,3,4},xlabel={copies $M$},ylabel={the mean cut of $M$ copies}]
+  \addplot[fill=blue!12,draw=blue!50] table[x=M,y=h] {figures/ch09/hoeffding_bands.dat} -- cycle;
+  \addplot[fill=orange!30,draw=orange!80!black,densely dashed] table[x=M,y=c] {figures/ch09/hoeffding_bands.dat} -- cycle;
+  \pgfplotsinvokeforeach{1,...,39}{\addplot[gray!55,very thin] table[x=M,y=p##1] {figures/ch09/hoeffding_paths.dat};}
+  \addplot[blue!70!black,semithick] table[x=M,y=p0] {figures/ch09/hoeffding_paths.dat};
+  \addplot[black,dashed,domain=1:10000,samples=2] {3};
+  \draw[densely dotted] (axis cs:1000,0) -- (axis cs:1000,4);
+  \fill[blue!60!black] (axis cs:250,3.3436) circle (1.5pt);
+  \fill[blue!60!black] (axis cs:1000,3.1718) circle (1.5pt);
+  \ona{\node[note,anchor=south west] (f1) at (axis cs:1,4.25) {one copy: the cut $0$, $2$ or $4$;\\the first means jump across\\the whole range};
+  \draw[notearrow] ([xshift=0.3cm]f1.south west) to[bend right=15] (axis cs:1.1,3.93);
+  \node[note,anchor=west] (f3) at (axis cs:14000,4.5) {Hoeffding's funnel $\mu\pm(b-a)\sqrt{\ln(2/\delta)/2M}$,\\$\delta = 0.05$ (blue): it knows only the range\\$[0,4]$; its upper edge is below $4$ from $M = 30$};
+  \draw[notearrow] (f3.west) to[bend right=15] (axis cs:60,3.62);
+  \node[note,anchor=west] (f4) at (axis cs:14000,3.55) {four times the copies, half the width:\\$0.344$ at $M = 250$, $0.172$ at $1000$};
+  \draw[notearrow] (f4.west) to[bend right=20] (axis cs:290,3.36);
+  \node[note,anchor=west] (f5) at (axis cs:14000,2.55) {the normal band $\mu\pm1.96\,\sigma/\sqrt M$,\\$\sigma = 1.118$ (orange), set by the spread:\\$3$ of the $40$ paths lie outside it at $1000$};
+  \draw[notearrow] (f5.west) to[bend left=12] (axis cs:2500,2.97);
+  \node[note,anchor=west] (f6) at (axis cs:14000,1.3) {at $M = 1000$ (dotted), the mean leaves\\Hoeffding's funnel with the probability\\$1.3\cdot10^{-6}$, not $0.05$: the price of\\knowing only the range};
+  \draw[notearrow] (f6.west) to[bend left=10] (axis cs:1060,1.6);
+  \node[note,anchor=north west] (f2) at (axis cs:1,-1.1) {the means along one sequence of copies (blue); $40$\\sequences of $10\,000$ copies (grey); the mean cut $\mu = 3$\\(dashed) is $-F^*$};
+  \draw[notearrow] ([xshift=2.6cm]f2.north west) to[bend right=25] (axis cs:43,2.55);}
+\end{axis}}}
+\begin{frame}\ft{Averages of copies, pictured}
+\ona{Figure~\ref{fig:ch09:funnel} draws the means of the first $M$ copies of the worked example at its optimal angles, for $M$ up to $10\,000$, along $40$ sequences of copies. Hoeffding's funnel $\mu\pm(b-a)\sqrt{\ln(2/\delta)/(2M)}$, with $\delta = 0.05$, contains the mean of $M$ copies with the probability at least $0.95$, for each $M$ and for every distribution on $[0,4]$; its upper edge comes below $b = 4$ only from $M = 30$. Its half-width is $0.344$ at $M = 250$ and $0.172$ at $M = 1000$: four times the copies halve it. The paths fill a narrower funnel, set by $\sigma = 1.118$ rather than by the range. At $M = 1000$, the normal approximation $\mu\pm1.96\,\sigma/\sqrt M$ has the half-width $0.069$, and $3$ of the $40$ paths lie outside it and none outside Hoeffding's funnel; the exact probabilities of leaving the two, from the trinomial distribution of the counts of each cut, are $0.051$ and $1.3\cdot10^{-6}$. For $\epsilon = 0.1$ and $\delta = 0.05$, \eqref{eq:ch09:hcopies} asks for $2\,952$ copies, Chebyshev's inequality for $2\,500$ with $\sigma^2$ and for $8\,000$ with $(b-a)^2/4$, and the normal approximation for $481$; the exact probability falls below $0.05$ from $M = 490$. The guarantee of Hoeffding's inequality costs a factor of six here, the price of knowing only the range.}
+\ona{\gdef\hfW{0.4\linewidth}\gdef\hfH{0.3\linewidth}}\onp{\gdef\hfW{4.6cm}\gdef\hfH{3.4cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\hfunfig{}\end{tikzpicture}
+\caption{The means of the first $M$ copies of the worked example at its optimal angles, along $40$ sequences of $10\,000$ copies (grey, one in blue), with Hoeffding's funnel at $\delta = 0.05$ (blue) and the normal band of the same confidence (orange, dashed), on a logarithmic axis of copies.}\label{fig:ch09:funnel}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\hfunfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $40$ sequences of copies at the optimal angles (grey, one blue): the mean of the first $M$ cuts; $\mu = 3$.
+    \item Hoeffding's funnel, $\delta = 0.05$ (blue): only the range $[0,4]$ enters; half-width $0.344$ at $M = 250$, $0.172$ at $1000$.
+    \item The normal band $\mu\pm1.96\,\sigma/\sqrt M$, $\sigma = 1.118$ (orange): $3$ of $40$ paths outside at $M = 1000$.
+    \item At $M = 1000$ the exact probability of leaving Hoeffding's funnel is $1.3\cdot10^{-6}$.
+    \item $\epsilon = 0.1$, $\delta = 0.05$: Hoeffding $2\,952$ copies; exactly $490$.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{The Poisson process}
+\onp{\footnotesize}
+\ona{The users of a device in the cloud submit their jobs independently of one another, at times that nobody schedules. The standard model of such arrivals is the Poisson process \citep[Chapter~11]{harcholbalter2013performance}, which Section~\ref{sec:ch09:queue} takes for the jobs of the other users.}
+\begin{defn}\label{defn:ch09:poisson}
+Let $\lambda>0$, and let $X_1,X_2,\dots$ be independent and exponentially distributed with the mean $1/\lambda$: $\mathrm{Pr}[X_k>x] = e^{-\lambda x}$ for $x\ge0$. The times $T_k = X_1+\dots+X_k$ are the \emph{arrivals} of a \emph{Poisson process} of \emph{rate} $\lambda$, the $X_k$ are its \emph{gaps}, and $N(t) = |\{k : T_k\le t\}|$ is the number of arrivals up to the time $t$.
+\end{defn}
+\onp{\begin{itemize}\setlength\itemsep{0.3em}
+    \item The model of arrivals that nobody schedules: the jobs of the other users of a device.
+    \item The gaps have the mean $1/\lambda$; on average, $\lambda$ arrivals per unit of time.
+\end{itemize}}
+\end{frame}
+
+\begin{frame}\ft{Properties of the Poisson process}
+\onp{\footnotesize}
+\begin{propn}\label{propn:ch09:poisson}
+A Poisson process of rate $\lambda$ has the following properties.
+\begin{itemize}\setlength\itemsep{0.1em}
+    \item[(a)] It forgets: $\mathrm{Pr}[X_k>x+y\mid X_k>y] = e^{-\lambda x}$ for all $x,y\ge0$.
+    \item[(b)] It restarts: for every time $u\ge0$, the arrivals after $u$, less $u$, form a Poisson process of rate $\lambda$, independent of the arrivals up to $u$. The same holds when $u$ is a \emph{stopping time}, a random time decided by what has happened up to it, such as the time at which a client submits a round.
+    \item[(c)] Its counts are Poisson: $\mathrm{Pr}[N(u+t)-N(u) = k] = e^{-\lambda t}(\lambda t)^k/k!$, with the mean $\lambda t$, and the counts in disjoint intervals are independent.
+    \item[(d)] If the $k$th arrival brings the work $S_k$, and $S_1,S_2,\dots$ are distributed as $S$ and independent of the arrivals, the work that arrives in an interval of length $t$ has the mean $\lambda t\,\mathbb ES$.
+    \item[(e)] Independent Poisson processes of the rates $\lambda_1,\dots,\lambda_m$ together form a Poisson process of rate $\lambda_1+\dots+\lambda_m$.
+\end{itemize}
+\end{propn}
+\end{frame}
+
+\begin{frame}\ft{The properties of the Poisson process, proved}
+\onp{\footnotesize}
+\ona{\emph{Proof.} (a) $e^{-\lambda(x+y)}/e^{-\lambda y} = e^{-\lambda x}$. (b) Given $N(u) = k$ and $T_1,\dots,T_k$, all that is known of $X_{k+1}$ is that $X_{k+1}>u-T_k$. By (a), the time $T_{k+1}-u$ to the next arrival is then exponential with the mean $1/\lambda$, and the gaps $X_{k+2},X_{k+3},\dots$ are independent of it and of the past. The same argument applies at a stopping time $u$, which on the event $N(u) = k$ is decided by $T_1,\dots,T_k$ and by what is independent of the arrivals. (c) By induction on $k$, $T_k$ has the density $\lambda^ks^{k-1}e^{-\lambda s}/(k-1)!$, since $\int_0^s\frac{\lambda^kr^{k-1}e^{-\lambda r}}{(k-1)!}\,\lambda e^{-\lambda(s-r)}\,dr = \frac{\lambda^{k+1}s^ke^{-\lambda s}}{k!}$. Hence, for $k\ge1$, $\mathrm{Pr}[N(t) = k] = \mathrm{Pr}[T_k\le t<T_k+X_{k+1}] = \int_0^t\frac{\lambda^ks^{k-1}e^{-\lambda s}}{(k-1)!}\,e^{-\lambda(t-s)}\,ds = e^{-\lambda t}\frac{(\lambda t)^k}{k!}$, and $\mathrm{Pr}[N(t) = 0] = \mathrm{Pr}[X_1>t] = e^{-\lambda t}$. By (b), the same holds for $N(u+t)-N(u)$, and the count in an interval is independent of the counts in the intervals before it. (d) The work $\sum_kS_k\mathbf 1[u<T_k\le u+t]$ has the mean $\mathbb ES\cdot\mathbb E[N(u+t)-N(u)] = \lambda t\,\mathbb ES$, by (c). (e) For $m = 2$, the first arrival of either process comes after $\min\{X,X'\}$, for the independent first gaps $X$ and $X'$ of the rates $\lambda_1$ and $\lambda_2$, and $\mathrm{Pr}[\min\{X,X'\}>x] = e^{-\lambda_1x}e^{-\lambda_2x}$. By (b), both processes restart at that arrival, a stopping time, so that the gaps of the merged process are independent and exponential with the rate $\lambda_1+\lambda_2$. Induction on $m$ completes the proof. \qed}
+\onp{\begin{itemize}\setlength\itemsep{0.3em}
+    \item[(a)] $e^{-\lambda(x+y)}/e^{-\lambda y} = e^{-\lambda x}$.
+    \item[(b)] Given $N(u) = k$ and $T_1,\dots,T_k$, only $X_{k+1}>u-T_k$ is known; by (a), $T_{k+1}-u$ is exponential, and the later gaps are independent of the past.
+    \item[(c)] $T_k$ has the density $\lambda^ks^{k-1}e^{-\lambda s}/(k-1)!$, and $N(t) = k$ if and only if $T_k\le t<T_k+X_{k+1}$: $\int_0^t\frac{\lambda^ks^{k-1}e^{-\lambda s}}{(k-1)!}e^{-\lambda(t-s)}\,ds = e^{-\lambda t}\frac{(\lambda t)^k}{k!}$.
+    \item[(d)] The mean of $\sum_kS_k\mathbf 1[u<T_k\le u+t]$ is $\mathbb ES\cdot\lambda t$, by (c).
+    \item[(e)] $\mathrm{Pr}[\min\{X,X'\}>x] = e^{-(\lambda_1+\lambda_2)x}$, and both processes restart at the first arrival, by (b).
+\end{itemize}}
+
+\end{frame}
+
+\begin{frame}\ft{The gap that covers a time}
+\onp{\footnotesize}
+\ona{A time fixed in advance is more likely to fall in a long gap than in a short one, since long gaps cover more of the line. This is the \emph{inspection paradox}; it finds the service in progress in the proof of Proposition~\ref{propn:ch09:pk}.}
+\begin{lem}\label{lem:ch09:inspection}
+In a Poisson process of rate $\lambda$, let $u>0$ be a fixed time. The time from $u$ to the next arrival is exponential with the mean $1/\lambda$. The time back from $u$ to the last arrival, or to $0$ if there is none, is distributed as $\min\{X,u\}$ with $X$ exponential with the mean $1/\lambda$, and is independent of the time to the next arrival. The gap that covers $u$ has the mean $(2-e^{-\lambda u})/\lambda$, and as $u\to\infty$ its length has the density
+\begin{equation}\label{eq:ch09:sizebias}
+    \lambda^2xe^{-\lambda x} = \frac{x\,f(x)}{\mathbb E\,X},\qquad f(x) = \lambda e^{-\lambda x}.
+\end{equation}
+\end{lem}
+\ona{\emph{Proof.} By Proposition~\ref{propn:ch09:poisson}(b), the arrivals after $u$ form a Poisson process independent of the arrivals up to $u$, so that the time to the next arrival is the first gap of a Poisson process, independent of the time back. For $0\le x<u$, the time back exceeds $x$ if and only if there is no arrival in $(u-x,u]$, which by Proposition~\ref{propn:ch09:poisson}(c) has the probability $e^{-\lambda x}$; it never exceeds $u$. The mean of $\min\{X,u\}$ is $\int_0^ue^{-\lambda x}\,dx = (1-e^{-\lambda u})/\lambda$. As $u\to\infty$, the gap is the sum of two independent exponential variables, with the density $\int_0^x\lambda e^{-\lambda y}\,\lambda e^{-\lambda(x-y)}\,dy = \lambda^2xe^{-\lambda x}$. \qed}
+
+\ona{The gap that covers a time is thus, on average, twice as long as a gap: a gap of length $x$ is found with a probability proportional to $x$. The same holds in the long run for independent gaps of any distribution with a finite mean, since the gaps of lengths in $[x,x+dx]$ cover the fraction $xf(x)\,dx/\mathbb EX$ of the time, and the part of the covering gap that remains after a random time then has the mean $\mathbb EX^2/(2\,\mathbb EX)$. For the exponential distribution this is $1/\lambda$ again, and for the service in progress in Proposition~\ref{propn:ch09:pk} it is $\mathbb ES^2/(2\,\mathbb ES)$.}
+\onp{Proof: by (b), the future after $u$ is a fresh process, independent of the past; the time back exceeds $x<u$ if and only if $(u-x,u]$ has no arrival, with probability $e^{-\lambda x}$ by (c).}
+\onp{\begin{itemize}\setlength\itemsep{0.1em}
+    \item A gap of length $x$ is found with a probability $\propto x$: on average twice as long as a gap.
+    \item For any gaps, the rest of the covering gap has the mean $\mathbb EX^2/(2\,\mathbb EX)$: $1/\lambda$ here, $\mathbb ES^2/(2\,\mathbb ES)$ for a service found in progress.
+\end{itemize}}
+\end{frame}
+
+% a path of the Poisson process of the other users' jobs, rate 0.8 a minute: the count N(t) (blue) and its mean (dashed);
+% the gaps (grey) on a strip below, with those that cover the times 2.5, 7.5, 12.5 and 17.5 (red lines) in red, and the
+% waits from these times to the next arrival (red arrows); the counts in windows of 5 minutes at the top
+\mode<all>{\gdef\poisAfig#1{\begin{axis}[#1,width=\paW,height=\paH,scale only axis,clip=false,axis x line=bottom,axis y line=left,xmin=0,xmax=20,ymin=-3.2,ymax=18,xtick={0,5,10,15,20},ytick={0,4,8,12,16},xlabel={minutes},ylabel={arrivals $N(t)$},unbounded coords=jump]
+  \pgfplotsinvokeforeach{5,10,15}{\draw[gray!30] (axis cs:##1,-1) -- (axis cs:##1,18);}
+  \node[font=\scriptsize,gray] at (axis cs:2.5,17.2) {$4$};
+  \node[font=\scriptsize,gray] at (axis cs:7.5,17.2) {$4$};
+  \node[font=\scriptsize,gray] at (axis cs:12.5,17.2) {$2$};
+  \node[font=\scriptsize,gray] at (axis cs:17.5,17.2) {$4$};
+  \addplot[gray!50,densely dotted] table[x=x,y=y] {figures/ch09/poisson_comb.dat};
+  \addplot[black!60,dashed,domain=0:20,samples=2] {0.8*x};
+  \addplot[const plot,blue!70!black,thick] table[x=t,y=N] {figures/ch09/poisson_path.dat};
+  \addplot[only marks,mark=*,mark size=1.1pt,blue!70!black,restrict x to domain=0.01:19.99] table[x=t,y=N] {figures/ch09/poisson_path.dat};
+  \addplot[line width=5pt,gray!25,restrict expr to domain={\thisrow{k}}{0:0}] table[x=x,y=y] {figures/ch09/poisson_strip.dat};
+  \addplot[line width=5pt,gray!50,restrict expr to domain={\thisrow{k}}{1:1}] table[x=x,y=y] {figures/ch09/poisson_strip.dat};
+  \addplot[line width=5pt,red!45,restrict expr to domain={\thisrow{k}}{2:2}] table[x=x,y=y] {figures/ch09/poisson_strip.dat};
+  \addplot[only marks,mark=|,mark size=3.5pt,black,restrict x to domain=0.01:19.99] table[x=t,y expr=-1.8] {figures/ch09/poisson_path.dat};
+  \pgfplotsinvokeforeach{2.5,7.5,12.5,17.5}{\draw[red!75!black,thick] (axis cs:##1,-2.7) -- (axis cs:##1,-0.9);}
+  \draw[red!75!black,-{Stealth[length=3pt]}] (axis cs:2.5,-0.6) -- (axis cs:3.7164,-0.6);
+  \draw[red!75!black,-{Stealth[length=3pt]}] (axis cs:7.5,-0.6) -- (axis cs:9.7004,-0.6);
+  \draw[red!75!black,-{Stealth[length=3pt]}] (axis cs:12.5,-0.6) -- (axis cs:13.9712,-0.6);
+  \draw[red!75!black,-{Stealth[length=3pt]}] (axis cs:17.5,-0.6) -- (axis cs:18.7281,-0.6);
+  \ona{\node[note,anchor=south] (a6) at (axis cs:10,19.6) {the counts in the windows of $5$ minutes, $4$, $4$, $2$ and $4$:\\each is Poisson with the mean $4$, independent of the others};
+  \draw[notearrow] ([xshift=-1.2cm]a6.south) to[bend right=10] (axis cs:7.9,17.6);
+  \draw[notearrow] ([xshift=1.2cm]a6.south) to[bend left=10] (axis cs:12.1,17.6);
+  \node[note,anchor=west] (a1) at (axis cs:21,15.2) {$N(t)$, the number of arrivals up\\to the time $t$: one step up at\\each arrival (blue)};
+  \draw[notearrow] (a1.west) to[bend left=10] (axis cs:18.2,12.1);
+  \node[note,anchor=west] (a2) at (axis cs:21,8.6) {its mean $\lambda t$ (dashed), with\\$\lambda = 0.8$ a minute: the jobs of\\the other users at the load $0.8$;\\$14$ arrivals by $t = 20$, not $16$};
+  \draw[notearrow] (a2.west) to[bend left=15] (axis cs:15.5,12.3);
+  \node[note,anchor=north west] (a3) at (axis cs:-1,-8.6) {the gaps (grey): independent\\and exponential, with the\\mean $1/\lambda = 1.25$ minutes;\\here from $0.13$ to $3.39$};
+  \draw[notearrow] ([xshift=0.9cm]a3.north west) to[bend left=15] (axis cs:4.9,-2.1);
+  \node[note,anchor=north west] (a4) at (axis cs:9.6,-8.6) {the times $2.5$, $7.5$, $12.5$, $17.5$,\\fixed in advance (red lines), fall\\in gaps (red) of $2.23$ minutes on\\average, against $1.36$ for all here};
+  \draw[notearrow] ([xshift=0.3cm]a4.north west) to[bend left=12] (axis cs:8.4,-2.1);
+  \draw[notearrow] ([xshift=1.6cm]a4.north west) to[bend right=12] (axis cs:12.0,-2.1);
+  \node[note,anchor=west] (a5) at (axis cs:21,0.0) {from each of these times, the wait\\for the next arrival (red arrows)\\is again exponential, with the\\mean $1.25$: the process forgets};
+  \draw[notearrow] (a5.west) to[bend left=15] (axis cs:18.4,-0.45);}
+\end{axis}}}
+% the densities of 10^6 gaps (grey) and of the gaps that cover the times 10, 20, 30, ... (red), with lambda e^{-lambda x}
+% and lambda^2 x e^{-lambda x}
+\mode<all>{\gdef\poisBfig#1{\begin{axis}[#1,width=\pbW,height=\pbH,scale only axis,clip=false,axis lines=left,xmin=0,xmax=8,ymin=0,ymax=0.85,xtick={0,1.25,2.5,4,6,8},xticklabels={$0$,$\frac1\lambda$,$\frac2\lambda$,$4$,$6$,$8$},ytick={0,0.2,0.4,0.6,0.8},yticklabel style={/pgf/number format/fixed},xlabel={the length of a gap (minutes)}]
+  \addplot[ybar,bar width=0.4,bar shift=0pt,fill=gray!30,draw=gray!60] table[x=x,y=gap] {figures/ch09/poisson_hist.dat};
+  \addplot[ybar,bar width=0.4,bar shift=0pt,fill=red!40,draw=red!60,fill opacity=0.6] table[x=x,y=cover] {figures/ch09/poisson_hist.dat};
+  \addplot[domain=0:8,samples=81,black,thick] {0.8*exp(-0.8*x)};
+  \addplot[domain=0:8,samples=81,red!75!black,thick] {0.64*x*exp(-0.8*x)};
+  \ona{\node[note,anchor=north west] (b1) at (axis cs:2.2,0.86) {all the gaps: the density $\lambda e^{-\lambda x}$ (black),\\the mean $1/\lambda = 1.25$; $10^6$ gaps (grey)};
+  \draw[notearrow] ([xshift=0.2cm]b1.south west) to[bend left=15] (axis cs:0.75,0.5);
+  \node[note,anchor=north west] (b2) at (axis cs:2.6,0.64) {the gaps that cover the times $10$, $20$,\\$30$, \dots{} (red): $\lambda^2xe^{-\lambda x} = xf(x)/\mathbb EX$,\\the mean $2/\lambda = 2.5$; measured $2.49$};
+  \draw[notearrow] ([xshift=0.2cm]b2.south west) to[bend left=15] (axis cs:1.9,0.28);
+  \node[note,anchor=east] (b3) at (axis cs:-1.5,0.3) {short gaps are seldom\\covered: $27\%$ of the\\gaps are below $0.4$\\minutes, $4\%$ of the\\covering ones};
+  \draw[notearrow] (b3.east) to[bend right=20] (axis cs:0.15,0.08);
+  \node[note,anchor=west] (b4) at (axis cs:8.4,0.2) {long gaps are covered in\\proportion to their length:\\$4\%$ of the gaps exceed $4$\\minutes, $17\%$ of the\\covering ones};
+  \draw[notearrow] (b4.west) to[bend left=15] (axis cs:5.0,0.07);}
+\end{axis}}}
+\begin{frame}\ft{The Poisson process, pictured}
+\ona{Figure~\ref{fig:ch09:poisson} draws a Poisson process at the rate of the jobs of the other users in Section~\ref{sec:ch09:queue}, at the load $\rho = 0.8$ with the mean service of a minute: $\lambda = 0.8$ a minute. In panel (a), $14$ jobs arrive in $20$ minutes, against the mean $16$, with gaps from $0.13$ to $3.39$ minutes, and the counts in the four windows of $5$ minutes are $4$, $4$, $2$ and $4$. The times $2.5$, $7.5$, $12.5$ and $17.5$, fixed in advance, fall in gaps of $2.23$ minutes on average, against $1.36$ for all the gaps of the path, and the gap of $3.39$ minutes, the longest, is one of them. Panel (b) shows that this is no accident: over $10^6$ gaps, of the mean $1.2507$, the gaps that cover the times $10$, $20$, $30$, \dots{} have the mean $2.494$, and their parts before and after the time the means $1.247$ and $1.247$, with the correlation $-0.006$, as Lemma~\ref{lem:ch09:inspection} predicts. Of all the gaps, $27\%$ are shorter than $0.4$ minutes and $4\%$ longer than $4$; of the covering gaps, $4\%$ and $17\%$. The counts in windows of $5$ minutes have the mean $3.998$ and the variance $3.984$, both $4$ for the Poisson distribution, no count in $1.80\%$ of the windows, against $e^{-4} = 1.83\%$, and the counts of neighbouring windows have the correlation $-0.002$.}
+\ona{\gdef\paW{0.5\linewidth}\gdef\paH{0.26\linewidth}\gdef\pbW{0.36\linewidth}\gdef\pbH{0.22\linewidth}}\onp{\gdef\paW{5.2cm}\gdef\paH{3.4cm}\gdef\pbW{4.6cm}\gdef\pbH{3.3cm}}
+\ona{\begin{figure}[htbp]\centering\begin{tikzpicture}\poisAfig{name=pa}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.9cm]pa.north west) {(a)};
+\poisBfig{at={(pa.south west)},anchor=north west,yshift=-3.3cm,xshift=1.2cm,name=pb}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.5cm]pb.north west) {(b)};
+\end{tikzpicture}
+\caption{A Poisson process of rate $\lambda = 0.8$ a minute. (a) A path over $20$ minutes: the count $N(t)$ (blue) and its mean $\lambda t$ (dashed), the gaps on the strip below (grey, alternately light and dark), those that cover the times $2.5$, $7.5$, $12.5$ and $17.5$ (red lines) in red, the waits from these times to the next arrival (red arrows), and the counts in windows of $5$ minutes (top). (b) The densities, as histograms, of $10^6$ gaps (grey) and of the gaps that cover the times $10$, $20$, $30$, \dots{} (red), with $\lambda e^{-\lambda x}$ (black) and $\lambda^2xe^{-\lambda x}$ (red).}\label{fig:ch09:poisson}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.55\textwidth}\centering\begin{tikzpicture}\poisAfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.43\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $\lambda = 0.8$ a minute: the other users' jobs at $\rho = 0.8$.
+    \item $N(t)$ (blue) climbs one step at each arrival; $14$ by $t = 20$, against $\lambda t = 16$ (dashed).
+    \item Gaps (grey): exponential, mean $1.25$; here $0.13$ to $3.39$.
+    \item Counts in windows of $5$ minutes: $4$, $4$, $2$, $4$; Poisson with mean $4$, independent.
+    \item The times $2.5$, $7.5$, $12.5$, $17.5$ (red) fall in gaps of $2.23$ on average, against $1.36$.
+    \item From each, the next arrival is again $1.25$ away on average (red arrows).
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+\begin{frame}\ft{The gap that covers a time, pictured}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\poisBfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $10^6$ gaps (grey): density $\lambda e^{-\lambda x}$, mean $1.25$.
+    \item The gaps that cover the times $10$, $20$, $30$, \dots{} (red): $\lambda^2xe^{-\lambda x}$, mean $2.49$ against $2/\lambda = 2.5$.
+    \item Short gaps are seldom covered: $27\%$ of the gaps are below $0.4$, $4\%$ of the covering ones.
+    \item Long ones often: $4\%$ above $4$ minutes, $17\%$ of the covering ones.
+    \item The parts before and after the time: $1.247$ each, uncorrelated.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
 
 \section{The cost of one iteration}
 
 \begin{frame}\ft{Shots: estimating the energy}
-\ona{One evaluation of $F_p(\boldsymbol\theta) = \langle H_C\rangle$ for MaxCut is the average of the cut value $f(x) = \frac12\sum_{(i,j)\in E}w_{ij}(1-z_iz_j)$ over $M$ samples $x$. Since $|f(x)| \le \|w\|_1 = \sum_e|w_e|$, Hoeffding's inequality gives}
+\ona{One evaluation of $F_p(\boldsymbol\theta) = \langle H_C\rangle$ for MaxCut is the average of the cut value $f(x) = \frac12\sum_{(i,j)\in E}w_{ij}(1-z_iz_j)$ over $M$ samples $x$. Each edge contributes $0$ or $w_{ij}$ to $f(x)$, so that the values of $f$ lie in an interval of length $\|w\|_1 = \sum_e|w_e|$, and Theorem~\ref{thm:ch09:hoeffding} gives}
 \begin{equation}\label{eq:ch09:shots}
-    \mathrm{Pr}\big[|\hat F - F_p| \ge \epsilon\big] \le 2\exp\Big(-\frac{M\epsilon^2}{2\|w\|_1^2}\Big),
+    \mathrm{Pr}\big[|\hat F - F_p| \ge \epsilon\big] \le 2\exp\Big(-\frac{2M\epsilon^2}{\|w\|_1^2}\Big),
     \qquad\text{so}\qquad M = \mathcal O\Big(\frac{\|w\|_1^2}{\epsilon^2}\log\frac1\delta\Big)
 \end{equation}
 \ona{shots suffice for additive error $\epsilon$ with probability $1-\delta$; in terms of approximation ratio, $\epsilon = \eta\cdot\mathrm{OPT}$ with $\mathrm{OPT} \ge \|w\|_1/2$ for positive weights gives $M = \mathcal O(\eta^{-2}\log(1/\delta))$, independent of $n$. The variance $\sigma^2$ of \Chap~\chref{C.IterationComplexity} is $\mathrm{Var}[f(x)]/M$. For general Hamiltonians $H = \sum_kh_kP_k$, terms are grouped into commuting sets and the count becomes $\mathcal O((\sum_k|h_k|)^2/\epsilon^2)$.}
@@ -39,12 +313,8 @@
     \item \textbf{Statevector:} $\mathcal O(2^n)$ memory and $\mathcal O(p(|E|+n)2^n)$ time; 40 qubits took five minutes on 1024 GPUs.
     \item \textbf{Matrix product states} with bond dimension $\chi$: each two-qubit gate costs $\mathcal O(\chi^3)$ after mapping the graph to a line, so $\mathcal O(p\,|E|\,\chi^3)$ per evaluation, polynomial in $n$ but exponential in the entanglement the circuit builds; long-range edges need swaps or a SAT-optimised relabelling. Accuracy is monitored by $F_{\rm approx} = \prod_g\sum_{j\le\chi}\lambda_{j,g}^2$.
     \item \textbf{Pauli propagation:} propagate $H_C$ backwards through the circuit, truncating Pauli strings of weight above $W$ or coefficient below a threshold; cheap for sparse graphs, cost growing fast with density.
-    \item \textbf{Empirically}, at $p = 10$ and $\chi = 24$, both scale polynomially in $|E|$, with $100$--$1000$ s per evaluation for a fully connected 100-node graph\ona{, Fig.~\ref{fig:ch09:evaltime}}.
+    \item \textbf{Empirically}, at $p = 10$ and $\chi = 24$, both scale polynomially in $|E|$, with $100$--$1000$ s per evaluation for a fully connected 100-node graph\ona{ \citep{marecek2026angles}}.
 \end{itemize}
-\end{frame}
-
-\begin{frame}\ft{Evaluation time versus graph size}
-\figslide[height=0.55\textheight]{figures/numerics/figure15.pdf}{Time to evaluate $\langle H_C\rangle$ of depth-ten QAOA as a function of the number of edges, colour giving the number of nodes \citep{marecek2026angles}: (a),(b) Quimb MPS without and with the SAT remapping time, (c),(d) Qiskit Aer MPS, (e) Pauli propagation, (f) the SAT remapping alone.}{fig:ch09:evaltime}
 \end{frame}
 
 \section{The round trip}\label{sec:ch09:round}
@@ -118,7 +388,7 @@ where $t_{\rm net}$ is the time taken to send the circuits and to return the res
 
 \begin{frame}\ft{A queue and its mean wait}
 \onp{\footnotesize}
-\ona{A device in the cloud serves many users. We model it as a single server, which executes one job at a time, first come, first served. The jobs of the other users arrive at the times of a Poisson process of rate $\lambda$, independently of one another, and take independent service times distributed as $S$. The \emph{load} $\rho = \lambda\,\mathbb E S$ is the fraction of the time for which the device is busy, and we assume that $\rho<1$, so that the queue has a stationary state \citep{harcholbalter2013performance}.}
+\ona{A device in the cloud serves many users. We model it as a single server, which executes one job at a time, first come, first served. The jobs of the other users arrive at the times of a Poisson process of rate $\lambda$ (Definition~\ref{defn:ch09:poisson}), independently of one another, and take independent service times distributed as $S$. The \emph{load} $\rho = \lambda\,\mathbb E S$ is the fraction of the time for which the device is busy, and we assume that $\rho<1$, so that the queue has a stationary state \citep{harcholbalter2013performance}.}
 \begin{lem}[\citet{little1961proof}]\label{lem:ch09:little}
 In a queue in its stationary state, the mean number of jobs waiting is $L_q = \lambda\,\mathbb E W$, where $\mathbb E W$ is the mean wait of a job.
 \end{lem}
@@ -128,7 +398,7 @@ In this queue, in its stationary state, a job that arrives at a time of the Pois
     \mathbb E\,W = \frac{\lambda\,\mathbb E S^2}{2(1-\rho)} = \frac\rho{1-\rho}\cdot\frac{\mathbb E S^2}{2\,\mathbb E S}.
 \end{equation}
 \end{propn}
-\ona{\emph{Proof.} Such a job finds the queue in its stationary state; for the arrivals of a Poisson process, this is the property that Poisson arrivals see time averages \citep[Chapter~13]{harcholbalter2013performance}. Its wait is the work that it finds: the remaining service of the job in service, if any, and the services of the jobs that wait. The device is busy with probability $\rho$, and the job in service is then found at a uniformly random time in its service, a service of length $s$ being found with a probability proportional to $s$; the remaining service has the mean $\mathbb E S^2/(2\,\mathbb E S)$. The services of the $L_q$ waiting jobs do not depend on their number, and have the total mean $L_q\,\mathbb E S = \lambda\,\mathbb E W\,\mathbb E S = \rho\,\mathbb E W$, by Lemma~\ref{lem:ch09:little}. Hence $\mathbb E W = \rho\,\mathbb E S^2/(2\,\mathbb E S)+\rho\,\mathbb E W$. \qed}
+\ona{\emph{Proof.} Such a job finds the queue in its stationary state; for the arrivals of a Poisson process, this is the property that Poisson arrivals see time averages \citep[Chapter~13]{harcholbalter2013performance}. Its wait is the work that it finds: the remaining service of the job in service, if any, and the services of the jobs that wait. The device is busy with probability $\rho$, and the job in service is then found at a uniformly random time in its service, a service of length $s$ being found with a probability proportional to $s$, as a gap is in Lemma~\ref{lem:ch09:inspection}; the remaining service has the mean $\mathbb E S^2/(2\,\mathbb E S)$. The services of the $L_q$ waiting jobs do not depend on their number, and have the total mean $L_q\,\mathbb E S = \lambda\,\mathbb E W\,\mathbb E S = \rho\,\mathbb E W$, by Lemma~\ref{lem:ch09:little}. Hence $\mathbb E W = \rho\,\mathbb E S^2/(2\,\mathbb E S)+\rho\,\mathbb E W$. \qed}
 \onp{Proof: the work found on arrival is the remaining service, of mean $\rho\,\mathbb ES^2/(2\,\mathbb ES)$, plus $L_q\,\mathbb ES = \rho\,\mathbb EW$ by Little's law.}
 \end{frame}
 
@@ -142,7 +412,7 @@ In the queue above, let a client submit its first round at a time independent of
 \end{equation}
 so that $\mathbb E W_k\le\rho^{k-1}\,\mathbb E W_1+\rho\,t_c/(1-\rho)$.
 \end{propn}
-\ona{\emph{Proof.} The first wait is that of Proposition~\ref{propn:ch09:pk}. Let round $k$ be submitted at the time $a_k$, so that $a_{k+1}-a_k = W_k+t_c$. Every job that arrived before $a_k$ is served before round $k$, which ends at $a_k+W_k+s$. The work found at $a_{k+1}$, which is $W_{k+1}$, is therefore that of jobs that arrived in $(a_k,a_{k+1}]$: it is at most their total service $A_k$, and at least $A_k-t_{\rm net}$, since the device can serve them only after round $k$ has ended. The length $W_k+t_c$ of the interval is known at $a_k$, and the arrivals after $a_k$ do not depend on what happened before, so that $\mathbb E[A_k\,|\,W_k] = \lambda\,\mathbb E S\,(W_k+t_c) = \rho\,(W_k+t_c)$. Taking expectations gives \eqref{eq:ch09:loop}, and induction the last bound. \qed}
+\ona{\emph{Proof.} The first wait is that of Proposition~\ref{propn:ch09:pk}. Let round $k$ be submitted at the time $a_k$, so that $a_{k+1}-a_k = W_k+t_c$. Every job that arrived before $a_k$ is served before round $k$, which ends at $a_k+W_k+s$. The work found at $a_{k+1}$, which is $W_{k+1}$, is therefore that of jobs that arrived in $(a_k,a_{k+1}]$: it is at most their total service $A_k$, and at least $A_k-t_{\rm net}$, since the device can serve them only after round $k$ has ended. The length $W_k+t_c$ of the interval is known at $a_k$, and by Proposition~\ref{propn:ch09:poisson}(b) and (d) the arrivals after the stopping time $a_k$ do not depend on what happened before, so that $\mathbb E[A_k\,|\,W_k] = \lambda\,\mathbb E S\,(W_k+t_c) = \rho\,(W_k+t_c)$. Taking expectations gives \eqref{eq:ch09:loop}, and induction the last bound. \qed}
 \onp{Proof: round $k+1$ finds only the work that arrived during $(a_k,a_{k+1}]$, of mean $\rho\,(W_k+t_c)$, less at most $t_{\rm net}$ served meanwhile.}
 \end{frame}
 
@@ -380,9 +650,73 @@ does not increase with $M$ up to $M^* = 4V_1/\epsilon$, and increases beyond. It
 
 \section{Angle setting at utility scale}
 
+% the colours of the methods, as in the source: fixed angles, Fourier, Interp., linear ramp, recursive transition states,
+% TQA and parameter transfer
+\mode<all>{\xglobal\definecolor{tolm0}{HTML}{4477AA}\xglobal\definecolor{tolm1}{HTML}{EE6677}\xglobal\definecolor{tolm2}{HTML}{228833}\xglobal\definecolor{tolm3}{HTML}{CCBB44}\xglobal\definecolor{tolm4}{HTML}{66CCEE}\xglobal\definecolor{tolm5}{HTML}{AA3377}\xglobal\definecolor{tolm6}{HTML}{BBBBBB}}
+
+% three sources of angles, (a) a class of problems, (b) small instances with the exact energy, (c) the instance itself
+% with an approximate energy, all feeding a classical optimiser, whose angles go to the device once
+\mode<all>{\gdef\stratfig{%
+  \tikzset{src/.style={draw=black!45,rounded corners=3pt,fill=black!3,minimum width=4.4cm,minimum height=1.7cm},
+    gn/.style={circle,fill=black!65,inner sep=0pt,minimum size=2.6pt},ge/.style={black!50,semithick},
+    flow/.style={-{Stealth[length=5pt]},thick,black!60},lab/.style={font=\scriptsize,align=left,anchor=west}}
+  \node[src] (A) at (-4.8,0) {};
+  \node[src] (B) at (0,0) {};
+  \node[src] (C) at (4.8,0) {};
+  \begin{scope}[shift={(-6.2,0)},scale=0.5]
+    \foreach \a in {45,135,225,315} {\coordinate (o\a) at (\a:1.1); \coordinate (i\a) at (\a:0.5);}
+    \draw[ge] (o45)--(o135)--(o225)--(o315)--cycle (i45)--(i135)--(i225)--(i315)--cycle;
+    \foreach \a in {45,135,225,315} {\draw[ge] (o\a)--(i\a); \node[gn] at (o\a) {}; \node[gn] at (i\a) {};}
+  \end{scope}
+  \node[lab] at (-5.45,0) {\textbf{(a)} a class of\\problems: angles\\from a table};
+  \begin{scope}[shift={(-1.4,0)},scale=0.5]
+    \foreach \i/\x/\y in {1/-0.9/0.5,2/0.1/1.05,3/0.95/0.35,4/0.7/-0.8,5/-0.3/-1.0,6/-1.0/-0.4} \coordinate (b\i) at (\x,\y);
+    \draw[ge] (b1)--(b2)--(b3)--(b4)--(b5)--(b6)--(b1) (b1)--(b3) (b2)--(b5) (b4)--(b6);
+    \foreach \i in {1,...,6} \node[gn] at (b\i) {};
+  \end{scope}
+  \node[lab] at (-0.65,0) {\textbf{(b)} small instances\\with the exact\\energy};
+  \begin{scope}[shift={(2.8,0)},scale=0.38]
+    \foreach \cx in {0,1.732} \foreach \k in {0,...,5} {
+      \draw[ge] ($(\cx,0)+(30+60*\k:1)$) -- ($(\cx,0)+(90+60*\k:1)$);
+      \node[gn] at ($(\cx,0)+(30+60*\k:1)$) {};
+      \node[gn,minimum size=2pt,fill=black!40] at ($(\cx,0)+(60+60*\k:0.866)$) {};}
+  \end{scope}
+  \node[lab] at (4.0,0) {\textbf{(c)} the instance,\\an approximate\\energy};
+  \node[src,minimum width=4.4cm,minimum height=1.5cm] (O) at (-3.4,-2.8) {};
+  \foreach \k in {1,...,5} {\fill[blue!55] (-5.3+0.2*\k,-3.3) rectangle ++(0.13,0.15*\k);
+    \fill[orange!85!black] (-4.2+0.2*\k,-3.3) rectangle ++(0.13,0.9-0.15*\k);}
+  \node[font=\tiny,blue!55!black] at (-4.6,-3.47) {$\gamma_1\dots\gamma_p$};
+  \node[font=\tiny,orange!70!black] at (-3.5,-3.47) {$\beta_1\dots\beta_p$};
+  \node[lab] at (-2.95,-2.75) {a classical\\optimiser};
+  \node[src,minimum width=4.6cm,minimum height=1.5cm] (D) at (3.0,-2.8) {};
+  \foreach \y in {-2.4,-2.8,-3.2} \draw[black!55] (0.95,\y) -- (3.0,\y);
+  \foreach \x/\t in {1.3/\gamma_1,1.85/\beta_1,2.6/\beta_p} \node[draw=black!55,fill=white,minimum width=0.44cm,minimum height=1.0cm,font=\tiny,inner sep=0pt] at (\x,-2.8) {$\t$};
+  \node[font=\tiny] at (2.22,-2.8) {$\cdots$};
+  \node[lab] at (3.05,-2.8) {the device:\\$Q$ copies of\\one circuit};
+  \draw[flow] (A.south) to[bend right=12] ([xshift=-0.9cm]O.north);
+  \draw[flow] (B.south) to[bend left=10] ([xshift=0.3cm]O.north);
+  \draw[flow] (C.south) to[bend left=12] ([xshift=1.4cm]O.north);
+  \draw[flow] (O.east) -- node[above,font=\scriptsize,align=center] {the angles,\\once} (D.west);
+  \ona{\node[note,anchor=south] (na) at (-4.8,1.2) {a look-up: good only for the\\class of graphs and the\\depths in the table};
+  \draw[notearrow] (na.south) -- (A.north);
+  \node[note,anchor=south] (nb) at (0,1.2) {exact, but on smaller instances:\\relies on good angles being\\alike across instances};
+  \draw[notearrow] (nb.south) -- (B.north);
+  \node[note,anchor=south] (nc) at (4.8,1.2) {the right instance, an approximate\\energy: matrix product states\\or Pauli propagation};
+  \draw[notearrow] (nc.south) -- (C.north);
+  \node[note,anchor=north] (no) at (-3.4,-3.85) {the closed loop runs on a classical computer:\\no round trips to the device};
+  \draw[notearrow] (no.north) -- (O.south);
+  \node[note,anchor=north] (nd) at (3.0,-3.85) {the device only samples, $Q$ copies of the final\\circuit, $Q\,t_{\rm shot}$ in all, and returns the best cut};
+  \draw[notearrow] (nd.north) -- (D.south);}
+}}
 \begin{frame}\ft{Three ways to set angles without a closed loop}
-\ona{Recall the QAOA state $\ket{\psi(\boldsymbol\theta)} = \prod_{k=1}^p U_M(\beta_k)U_C(\gamma_k)\ket{+}^{\otimes n}$ and its energy $\langle H_C\rangle$. Closed-loop optimization of $\boldsymbol\theta$ on hardware is (i) slow, given clock speeds and queueing; (ii) impossible to check, since at utility scale $\langle H_C\rangle$ cannot be simulated exactly; and (iii) \textbf{NP}-hard in the worst case, with many local optima even at $p=1$. Figure~\ref{fig:ch09:strategies} shows the alternatives:}
-\figslide[height=0.5\textheight]{figures/numerics/figure1.pdf}{Angle setting at utility scale \citep{marecek2026angles}. Angles are found classically, by evaluating the energy on (a) representative structured problems, (b) small representative instances with exact energy, or (c) the utility-scale instance with an approximate energy; they are transferred to the QAOA circuit (e) for the utility-scale instance (d), and only the final sampling (f) runs on hardware.}{fig:ch09:strategies}
+\ona{Recall the QAOA state $\ket{\psi(\boldsymbol\theta)} = \prod_{k=1}^p U_M(\beta_k)U_C(\gamma_k)\ket{+}^{\otimes n}$ and its energy $\langle H_C\rangle$. Closed-loop optimization of $\boldsymbol\theta$ on hardware is (i) slow, given clock speeds and queueing; (ii) impossible to check, since at utility scale $\langle H_C\rangle$ cannot be simulated exactly; and (iii) \textbf{NP}-hard in the worst case, with many local optima even at $p=1$. Figure~\ref{fig:ch09:strategies} shows the alternatives \citep{marecek2026angles}: the angles are found classically, by evaluating the energy (a) on representative structured problems, (b) on small representative instances with the exact energy, or (c) on the utility-scale instance with an approximate energy. They are transferred to the circuit for the utility-scale instance, and only the final sampling runs on the device.}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\stratfig\end{tikzpicture}
+\caption{Three sources of angles for QAOA at utility scale, after \citet{marecek2026angles}: (a) a class of problems, such as $3$-regular graphs, (b) small instances with the exact energy, and (c) the instance itself, a heavy-hex graph, with an approximate energy. A classical optimiser turns them into the angles $\gamma_1,\dots,\gamma_p$ and $\beta_1,\dots,\beta_p$, which go to the device once.}\label{fig:ch09:strategies}\end{figure}}
+\onp{\begin{center}\begin{tikzpicture}[scale=0.7,transform shape]\stratfig\end{tikzpicture}\end{center}
+\footnotesize\begin{itemize}\setlength\itemsep{0.2em}
+    \item Angles from (a) a table for a class, (b) small instances, exactly, or (c) the instance, approximately.
+    \item The loop runs classically; the device receives the angles once and only samples.
+\end{itemize}}
 \end{frame}
 
 \begin{frame}\ft{A taxonomy of angle-setting methods}
@@ -419,41 +753,296 @@ does not increase with $M$ up to $M^* = 4V_1/\epsilon$, and increases beyond. It
 \end{itemize}
 \end{frame}
 
+% the number of the 37 graphs on which each method gives the best angles, at each depth: with the statevector on the
+% small instances, and with Pauli propagation on the large ones (the bars of Fig. 5 of the source, decoded)
+\mode<all>{\gdef\bestSVfig#1{\begin{axis}[#1,width=\btW,height=\btH,scale only axis,clip=false,ybar stacked,bar width=0.62,xmin=1.4,xmax=10.6,ymin=0,ymax=37,xtick={2,...,10},ytick={0,10,20,30,37},axis lines=left,xlabel={depth $p$},ylabel={graphs, of $37$}]
+  \addplot[fill=tolm3,draw=white,very thin] table[x=p,y=sv_LR] {figures/ch09/util_best.dat};
+  \addplot[fill=tolm2,draw=white,very thin] table[x=p,y=sv_I] {figures/ch09/util_best.dat};
+  \addplot[fill=tolm0,draw=white,very thin] table[x=p,y=sv_FA] {figures/ch09/util_best.dat};
+  \addplot[fill=tolm5,draw=white,very thin] table[x=p,y=sv_TQA] {figures/ch09/util_best.dat};
+  \addplot[fill=tolm1,draw=white,very thin] table[x=p,y=sv_F] {figures/ch09/util_best.dat};
+  \ona{\node[note,anchor=west] at (axis cs:11.2,8) {linear ramps (yellow) win most graphs at every\\depth: $200$ of the $333$ pairs of a graph and a depth};
+  \draw[notearrow] (axis cs:11.1,8) to[bend left=10] (axis cs:6.3,12);
+  \node[note,anchor=west] at (axis cs:11.2,33) {fixed angles (blue) win $15$ and $14$ graphs at\\$p = 3$ and $4$, but $2$ from $p = 6$ on};
+  \draw[notearrow] (axis cs:11.1,33) to[bend right=12] (axis cs:4.3,30.5);
+  \node[note,anchor=south] at (axis cs:2,42) {TQA (purple) wins $11$ at $p = 2$, then none};
+  \draw[notearrow] (axis cs:2,41.5) -- (axis cs:2,32);
+  \node[note,anchor=west] at (axis cs:11.2,21) {Interp.~(green) grows with the depth:\\$1$ graph at $p = 3$, $13$ at $p = 9$};
+  \draw[notearrow] (axis cs:11.1,21) to[bend left=8] (axis cs:9.3,27.5);}
+\end{axis}}}
+\mode<all>{\gdef\bestPPfig#1{\begin{axis}[#1,width=\btW,height=\btH,scale only axis,clip=false,ybar stacked,bar width=0.62,xmin=1.4,xmax=10.6,ymin=0,ymax=37,xtick={2,...,10},ytick={0,10,20,30,37},axis lines=left,xlabel={depth $p$},ylabel={graphs, of $37$}]
+  \addplot[fill=tolm3,draw=white,very thin] table[x=p,y=pp_LR] {figures/ch09/util_best.dat};
+  \addplot[fill=tolm2,draw=white,very thin] table[x=p,y=pp_I] {figures/ch09/util_best.dat};
+  \addplot[fill=tolm0,draw=white,very thin] table[x=p,y=pp_FA] {figures/ch09/util_best.dat};
+  \addplot[fill=tolm5,draw=white,very thin] table[x=p,y=pp_TQA] {figures/ch09/util_best.dat};
+  \addplot[fill=tolm1,draw=white,very thin] table[x=p,y=pp_F] {figures/ch09/util_best.dat};
+  \ona{\node[note,anchor=west] at (axis cs:11.2,17) {from $p = 4$ on, Interp.~(green) and linear\\ramps (yellow) split the graphs, $17$ and $18$};
+  \draw[notearrow] (axis cs:11.1,17) to[bend right=10] (axis cs:8.3,26);
+  \draw[notearrow] (axis cs:11.1,17) to[bend left=10] (axis cs:7.3,9);
+  \node[note,anchor=west] at (axis cs:11.2,32) {fixed angles (blue) win $13$ and $16$ graphs at\\$p = 2$ and $3$, and at most $3$ later};
+  \draw[notearrow] (axis cs:11.1,32) to[bend right=12] (axis cs:3.3,29);
+  \node[note,anchor=south] at (axis cs:2,42) {Fourier and TQA win $3$ and $4$ at $p = 2$, almost none later};
+  \draw[notearrow] (axis cs:2,41.5) -- (axis cs:2,35.5);}
+\end{axis}}}
 \begin{frame}\ft{Quality: which method is best?}
-\figslide[height=0.55\textheight]{figures/numerics/figure5.pdf}{Proportion of the 37 graphs on which each method gives the best angles, per depth and per energy evaluator \citep{marecek2026angles}. Linear ramps and Interp.\ win most often; fixed angles are best when available but exist for only a quarter of the graph-depth pairs.}{fig:ch09:best}
+\ona{Figure~\ref{fig:ch09:best} counts, at each depth, the graphs of the two sets of $37$ on which each method gives the best angles, all with every angle optimised, with the statevector on the small instances of $20$ and $21$ nodes and with Pauli propagation on the large ones of $50$ to $144$ nodes. Linear ramps win most often: with the statevector, on $200$ of the $333$ pairs of a graph and a depth, and Interp.\ on $60$; with Pauli propagation, $160$ and $123$, the two splitting the graphs about evenly from $p = 4$ on. Fixed angles win $14$ to $16$ graphs at small depths, and $2$ or $3$ at large ones: they are excellent where they exist, but $75.4\%$ of the graph-depth pairs have none \citep{marecek2026angles}. Fourier and TQA rarely win, and recursive transition states win no graph with either evaluator.}
+\ona{\gdef\btW{0.36\linewidth}\gdef\btH{0.2\linewidth}}\onp{\gdef\btW{4.4cm}\gdef\btH{3.4cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\bestSVfig{name=ba}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.9cm]ba.north west) {(a)};
+\bestPPfig{at={(ba.south west)},anchor=north west,yshift=-2.6cm,name=bb}
+\node[font=\scriptsize,anchor=south east] at ([xshift=-0.9cm]bb.north west) {(b)};
+\end{tikzpicture}
+\caption{The number of the $37$ graphs on which each method, with every angle optimised, gives the best angles at each depth, (a) with the statevector on the small instances and (b) with Pauli propagation on the large ones, after \citet{marecek2026angles}: linear ramp (yellow), Interp.\ (green), fixed angles (blue), TQA (purple) and Fourier (red).}\label{fig:ch09:best}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\bestSVfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $37$ small graphs ($20$--$21$ nodes), exact energy (statevector); every angle optimised.
+    \item Linear ramps (yellow) win most often: $200$ of $333$ graph-depth pairs.
+    \item Fixed angles (blue) win $15$ and $14$ at $p = 3, 4$, then $2$; tables cover a quarter of the pairs.
+    \item Interp.\ (green) grows with depth: $1$ at $p = 3$, $13$ at $p = 9$.
+\end{itemize}\end{column}\end{columns}}
 \end{frame}
 
+\begin{frame}\ft{Quality: which method is best at utility scale?}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\bestPPfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $37$ large graphs ($50$--$144$ nodes), Pauli propagation.
+    \item From $p = 4$, Interp.\ (green) and linear ramps (yellow) split the graphs, $17$ and $18$.
+    \item Fixed angles (blue): $13$ and $16$ at $p = 2, 3$, at most $3$ later.
+    \item Fourier, TQA: rarely; recursive transition states: never.
+\end{itemize}\end{column}\end{columns}}
+\end{frame}
+
+% the energies at depth eight of four methods on MaxCut and on MIS, means over ten 40-node 3-regular graphs with Pauli
+% propagation, ranked in each problem: the order reverses
+\mode<all>{\gdef\flipfig{%
+  \foreach \col/\a/\b in {tolm0/3/0,tolm5/2/1,tolm2/1/2,tolm1/0/3} {
+    \draw[\col,very thick] (0,0.9*\a) -- (4,0.9*\b);
+    \fill[\col] (0,0.9*\a) circle (3pt); \fill[\col] (4,0.9*\b) circle (3pt);}
+  \node[font=\small,anchor=south] at (0,3.05) {MaxCut};
+  \node[font=\small,anchor=south] at (4,3.05) {MIS};
+  \node[font=\scriptsize,anchor=east] at (-0.2,2.7) {fixed angles\quad$20.16$};
+  \node[font=\scriptsize,anchor=east] at (-0.2,1.8) {TQA\quad$19.33$, $-4.1\%$};
+  \node[font=\scriptsize,anchor=east] at (-0.2,0.9) {Interp.\quad$18.43$, $-8.6\%$};
+  \node[font=\scriptsize,anchor=east] at (-0.2,0) {Fourier\quad$18.23$, $-9.6\%$};
+  \node[font=\scriptsize,anchor=west] at (4.2,2.7) {Fourier\quad$71.57$};
+  \node[font=\scriptsize,anchor=west] at (4.2,1.8) {Interp.\quad$71.30$, $-0.4\%$};
+  \node[font=\scriptsize,anchor=west] at (4.2,0.9) {TQA\quad$70.49$, $-1.5\%$};
+  \node[font=\scriptsize,anchor=west] at (4.2,0) {fixed angles\quad$69.96$, $-2.2\%$};
+  \ona{\node[note,anchor=south] (g1) at (-0.3,3.95) {fixed angles were tuned for MaxCut on\\regular graphs: first there, last on MIS};
+  \draw[notearrow] ([xshift=0.6cm]g1.south) to[bend right=15] (0.9,2.35);
+  \node[note,anchor=south] (g3) at (4.1,3.95) {the order reverses exactly:\\all four lines cross at\\one point};
+  \draw[notearrow] ([xshift=-1.0cm]g3.south) to[bend right=20] (2.1,1.45);
+  \node[note,anchor=north] (g2) at (2,-1.2) {Fourier: last on MaxCut, first on MIS};
+  \draw[notearrow] ([xshift=-0.8cm]g2.north) to[bend left=15] (0.9,0.22);
+  \draw[notearrow] ([xshift=0.8cm]g2.north) to[bend right=15] (3.1,2.4);
+  \node[note,anchor=north east] (g4) at (-0.2,-0.4) {on MaxCut the energies\\spread by $9.6\%$};
+  \node[note,anchor=north west] (g5) at (4.2,-0.4) {on MIS by $2.2\%$, in the\\opposite order};}
+}}
 \begin{frame}\ft{Quality: method rankings depend on the problem class}
-\figslide[height=0.5\textheight]{figures/numerics/figure6.pdf}{Energy versus depth for MIS (a) and MaxCut (b) on ten 40-node random 3-regular graphs, PP evaluator \citep{marecek2026angles}. Fourier is the worst on MaxCut but among the best on MIS; MaxCut fixed angles do not transfer to MIS.}{fig:ch09:misvsmc}
-\ona{At $p = 10$, approximation ratios of $94$--$98\%$ are typical for the best methods on MaxCut, $80$--$88\%$ for the worst; Fourier and TQA underperform on MaxCut, and RTS did not finish at utility scale. Iterative methods are sensitive to their $p=1$ initialisation, especially on LABS whose depth-one landscape has narrow basins; linear ramps sidestep this by parametrising the schedule globally and cost $5\%$ of the compute time.}
+\ona{Figure~\ref{fig:ch09:misvsmc} ranks four methods by their energies at $p = 8$ on MaxCut and on maximum independent set (MIS), means over ten random $3$-regular graphs on $40$ nodes with Pauli propagation, computed from the data of \citet{marecek2026angles}; the standard deviations over the graphs are $0.28$ to $1.04$ on MaxCut and $0.12$ to $0.42$ on MIS. The order reverses exactly. Fixed angles, tuned for MaxCut on regular graphs, are first on MaxCut and last on MIS; Fourier is last on MaxCut and first on MIS. At $p = 4$ the order on MaxCut is fixed angles, Interp., TQA, Fourier, with Fourier $9.6\%$ behind, and on MIS Fourier, Interp., TQA, fixed angles, with fixed angles $5.8\%$ behind; at $p = 2$, the three methods that start from the same angles tie, and fixed angles are $26.2\%$ behind on MIS. At $p = 10$, approximation ratios of $94$--$98\%$ are typical for the best methods on MaxCut, $80$--$88\%$ for the worst; recursive transition states did not finish at utility scale. Iterative methods are sensitive to their $p=1$ initialisation, especially on LABS, whose depth-one landscape has narrow basins; linear ramps sidestep this by parametrising the schedule globally, and cost $5\%$ of the compute time.}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\flipfig\end{tikzpicture}
+\caption{The energies at $p = 8$ of fixed angles (blue), TQA (purple), Interp.\ (green) and Fourier (red), with every angle optimised, on MaxCut and on MIS, means over ten $40$-node $3$-regular graphs with Pauli propagation, ranked within each problem, with their shortfall from the best; computed from the data of \citet{marecek2026angles}.}\label{fig:ch09:misvsmc}\end{figure}}
+\onp{\begin{center}\begin{tikzpicture}[scale=0.85,transform shape]\flipfig\end{tikzpicture}\end{center}
+\footnotesize\begin{itemize}\setlength\itemsep{0.2em}
+    \item Ten $40$-node $3$-regular graphs, Pauli propagation, $p = 8$: the order reverses between MaxCut and MIS.
+    \item Fixed angles, tuned for MaxCut, are first there and last on MIS; Fourier the opposite.
+\end{itemize}}
 \end{frame}
 
+% for TQA on a 40-node 3-regular graph: the energy that each evaluator reports at its optimum (open) and the exact
+% energy of the same angles (filled), with arrows from the one to the other: Pauli propagation (red), MPS (blue)
+\mode<all>{\gdef\evalfig#1{\begin{axis}[#1,width=\evW,height=\evH,scale only axis,clip=false,axis lines=left,xmin=1.2,xmax=10.8,ymin=10,ymax=23,xtick={2,4,6,8,10},xlabel={depth $p$},ylabel={energy}]
+  \addplot[red!70!black,densely dotted,thick] table[x expr=\thisrow{p}-0.22,y=pp_x] {figures/ch09/util_evals.dat};
+  \addplot[blue!70!black,densely dotted,thick] table[x expr=\thisrow{p}+0.22,y=mps_x] {figures/ch09/util_evals.dat};
+  \draw[red!70!black,thick,-{Stealth[length=4pt]},shorten >=2.6pt,shorten <=2.6pt] (axis cs:5.78,19.10) -- (axis cs:5.78,19.47);
+  \draw[red!70!black,thick,-{Stealth[length=4pt]},shorten >=2.6pt,shorten <=2.6pt] (axis cs:7.78,19.88) -- (axis cs:7.78,20.27);
+  \draw[red!70!black,thick,-{Stealth[length=4pt]},shorten >=2.6pt,shorten <=2.6pt] (axis cs:9.78,20.06) -- (axis cs:9.78,20.60);
+  \draw[blue!70!black,thick,-{Stealth[length=4pt]},shorten >=2.6pt,shorten <=2.6pt] (axis cs:2.22,15.02) -- (axis cs:2.22,11.09);
+  \draw[blue!70!black,thick,-{Stealth[length=4pt]},shorten >=2.6pt,shorten <=2.6pt] (axis cs:4.22,14.76) -- (axis cs:4.22,12.20);
+  \draw[blue!70!black,thick,-{Stealth[length=4pt]},shorten >=2.6pt,shorten <=2.6pt] (axis cs:6.22,16.72) -- (axis cs:6.22,19.63);
+  \draw[blue!70!black,thick,-{Stealth[length=4pt]},shorten >=2.6pt,shorten <=2.6pt] (axis cs:8.22,13.97) -- (axis cs:8.22,21.22);
+  \draw[blue!70!black,thick,-{Stealth[length=4pt]},shorten >=2.6pt,shorten <=2.6pt] (axis cs:10.22,18.80) -- (axis cs:10.22,21.95);
+  \addplot[only marks,mark=*,mark options={fill=white},red!70!black] table[x expr=\thisrow{p}-0.22,y=pp_a] {figures/ch09/util_evals.dat};
+  \addplot[only marks,mark=*,mark options={fill=white},blue!70!black] table[x expr=\thisrow{p}+0.22,y=mps_a] {figures/ch09/util_evals.dat};
+  \addplot[only marks,mark=*,red!70!black] table[x expr=\thisrow{p}-0.22,y=pp_x] {figures/ch09/util_evals.dat};
+  \addplot[only marks,mark=*,blue!70!black] table[x expr=\thisrow{p}+0.22,y=mps_x] {figures/ch09/util_evals.dat};
+  \ona{\node[note,anchor=west] (e1) at (axis cs:11.4,15.2) {MPS reports $13.97$ at $p = 8$ (open), but the\\same angles have the energy $21.22$ (filled):\\the arrows run from the report to the truth};
+  \draw[notearrow] (e1.west) to[bend left=10] (axis cs:8.35,16.5);
+  \node[note,anchor=west] (e2) at (axis cs:11.4,22.3) {Pauli propagation (red) reports nearly the\\truth, at most $0.54$ below it};
+  \draw[notearrow] (e2.west) to[bend right=12] (axis cs:9.85,20.4);
+  \node[note,anchor=west] (e3) at (axis cs:11.4,10.8) {at $p = 2$ and $4$ MPS overestimates, and its\\angles are poor: $11.09$ and $12.20$, against\\$15.24$ and $17.60$ for those of Pauli propagation};
+  \draw[notearrow] (e3.west) to[bend left=12] (axis cs:4.35,12.1);
+  \node[note,anchor=south] (e4) at (axis cs:6,25.2) {from $p = 6$ on, the angles of MPS are the better:\\$21.95$ against $20.60$ at $p = 10$};
+  \draw[notearrow] ([xshift=1.6cm]e4.south) to[bend left=12] (axis cs:10.15,22.05);
+  \node[note,anchor=east] (e5) at (axis cs:-1.0,19.5) {the true energies\\(dotted): a statevector\\of $40$ qubits, five\\minutes on $1\,024$ GPUs};
+  \draw[notearrow] (e5.east) to[bend left=10] (axis cs:5.55,19.3);}
+\end{axis}}}
 \begin{frame}\ft{Validation I: do approximate energies find good angles?}
-\figslide[height=0.5\textheight]{figures/numerics/figure7.pdf}{40-qubit 3-regular MaxCut: energy of angles optimised with PP and MPS (solid) and their exact statevector energy (dotted), for (a) fixed angles and (b) TQA \citep{marecek2026angles}.}{fig:ch09:ppmpssv}
-\ona{The MPS energies are systematically below the truth, yet the angles they produce are as good as, and at larger depth better than, those from PP when re-evaluated exactly, and the MPS optimization was $1.5$--$3$ times faster. Accuracy of the evaluator and quality of the resulting angles are different things.}
+\ona{On a random $3$-regular graph with $40$ nodes, the energy of any angles can still be computed exactly, by a statevector, and \citet{marecek2026angles} compare the angles that each evaluator finds with the energies that these angles truly have. Figure~\ref{fig:ch09:ppmpssv} shows TQA with every angle optimised, with MPS of bond dimension $32$ and Pauli propagation with the largest weight $6$ and the threshold $10^{-4}$. Pauli propagation reports nearly the truth. MPS does not: at $p = 8$ it reports $13.97$, and its angles have the energy $21.22$. Yet from $p = 6$ on the angles of MPS are the better ones, $21.95$ against $20.60$ at $p = 10$; only at $p = 2$ and $4$, where MPS overestimates, are they worse. Fixed angles, re-optimised, behave alike: the truth of the MPS angles is $11.44$ at $p = 2$, against $15.24$, but from $p = 4$ on it exceeds that of Pauli propagation, $23.72$ against $22.01$ at $p = 10$. The MPS optimization was also $1.5$ to $3$ times faster. The accuracy of an evaluator and the quality of the angles that it finds are different things.}
+\ona{\gdef\evW{0.33\linewidth}\gdef\evH{0.24\linewidth}}\onp{\gdef\evW{4.6cm}\gdef\evH{3.6cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\evalfig{}\end{tikzpicture}
+\caption{TQA with every angle optimised on a $40$-node $3$-regular graph: the energy that Pauli propagation (red) and MPS (blue) report at their optimum (open), and the exact energy of the same angles (filled, dotted), with arrows from the one to the other; from the data of \citet{marecek2026angles}.}\label{fig:ch09:ppmpssv}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\evalfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item TQA, $40$ qubits: the energy each evaluator reports (open), and the exact energy of its angles (filled).
+    \item Pauli propagation (red): nearly exact, at most $0.54$ low.
+    \item MPS (blue): $13.97$ reported at $p = 8$, $21.22$ true.
+    \item Yet from $p = 6$ its angles are the better: $21.95$ against $20.60$ at $p = 10$.
+    \item Accuracy of the evaluator $\ne$ quality of the angles.
+\end{itemize}\end{column}\end{columns}}
 \end{frame}
 
+% the energy of depth-five linear-ramp QAOA on a 144-node heavy-hex graph over the two slopes, measured on ibm_fez
+% (shading), with the top tenth of each landscape (device black, MPS blue dashed, Pauli propagation red) and the maxima
+\mode<all>{\gdef\landfig#1{\begin{axis}[#1,width=\lnW,height=\lnH,scale only axis,clip=false,axis on top,enlargelimits=false,xmin=0.05,xmax=2.55,ymin=0.0604,ymax=2.0396,xtick={0.5,1,1.5,2,2.5},ytick={0.5,1,1.5,2},xlabel={$\Delta_\gamma$},ylabel={$\Delta_\beta$},colormap={land}{rgb255=(255,255,255) rgb255=(214,222,235) rgb255=(140,158,190) rgb255=(52,66,104)},point meta min=-7.13,point meta max=33.9]
+  \addplot[matrix plot*,mesh/cols=25,point meta=explicit] table[x=dg,y=db,meta=qpu] {figures/ch09/util_land.dat};
+  \addplot[black,thick,unbounded coords=jump,restrict expr to domain={\thisrow{k}}{0:0}] table[x=x,y=y] {figures/ch09/util_land_top.dat};
+  \addplot[blue!70!black,thick,densely dashed,unbounded coords=jump,restrict expr to domain={\thisrow{k}}{1:1}] table[x=x,y=y] {figures/ch09/util_land_top.dat};
+  \addplot[red!75!black,thick,unbounded coords=jump,restrict expr to domain={\thisrow{k}}{2:2}] table[x=x,y=y] {figures/ch09/util_land_top.dat};
+  \draw[black,very thick] (axis cs:1.3,0.654) +(-2.5pt,-2.5pt) -- +(2.5pt,2.5pt) +(-2.5pt,2.5pt) -- +(2.5pt,-2.5pt);
+  \draw[red!75!black,very thick] (axis cs:1.5,0.575) +(-2.5pt,-2.5pt) -- +(2.5pt,2.5pt) +(-2.5pt,2.5pt) -- +(2.5pt,-2.5pt);
+  \draw[blue!70!black,very thick] (axis cs:1.8,0.575) +(-2.5pt,-2.5pt) -- +(2.5pt,2.5pt) +(-2.5pt,2.5pt) -- +(2.5pt,-2.5pt);
+  \ona{\node[note,anchor=west] (l1) at (axis cs:2.75,1.85) {the device, \emph{ibm\_fez}: $625$ pairs of slopes,\\$1\,000$ copies each, about $3$ minutes; the\\darker, the higher the energy};
+  \draw[notearrow] (l1.west) to[bend right=10] (axis cs:2.2,1.5);
+  \node[note,anchor=west] (l2) at (axis cs:2.75,1.12) {Pauli propagation: its top tenth (red) holds\\$52$ of the $63$ best points of the device; its\\maximum at $(1.5, 0.58)$ (red cross)};
+  \draw[notearrow] (l2.west) to[bend left=10] (axis cs:1.55,0.62);
+  \node[note,anchor=west] (l3) at (axis cs:2.75,0.42) {MPS: $43$ of $63$ (blue, dashed); its maximum\\at $(1.8, 0.58)$, further along $\Delta_\gamma$};
+  \draw[notearrow] (l3.west) to[bend left=10] (axis cs:1.85,0.56);
+  \node[note,anchor=north west] (l4) at (axis cs:1.5,-0.42) {the device's top tenth (black) and its\\maximum at $(1.3, 0.65)$ (black cross)};
+  \draw[notearrow] ([xshift=0.2cm]l4.north west) to[bend left=15] (axis cs:1.33,0.6);
+  \node[note,anchor=east] (l5) at (axis cs:-0.75,1.3) {noise shrinks the energies,\\to at most $33.9$ against $54.5$\\and $55.5$, but keeps the\\shape: the landscapes\\correlate $0.985$ (PP) and\\$0.946$ (MPS) with the device};
+  \draw[notearrow] (l5.east) to[bend left=10] (axis cs:0.6,1.0);}
+\end{axis}}}
 \begin{frame}\ft{Validation II: landscapes on 144 qubits}
-\figslide[height=0.45\textheight]{figures/numerics/figure8.pdf}{Energy landscape of depth-five linear-ramp QAOA over the two slopes for a 144-qubit heavy-hex MaxCut problem: (a) MPS, (b) PP, (c) \emph{ibm\_fez} with 1000 shots per point \citep{marecek2026angles}. Crosses mark each method's maximum.}{fig:ch09:landscape}
-\ona{The two classical evaluations took 42 minutes on a 96-core node; the hardware scan took 3 minutes. Here PP is the closer approximation to the QPU landscape.}
+\ona{On $144$ qubits, the device itself can supply a landscape to compare with. Figure~\ref{fig:ch09:landscape} scans the two slopes of linear-ramp QAOA of depth five, $\gamma_k = k\Delta_\gamma/5$ and $\beta_k = (6-k)\Delta_\beta/5$, on a heavy-hex MaxCut instance of $144$ nodes, on $25\times25$ pairs of slopes, with $1\,000$ copies a point on \emph{ibm\_fez}, and with MPS and Pauli propagation; the data are those of \citet{marecek2026angles}. Noise shrinks the energies on the device to at most $33.9$, against $54.5$ with MPS and $55.5$ with Pauli propagation, but keeps the shape: over the $625$ points, the landscape of Pauli propagation has the correlation $0.985$ with that of the device, and that of MPS $0.946$. Of the $63$ points in the top tenth of the device, $52$ are in the top tenth of Pauli propagation and $43$ in that of MPS. The maxima lie at $(\Delta_\gamma,\Delta_\beta) = (1.3, 0.65)$ on the device, $(1.5, 0.58)$ with Pauli propagation and $(1.8, 0.58)$ with MPS. The two classical scans took $42$ minutes on a $96$-core node, the scan on the device $3$ minutes. Here Pauli propagation is the closer approximation to the device.}
+\ona{\gdef\lnW{0.29\linewidth}\gdef\lnH{0.26\linewidth}}\onp{\gdef\lnW{4.4cm}\gdef\lnH{3.5cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\landfig{}\end{tikzpicture}
+\caption{The energy of depth-five linear-ramp QAOA on a $144$-node heavy-hex MaxCut instance over its two slopes, measured on \emph{ibm\_fez} with $1\,000$ copies a point (shading), with the boundaries of the top tenth of the landscapes of the device (black), Pauli propagation (red) and MPS (blue, dashed), and their maxima (crosses); from the data of \citet{marecek2026angles}.}\label{fig:ch09:landscape}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\landfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Linear ramp, $p = 5$, $144$ qubits: energy on \emph{ibm\_fez} (shading), $1\,000$ copies a point, $3$ minutes.
+    \item Top tenths: device (black), PP (red), MPS (blue).
+    \item PP holds $52$ of the device's $63$ best points, MPS $43$.
+    \item Noise shrinks the energy ($33.9$ against $55$) but keeps the shape: correlations $0.985$ (PP), $0.946$ (MPS).
+\end{itemize}\end{column}\end{columns}}
 \end{frame}
 
+% the mean estimated and hardware approximation ratios of each method, over ten 144-node heavy-hex graphs on ibm_boston,
+% with arrows from the depth 5 to the depth 10; MPS (triangles) and Pauli propagation (squares)
+\mode<all>{\gdef\hwfig#1{\begin{axis}[#1,width=\hwW,height=\hwH,scale only axis,clip=false,axis lines=left,xmin=79,xmax=96,ymin=75,ymax=85,xtick={80,84,88,92,96},ytick={75,77,79,81,83,85},xlabel={estimated ratio ($\%$)},ylabel={ratio on the device ($\%$)}]
+  \addplot[black!50,densely dotted,thick,domain=79:85,samples=2] {x};
+  \pgfplotsinvokeforeach{0,...,6}{
+    \addplot[tolm##1!80!black,thick,-{Stealth[length=4pt]},quiver={u=\thisrow{du},v=\thisrow{dv},every arrow/.append style={shorten >=3pt}},restrict expr to domain={\thisrow{m}}{##1:##1}] table[x=est5,y=hw5] {figures/ch09/util_hw.dat};
+    \addplot[only marks,mark=triangle*,mark size=2.6pt,fill=tolm##1,draw=black,restrict expr to domain={\thisrow{m}+100*\thisrow{ev}}{##1:##1}] table[x=est10,y=hw10] {figures/ch09/util_hw.dat};
+    \addplot[only marks,mark=square*,mark size=2pt,fill=tolm##1,draw=black,restrict expr to domain={\thisrow{m}+100*(1-\thisrow{ev})}{##1:##1}] table[x=est10,y=hw10] {figures/ch09/util_hw.dat};}
+  \ona{\node[note,anchor=south west] (w1) at (axis cs:79,86.2) {from $p = 5$ to $p = 10$ (arrows), every estimate rises by\\$1.9$ to $4.0$ points, while on the device the ratios move\\by $-1.2$ to $+1.1$: the arrows run nearly level};
+  \draw[notearrow] ([xshift=3.2cm]w1.south west) to[bend left=10] (axis cs:91.5,83.6);
+  \node[note,anchor=west] (w2) at (axis cs:97,81.5) {Pauli propagation (squares) estimates\\$87$ to $95\%$, $6.1$ to $11.0$ points\\above the device};
+  \draw[notearrow] (w2.west) to[bend right=10] (axis cs:94.2,83.3);
+  \node[note,anchor=west] (w4) at (axis cs:97,78.6) {Fourier with Pauli propagation: estimated\\above every MPS method, $89.0$ at $p = 10$,\\yet the lowest with it on the device, $78.0$};
+  \draw[notearrow] (w4.west) to[bend left=10] (axis cs:89.3,78.0);
+  \node[note,anchor=north west] (w3) at (axis cs:79,72.6) {MPS (triangles) underestimates the energy: its estimates lie $0.4$ to $6.4$ points\\above the device, nearer the diagonal (dotted), where the device would match them};
+  \draw[notearrow] ([xshift=1.0cm]w3.north west) to[bend left=15] (axis cs:83.5,80.9);
+  \node[note,anchor=west] (w5) at (axis cs:97,75.9) {over the instances, estimate and device\\correlate $0.93$ and $0.89$ with Pauli\\propagation, $0.66$ and $0.61$ with MPS};}
+\end{axis}}}
 \begin{frame}\ft{Validation III: hardware ratios versus estimated ratios}
-\figslide[height=0.5\textheight]{figures/numerics/figure9.pdf}{Hardware approximation ratio on \emph{ibm\_boston} against the estimated ratio from training, ten 144-node heavy-hex graphs, $p=5$ (a) and $p=10$ (b) \citep{marecek2026angles}. Correlations: 0.66 and 0.61 for MPS, 0.93 and 0.89 for PP.}{fig:ch09:hw}
-\ona{Estimated and hardware ratios correlate positively, though hardware ratios are lower due to noise. Interp.\ and re-optimised fixed angles with PP perform best on both axes. Fourier with PP reports a high estimated ratio, but the QPU shows this outperformance is fake: its hardware ratios are the lowest. At $p=10$ most methods become statistically indistinguishable on hardware, even though they are distinguishable in estimated ratio: near the noise limit, it matters little how the angles were trained.}
+\ona{Ten weighted heavy-hex graphs of $144$ nodes were run on \emph{ibm\_boston} with the angles of each method, $4\,096$ copies a circuit, at $p = 5$ and $p = 10$ \citep{marecek2026angles}. Figure~\ref{fig:ch09:hw} draws, for each method and evaluator, the means over the ten graphs of the approximation ratio that the evaluator estimates and of the ratio measured on the device, as arrows from $p = 5$ to $p = 10$, from the markers of the figure of the source. The estimates rise with the depth, by $1.9$ to $4.0$ points; on the device the ratios move by $-1.2$ to $+1.1$, and stay between $76$ and $84\%$. Pauli propagation estimates $6.1$ to $11.0$ points above the device, MPS, which underestimates the energy, $0.4$ to $6.4$. Over the instances, estimates and ratios on the device correlate $0.93$ and $0.89$ at $p = 5$ and $10$ with Pauli propagation, $0.66$ and $0.61$ with MPS. Interp.\ and re-optimised fixed angles with Pauli propagation are best on both axes. Fourier with Pauli propagation estimates more than any method with MPS, yet is the lowest with Pauli propagation on the device: its apparent advantage is not real. At $p = 10$ most methods are statistically indistinguishable on the device, though distinguishable in their estimates: near the noise limit, it matters little how the angles were trained.}
+\ona{\gdef\hwW{0.4\linewidth}\gdef\hwH{0.26\linewidth}}\onp{\gdef\hwW{4.6cm}\gdef\hwH{3.5cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\hwfig{}\end{tikzpicture}
+\caption{The approximation ratio on \emph{ibm\_boston} against the ratio estimated in training, means over ten $144$-node heavy-hex graphs, with arrows from $p = 5$ to $p = 10$ and markers at $p = 10$, for MPS (triangles) and Pauli propagation (squares): fixed angles (blue), Fourier (red), Interp.\ (green), linear ramp (yellow), recursive transition states (light blue), TQA (purple) and parameter transfer (grey); decoded from the figure of \citet{marecek2026angles}.}\label{fig:ch09:hw}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\hwfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Ten $144$-node heavy-hex graphs on \emph{ibm\_boston}; arrows from $p = 5$ to $p = 10$.
+    \item Estimates rise by $1.9$ to $4.0$ points; the device moves by $-1.2$ to $+1.1$.
+    \item PP (squares) estimates $6$ to $11$ points too high; MPS (triangles) $0.4$ to $6.4$.
+    \item Fourier with PP: estimated above every MPS method, lowest on the device with PP.
+\end{itemize}\end{column}\end{columns}}
 \end{frame}
 
 \section{Cost}
 
+% the mean total duration and the ratio on the device at p = 10 of each method with Pauli propagation, over ten 144-node
+% heavy-hex graphs; hollow: not every angle optimised
+\mode<all>{\gdef\costfig#1{\begin{axis}[#1,width=\ctW,height=\ctH,scale only axis,clip=false,axis lines=left,xmode=log,xmin=8,xmax=40000,ymin=77,ymax=84.5,ytick={77,79,81,83},xlabel={total duration (s)},ylabel={ratio on the device ($\%$)}]
+  \fill[black!5] (axis cs:8,81.6) rectangle (axis cs:40000,83.7);
+  \addplot[only marks,mark=square*,mark size=2.6pt,mark options={draw=tolm0!70!black,fill=white,thick},restrict expr to domain={\thisrow{m}}{0:0}] table[x=t,y=hw] {figures/ch09/util_cost.dat};
+  \addplot[only marks,mark=square*,mark size=2.6pt,mark options={draw=tolm6!70!black,fill=tolm6,thick},restrict expr to domain={\thisrow{m}}{1:1}] table[x=t,y=hw] {figures/ch09/util_cost.dat};
+  \addplot[only marks,mark=square*,mark size=2.6pt,mark options={draw=tolm5!70!black,fill=white,thick},restrict expr to domain={\thisrow{m}}{2:2}] table[x=t,y=hw] {figures/ch09/util_cost.dat};
+  \addplot[only marks,mark=square*,mark size=2.6pt,mark options={draw=tolm3!70!black,fill=white,thick},restrict expr to domain={\thisrow{m}}{3:3}] table[x=t,y=hw] {figures/ch09/util_cost.dat};
+  \addplot[only marks,mark=square*,mark size=2.6pt,mark options={draw=tolm0!70!black,fill=tolm0,thick},restrict expr to domain={\thisrow{m}}{4:4}] table[x=t,y=hw] {figures/ch09/util_cost.dat};
+  \addplot[only marks,mark=square*,mark size=2.6pt,mark options={draw=tolm3!70!black,fill=tolm3,thick},restrict expr to domain={\thisrow{m}}{5:5}] table[x=t,y=hw] {figures/ch09/util_cost.dat};
+  \addplot[only marks,mark=square*,mark size=2.6pt,mark options={draw=tolm5!70!black,fill=tolm5,thick},restrict expr to domain={\thisrow{m}}{6:6}] table[x=t,y=hw] {figures/ch09/util_cost.dat};
+  \addplot[only marks,mark=square*,mark size=2.6pt,mark options={draw=tolm2!70!black,fill=tolm2,thick},restrict expr to domain={\thisrow{m}}{7:7}] table[x=t,y=hw] {figures/ch09/util_cost.dat};
+  \addplot[only marks,mark=square*,mark size=2.6pt,mark options={draw=tolm1!70!black,fill=tolm1,thick},restrict expr to domain={\thisrow{m}}{8:8}] table[x=t,y=hw] {figures/ch09/util_cost.dat};
+  \addplot[only marks,mark=square*,mark size=2.6pt,mark options={draw=tolm4!70!black,fill=tolm4,thick},restrict expr to domain={\thisrow{m}}{9:9}] table[x=t,y=hw] {figures/ch09/util_cost.dat};
+  \node[font=\tiny,anchor=west] at (axis cs:23,81.62) {FA$^\dagger$};
+  \node[font=\tiny,anchor=east] at (axis cs:12.5,81.95) {PT};
+  \node[font=\tiny,anchor=north] at (axis cs:179,81.55) {TQA};
+  \node[font=\tiny,anchor=west] at (axis cs:2100,82.9) {LR};
+  \node[font=\tiny,anchor=south] at (axis cs:1235,83.75) {FA$^\star$};
+  \node[font=\tiny,anchor=east] at (axis cs:700,83.4) {LR$^\star$};
+  \node[font=\tiny,anchor=north] at (axis cs:1082,82.55) {TQA$^\star$};
+  \node[font=\tiny,anchor=south] at (axis cs:7915,83.75) {I$^\star$};
+  \node[font=\tiny,anchor=east] at (axis cs:4500,77.9) {F$^\star$};
+  \node[font=\tiny,anchor=west] at (axis cs:18500,79.1) {RTS$^\star$};
+  \ona{\node[note,anchor=south west] (c1) at (axis cs:8,85.3) {no optimisation on the instance: fixed angles$^\dagger$\\and parameter transfer, $15$ to $19$ s for $81.7$ to $81.9\%$};
+  \draw[notearrow] ([xshift=0.4cm]c1.south west) to[bend right=15] (axis cs:15,82.2);
+  \node[note,anchor=west] (c2) at (axis cs:60000,84.2) {every angle optimised with Pauli\\propagation: about $10^3$ s for\\$82.7$ to $83.6\%$};
+  \draw[notearrow] (c2.west) to[bend right=10] (axis cs:1400,83.7);
+  \node[note,anchor=west] (c3) at (axis cs:60000,82.4) {Interp.$^\star$: $7\,915$ s for $83.6\%$, which\\fixed angles$^\star$ reach in $1\,235$ s};
+  \draw[notearrow] (c3.west) to[bend right=10] (axis cs:8800,83.6);
+  \node[note,anchor=west] (c4) at (axis cs:60000,78.6) {Fourier$^\star$ and recursive TS$^\star$: $5\,300$\\and $15\,767$ s, and the lowest ratios,\\$77.9$ and $79.1\%$};
+  \draw[notearrow] (c4.west) to[bend left=10] (axis cs:5900,77.9);
+  \node[note,anchor=north west] (c5) at (axis cs:8,74.9) {the band (grey): three decades of time, from $15$ to $7\,915$ s, buy $1.7$ points;\\the duration is the classical training and $4\,096$ copies at $100\,\mu$s on the device};}
+\end{axis}}}
 \begin{frame}\ft{Quality against cost}
-\ona{Define the total duration $T_{\rm total} = T_{\rm AS} + T_{\rm QPU}$: the angle-setting time (mostly classical energy evaluations inside COBYLA, cumulative over depths for iterative methods) plus the sampling time $Q\,t_{\rm shot}$. Figure~\ref{fig:ch09:perf} places every strategy in the plane of cost and hardware quality.}
-\figslide[height=0.45\textheight]{figures/numerics/figure10.pdf}{Hardware approximation ratio against total duration for ten 144-node heavy-hex instances at (a) $p=5$ and (b) $p=10$ \citep{marecek2026angles}.}{fig:ch09:perf}
-\ona{Physics-inspired and transfer methods finish within $10^3$ s at ratios of $82$--$85\%$; iterative methods exceed $10^4$ s for a modest, sometimes unmeasurable, improvement on hardware.}
+\ona{Define the total duration $T_{\rm total} = T_{\rm AS} + T_{\rm QPU}$: the angle-setting time (mostly classical energy evaluations inside COBYLA, cumulative over depths for iterative methods) plus the sampling time $Q\,t_{\rm shot}$. Figure~\ref{fig:ch09:perf} places each method with Pauli propagation in the plane of cost and quality on the device at $p = 10$, from the markers of the figure of \citet{marecek2026angles}. Fixed angles without optimisation and parameter transfer take $15$ to $19$ s and reach $81.7$ to $81.9\%$. Fixed angles, linear ramps and TQA with every angle optimised take about $10^3$ s and reach $82.7$ to $83.6\%$. Interp.\ takes $7\,915$ s for the $83.6\%$ that fixed angles reach in $1\,235$ s, and Fourier and recursive transition states take $5\,300$ and $15\,767$ s for the lowest ratios, $77.9$ and $79.1\%$. With MPS, the iterative methods take up to $88\,776$ s. Three decades of time buy $1.7$ points on the device.}
+\ona{\gdef\ctW{0.4\linewidth}\gdef\ctH{0.3\linewidth}}\onp{\gdef\ctW{4.6cm}\gdef\ctH{3.5cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\costfig{}\end{tikzpicture}
+\caption{The approximation ratio on \emph{ibm\_boston} against the total duration at $p = 10$ with Pauli propagation, means over ten $144$-node heavy-hex graphs: fixed angles (FA, blue), parameter transfer (PT, grey), TQA (purple), linear ramp (LR, yellow), Interp.\ (I, green), Fourier (F, red) and recursive transition states (RTS, light blue), with every angle optimised ($\star$, filled), only the parameters of the method ($\dagger$ for none; hollow); decoded from the figure of \citet{marecek2026angles}.}\label{fig:ch09:perf}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.5\textwidth}\centering\begin{tikzpicture}\costfig{}\end{tikzpicture}\end{column}
+\begin{column}{0.48\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item $p = 10$, Pauli propagation, $144$ qubits on \emph{ibm\_boston}.
+    \item No optimisation (FA$^\dagger$, PT): $15$--$19$ s, $81.7$--$81.9\%$.
+    \item Every angle optimised: about $10^3$ s, $82.7$--$83.6\%$.
+    \item Interp.$^\star$: $7\,915$ s for what FA$^\star$ reaches in $1\,235$ s.
+    \item Three decades of time buy $1.7$ points.
+\end{itemize}\end{column}\end{columns}}
 \end{frame}
 
+% the Pareto frontiers of the emulated approximation ratio against the resource, without latency (left) and with 6 s a
+% circuit (right): fixed angles (blue) and parameter transfer (grey), with the marked prescriptions
+\mode<all>{\gdef\paretofig#1{\begin{axis}[#1,width=\prW,height=\prH,scale only axis,clip=false,axis lines=left,xmode=log,xmin=0.01,xmax=3000,ymin=81.5,ymax=92,ytick={82,84,86,88,90,92},xlabel={resource (s)},ylabel={approximation ratio ($\%$)},unbounded coords=jump]
+  \addplot[tolm0,very thick,restrict expr to domain={\thisrow{f}}{0:0}] table[x=x,y=y] {figures/ch09/util_pareto.dat};
+  \addplot[tolm6!90!black,very thick,restrict expr to domain={\thisrow{f}}{1:1}] table[x=x,y=y] {figures/ch09/util_pareto.dat};
+  \addplot[only marks,mark=*,mark size=1.8pt,draw=tolm0!70!black,fill=tolm0,restrict expr to domain={\thisrow{m}}{0:0}] table[x=x,y=y] {figures/ch09/util_pareto_pts.dat};
+  \addplot[only marks,mark=*,mark size=1.8pt,draw=tolm0!70!black,fill=white,restrict expr to domain={\thisrow{m}}{1:1}] table[x=x,y=y] {figures/ch09/util_pareto_pts.dat};
+  \addplot[only marks,mark=*,mark size=1.8pt,draw=black!50,fill=tolm6,restrict expr to domain={\thisrow{m}}{2:2}] table[x=x,y=y] {figures/ch09/util_pareto_pts.dat};
+  \draw[-{Stealth[length=5pt]},thick,red!70!black] (axis cs:5.5,91.7) -- node[above,font=\scriptsize] {$\times114$} (axis cs:625,91.7);
+  \node[font=\scriptsize,anchor=north west] at (axis cs:0.012,91.7) {without latency};
+  \node[font=\scriptsize,anchor=north west] at (axis cs:700,90.9) {with $6$ s};
+  \ona{\node[note,anchor=west] (r1) at (axis cs:4500,85.3) {without latency, fixed angles$^\dagger$ (hollow)\\win the budgets below $0.04$ s, fixed\\angles$^\star$ (filled) the larger ones};
+  \draw[notearrow] (r1.west) to[bend left=12] (axis cs:0.03,84.6);
+  \node[note,anchor=west] (r2) at (axis cs:4500,82.6) {with $6$ s a circuit, no budget is below\\$6$ s: a single circuit costs that much};
+  \draw[notearrow] (r2.west) to[bend left=10] (axis cs:6.4,82.2);
+  \node[note,anchor=west] (r3) at (axis cs:4500,88.2) {parameter transfer (grey) wins from $6.8$\\to $263$ s: it needs few circuits};
+  \draw[notearrow] (r3.west) to[bend right=8] (axis cs:60,89.95);
+  \node[note,anchor=west] (r4) at (axis cs:4500,91.4) {the best ratio, $91.35\%$, needs $5.5$ s\\without latency and $625$ s with it};
+  \draw[notearrow] (r4.west) to[bend right=10] (axis cs:900,91.75);
+  \node[note,anchor=north west] (r5) at (axis cs:0.01,78.7) {$90\%$ needs $0.74$ s without latency, $263$ s with it; the resource is\\$N(t_{\rm qc}+M\,t_{\rm shot})+Q\,t_{\rm shot}$, with $t_{\rm shot} = 100\,\mu$s, emulated with MPS};}
+\end{axis}}}
 \begin{frame}\ft{The Pareto frontier and the window sticker}
-\figslide[height=0.45\textheight]{figures/numerics/figure12.pdf}{Actionable Pareto frontier for 144-node heavy-hex MaxCut when the angles are trained on the quantum computer itself, emulated by an MPS sampler, under (a) shot time only and (b) a 6 s submission overhead per circuit \citep{marecek2026angles}. Solid: emulation; dotted: measured on \emph{ibm\_boston}.}{fig:ch09:pareto}
-\ona{Following the Stochastic Benchmark framework \citep{Neira2024}, one fits a \emph{prescription} for each method on training instances and evaluates it on test instances. Without latency, fixed angles dominate small budgets and instance-tailored fixed angles the rest. With today's 6 s latency per circuit submission, parameter transfer wins intermediate budgets and the same best ratio needs two orders of magnitude more time. Producing such a plot for real cost $5\times10^9$ emulated shots; on hardware, the submission overhead alone would take years. The overhead of $6$~s is the latency of Definition~\ref{defn:ch09:round}, paid for every circuit submitted, and COBYLA submits one circuit a round: Proposition~\ref{propn:ch09:copies} and Fig.~\ref{fig:ch09:methods} explain why the latency reorders the methods.}
+\ona{Following the Stochastic Benchmark framework \citep{Neira2024}, one fits a \emph{prescription} for each method on training instances and evaluates it on test instances: the iterations $N$, the copies $M$ of each circuit, and the final copies $Q$. Figure~\ref{fig:ch09:pareto} draws the Pareto frontier of the approximation ratio against the resource $N(t_{\rm qc}+M\,t_{\rm shot})+Q\,t_{\rm shot}$ for $144$-node heavy-hex MaxCut when the angles are trained on the device itself, emulated with MPS, from the lines of the figure of \citet{marecek2026angles}. Without latency, fixed angles without optimisation win the budgets below $0.04$ s and re-optimised fixed angles the rest. With $6$ s a circuit, no budget is below $6$ s, parameter transfer wins from $6.8$ to $263$ s, and the best ratio, $91.35\%$, needs $625$ s instead of $5.5$ s, $114$ times as long; $90\%$ needs $263$ s instead of $0.74$ s. Producing such a plot for real costs $5\times10^9$ emulated copies; on the device, the submission overhead alone would take years. The overhead of $6$~s is the latency of Definition~\ref{defn:ch09:round}, paid for every circuit submitted, and COBYLA submits one circuit a round: Proposition~\ref{propn:ch09:copies} and Fig.~\ref{fig:ch09:methods} explain why the latency reorders the methods.}
+\ona{\gdef\prW{0.42\linewidth}\gdef\prH{0.3\linewidth}}\onp{\gdef\prW{4.8cm}\gdef\prH{3.5cm}}
+\ona{\begin{figure}[htb]\centering\begin{tikzpicture}\paretofig{}\end{tikzpicture}
+\caption{The Pareto frontiers of the approximation ratio against the resource for $144$-node heavy-hex MaxCut, with the angles trained on the device, emulated with MPS, without latency (left) and with $6$ s a circuit (right): fixed angles (blue; filled with every angle optimised, hollow without optimisation) and parameter transfer (grey); decoded from the figure of \citet{marecek2026angles}.}\label{fig:ch09:pareto}\end{figure}}
+\onp{\begin{columns}[c]\begin{column}{0.52\textwidth}\centering\begin{tikzpicture}\paretofig{}\end{tikzpicture}\end{column}
+\begin{column}{0.46\textwidth}\footnotesize\begin{itemize}\setlength\itemsep{0.3em}
+    \item Training on the device, emulated with MPS; $144$-node heavy-hex MaxCut.
+    \item Without latency: FA$^\dagger$ (hollow) below $0.04$ s, FA$^\star$ (filled) above.
+    \item With $6$ s a circuit: nothing below $6$ s; parameter transfer (grey) wins $6.8$--$263$ s.
+    \item The best ratio, $91.35\%$: $5.5$ s against $625$ s, $114$ times as long.
+\end{itemize}\end{column}\end{columns}}
 \end{frame}
 
 \section{Operational guidance}
@@ -480,7 +1069,7 @@ does not increase with $M$ up to $M^* = 4V_1/\epsilon$, and increases beyond. It
 For exponential service times with the mean $1/\mu$, show from \eqref{eq:ch09:pk} that $\mathbb E W = \rho/(\mu-\lambda)$ and that the mean time from arrival to departure is $1/(\mu-\lambda)$. For $\mathbb E S = 60$~s, find the load at which a job waits ten minutes on average, and the load at which it does so when one job in ten is a session of $330$~s on average and the others take $30$~s.
 \end{exe}
 \begin{exe}[A closed loop in the long run]\label{exe:ch09:loop}
-Show that \eqref{eq:ch09:loop} implies $(\rho t_c-t_{\rm net})/(1-\rho)\le\liminf_k\mathbb E W_k\le\limsup_k\mathbb E W_k\le\rho t_c/(1-\rho)$. Evaluate the bounds for the round trip of \ona{Fig.~\ref{fig:ch09:roundtrip}}\onp{the measured round trip} at $\rho = 0.5$, $0.8$ and $0.9$, and compare them with the wait \eqref{eq:ch09:pk} of a single job for the service times of the previous exercise. At $\rho = 0.8$, after how many rounds is the bound on $\mathbb E W_k$ within $10\%$ of its limit?
+Show that \eqref{eq:ch09:loop} implies \[\frac{\rho t_c-t_{\rm net}}{1-\rho}\le\liminf_k\mathbb E W_k\le\limsup_k\mathbb E W_k\le\frac{\rho t_c}{1-\rho}.\] Evaluate the bounds for the round trip of \ona{Fig.~\ref{fig:ch09:roundtrip}}\onp{the measured round trip} at $\rho = 0.5$, $0.8$ and $0.9$, and compare them with the wait \eqref{eq:ch09:pk} of a single job for the service times of the previous exercise. At $\rho = 0.8$, after how many rounds is the bound on $\mathbb E W_k$ within $10\%$ of its limit?
 \end{exe}
 \end{frame}
 
